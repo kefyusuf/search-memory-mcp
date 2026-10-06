@@ -1,7 +1,8 @@
 import Database from "better-sqlite3";
 import * as sqlite_vec from "sqlite-vec";
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { chunkText } from "./chunker.js";
+import { assertRequestContext, InvocationError, type Permission, type RequestContext } from "../runtime/request-context.js";
 
 export type KnowledgeDocInput = {
   title?: string;
@@ -33,27 +34,33 @@ export type KnowledgeChunkHit = {
 
 const EMBEDDING_DIM = 384;
 
-function makeId(parts: string[]): string {
-  return createHash("sha1").update(parts.join("\n")).digest("hex");
-}
-
 export class KnowledgeIndex {
   private db: Database.Database;
   private isVecEnabled = false;
+  private vecLoaded = false;
   private closed = false;
   private pendingEmbeddings: Promise<void> = Promise.resolve();
+  private readonly context?: RequestContext;
+  private readonly scope: readonly [string, string, string];
+  private readonly scopeWhere = "execution_mode = ? AND tenant_id = ? AND workspace_id = ?";
+  private readonly docScopeWhere = "d.execution_mode = ? AND d.tenant_id = ? AND d.workspace_id = ?";
 
-  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean } = {}) {
+  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean; context?: RequestContext } = {}) {
+    // Omitted context is the legacy local adapter; an invalid supplied context cannot fall back.
+    if ("context" in options) assertRequestContext(options.context);
+    this.context = options.context;
+    this.scope = this.context ? [this.context.mode, this.context.tenantId, this.context.workspaceId] : ["local", "local", "local"];
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = MEMORY");
     this.db.pragma("temp_store = MEMORY");
     if (options.enableEmbeddings !== false) this.tryEnableVec();
-    this.init();
+    try { this.init(); } catch (error) { this.db.close(); throw error; }
   }
 
   private tryEnableVec() {
     try {
       sqlite_vec.load(this.db);
+      this.vecLoaded = true;
       this.isVecEnabled = true;
     } catch (error) {
       console.error("KnowledgeIndex: sqlite-vec unavailable, hybrid search degrades to FTS:", error);
@@ -62,6 +69,10 @@ export class KnowledgeIndex {
   }
 
   private init() {
+    this.db.transaction(() => this.initSchema())();
+  }
+
+  private initSchema() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS knowledge_docs (
         id TEXT PRIMARY KEY,
@@ -93,6 +104,12 @@ export class KnowledgeIndex {
       );
     `);
 
+    const columns = new Set((this.db.pragma("table_info(knowledge_docs)") as Array<{ name: string }>).map(column => column.name));
+    for (const name of ["execution_mode", "tenant_id", "workspace_id"]) {
+      if (!columns.has(name)) this.db.exec(`ALTER TABLE knowledge_docs ADD COLUMN ${name} TEXT NOT NULL DEFAULT 'local'`);
+    }
+    this.db.exec("CREATE INDEX IF NOT EXISTS idx_knowledge_docs_scope ON knowledge_docs(execution_mode, tenant_id, workspace_id, timestamp)");
+
     if (this.isVecEnabled) {
       try {
         this.db.exec(`
@@ -108,7 +125,21 @@ export class KnowledgeIndex {
     }
   }
 
+  private authorize(permission: Permission): void {
+    if (!this.context) return;
+    assertRequestContext(this.context);
+    if (!this.context.permissions.includes(permission)) throw new InvocationError("forbidden");
+  }
+
+  private hasVectorTable(): boolean {
+    if (!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'knowledge_chunks_vec'").get()) return false;
+    // Disabling inference must not disable deletion/statistics for persisted vectors.
+    if (!this.vecLoaded) { sqlite_vec.load(this.db); this.vecLoaded = true; }
+    return true;
+  }
+
   ingest(input: KnowledgeDocInput): KnowledgeDoc {
+    this.authorize("knowledge:write");
     const content = input.content.trim();
     if (!content) {
       throw new Error("ingest requires non-empty content");
@@ -119,11 +150,12 @@ export class KnowledgeIndex {
     const category = (input.category || "general").trim();
     const chunks = chunkText(content);
     const timestamp = Date.now();
-    const docId = makeId([source, title, String(content.length), String(timestamp)]);
+    // Opaque global ids keep chunk/vector references unique even for concurrent identical inputs.
+    const docId = randomUUID();
 
     const insertDoc = this.db.prepare(`
-      INSERT INTO knowledge_docs (id, source, title, category, content, chunk_count, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO knowledge_docs (id, source, title, category, content, chunk_count, timestamp, execution_mode, tenant_id, workspace_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertChunk = this.db.prepare(`
       INSERT INTO knowledge_chunks (id, doc_id, chunk_index, text, timestamp)
@@ -134,7 +166,7 @@ export class KnowledgeIndex {
     `);
 
     const run = this.db.transaction(() => {
-      insertDoc.run(docId, source, title, category, content, chunks.length, timestamp);
+      insertDoc.run(docId, source, title, category, content, chunks.length, timestamp, ...this.scope);
       for (const chunk of chunks) {
         const chunkId = `${docId}:${chunk.index}`;
         insertChunk.run(chunkId, docId, chunk.index, chunk.text, timestamp);
@@ -143,8 +175,9 @@ export class KnowledgeIndex {
     });
     run();
 
-    const embedJob = this.embedChunks(docId, chunks.map((chunk) => ({ id: `${docId}:${chunk.index}`, text: chunk.text })));
-    this.pendingEmbeddings = this.pendingEmbeddings.then(() => embedJob).catch(() => undefined);
+    this.pendingEmbeddings = this.pendingEmbeddings
+      .then(() => this.embedChunks(docId, chunks.map((chunk) => ({ id: `${docId}:${chunk.index}`, text: chunk.text }))))
+      .catch(() => undefined);
 
     return {
       id: docId,
@@ -161,6 +194,7 @@ export class KnowledgeIndex {
     if (!this.isVecEnabled || chunks.length === 0 || this.closed) return;
 
     try {
+      this.authorize("knowledge:write");
       const { TransformersEmbeddingProvider } = await import("../cache/embedding.js");
       const provider = new TransformersEmbeddingProvider();
 
@@ -168,9 +202,14 @@ export class KnowledgeIndex {
         if (this.closed) return;
         const embedding = await provider.getEmbedding(chunk.text);
         if (this.closed) return;
+        this.authorize("knowledge:write");
         if (embedding.length === EMBEDDING_DIM) {
-          this.db.prepare("INSERT OR REPLACE INTO knowledge_chunks_vec(id, embedding) VALUES (?, ?)")
-            .run(chunk.id, new Float32Array(embedding));
+          this.db.transaction(() => {
+            const owned = this.db.prepare(`SELECT 1 FROM knowledge_chunks c JOIN knowledge_docs d ON d.id = c.doc_id WHERE ${this.docScopeWhere} AND c.id = ? AND d.id = ?`).get(...this.scope, chunk.id, docId);
+            if (!owned) return; // Pending inference must not resurrect deleted vectors.
+            this.db.prepare("INSERT OR REPLACE INTO knowledge_chunks_vec(id, embedding) VALUES (?, ?)")
+              .run(chunk.id, new Float32Array(embedding));
+          })();
         }
       }
       console.error(`KnowledgeIndex: embedded ${chunks.length} chunks for doc ${docId.slice(0, 8)}`);
@@ -191,11 +230,13 @@ export class KnowledgeIndex {
     limit: number = 5,
     options?: { source?: string; embed?: (text: string) => Promise<number[]> },
   ): Promise<KnowledgeChunkHit[]> {
+    this.authorize("knowledge:read");
     const trimmed = query.trim();
     if (!trimmed) return [];
 
     const ftsHits = this.searchFts(trimmed, limit * 3, options?.source);
     const vectorHits = await this.searchVector(trimmed, limit * 3, options);
+    this.authorize("knowledge:read");
 
     return fuseChunkHits(ftsHits, vectorHits, limit);
   }
@@ -223,10 +264,11 @@ export class KnowledgeIndex {
         JOIN knowledge_chunks c ON c.id = knowledge_chunks_fts.chunk_id
         JOIN knowledge_docs d ON d.id = c.doc_id
         WHERE knowledge_chunks_fts MATCH ?
+          AND ${this.docScopeWhere}
           AND (? IS NULL OR d.source = ?)
         ORDER BY rank
         LIMIT ?
-      `).all(ftsQuery, source ?? null, source ?? null, limit) as Array<{
+      `).all(ftsQuery, ...this.scope, source ?? null, source ?? null, limit) as Array<{
         chunkId: string;
         docId: string;
         chunkIndex: number;
@@ -269,6 +311,7 @@ export class KnowledgeIndex {
         const { TransformersEmbeddingProvider } = await import("../cache/embedding.js");
         vector = await new TransformersEmbeddingProvider().getEmbedding(query);
       }
+      this.authorize("knowledge:read");
       if (vector.length !== EMBEDDING_DIM) return [];
 
       const sourceFilter = options?.source ?? null;
@@ -279,10 +322,10 @@ export class KnowledgeIndex {
         FROM knowledge_chunks_vec v
         JOIN knowledge_chunks c ON c.id = v.id
         JOIN knowledge_docs d ON d.id = c.doc_id
-        WHERE (? IS NULL OR d.source = ?)
+        WHERE ${this.docScopeWhere} AND (? IS NULL OR d.source = ?)
         ORDER BY distance ASC
         LIMIT ?
-      `).all(new Float32Array(vector), sourceFilter, sourceFilter, limit) as Array<{
+      `).all(new Float32Array(vector), ...this.scope, sourceFilter, sourceFilter, limit) as Array<{
         chunkId: string;
         docId: string;
         chunkIndex: number;
@@ -303,52 +346,58 @@ export class KnowledgeIndex {
         matchedBy: "vector" as const,
       }));
     } catch (error) {
+      if (error instanceof InvocationError) throw error;
       console.error("KnowledgeIndex: vector search failed:", error);
       return [];
     }
   }
 
   getDoc(docId: string): KnowledgeDoc | null {
+    this.authorize("knowledge:read");
     const row = this.db.prepare(`
       SELECT id, source, title, category, content, chunk_count AS chunkCount, timestamp
-      FROM knowledge_docs WHERE id = ?
-    `).get(docId) as KnowledgeDoc | undefined;
+      FROM knowledge_docs WHERE ${this.scopeWhere} AND id = ?
+    `).get(...this.scope, docId) as KnowledgeDoc | undefined;
     return row ?? null;
   }
 
   listDocs(limit: number = 50): Array<Omit<KnowledgeDoc, "content">> {
+    this.authorize("knowledge:read");
     return this.db.prepare(`
       SELECT id, source, title, category, chunk_count AS chunkCount, timestamp
       FROM knowledge_docs
-      ORDER BY timestamp DESC
+      WHERE ${this.scopeWhere}
+      ORDER BY timestamp DESC, rowid DESC
       LIMIT ?
-    `).all(limit) as Array<Omit<KnowledgeDoc, "content">>;
+    `).all(...this.scope, limit) as Array<Omit<KnowledgeDoc, "content">>;
   }
 
   deleteDoc(docId: string): boolean {
-    const doc = this.getDoc(docId);
-    if (!doc) return false;
+    this.authorize("knowledge:write");
 
     const run = this.db.transaction(() => {
-      this.db.prepare("DELETE FROM knowledge_chunks WHERE doc_id = ?").run(docId);
-      this.db.prepare("DELETE FROM knowledge_docs WHERE id = ?").run(docId);
-      this.db.prepare("DELETE FROM knowledge_chunks_fts WHERE doc_id = ?").run(docId);
-      if (this.isVecEnabled) {
+      if (!this.db.prepare(`SELECT 1 FROM knowledge_docs WHERE ${this.scopeWhere} AND id = ?`).get(...this.scope, docId)) return false;
+      // Select vector ids before deleting the owning chunks.
+      if (this.hasVectorTable()) {
         this.db.prepare(
           "DELETE FROM knowledge_chunks_vec WHERE id IN (SELECT id FROM knowledge_chunks WHERE doc_id = ?)",
         ).run(docId);
       }
+      this.db.prepare("DELETE FROM knowledge_chunks_fts WHERE doc_id = ?").run(docId);
+      this.db.prepare("DELETE FROM knowledge_chunks WHERE doc_id = ?").run(docId);
+      this.db.prepare(`DELETE FROM knowledge_docs WHERE ${this.scopeWhere} AND id = ?`).run(...this.scope, docId);
+      return true;
     });
-    run();
-    return true;
+    return run();
   }
 
   getStats(): { docCount: number; chunkCount: number; vectorCount: number } {
-    const docCount = (this.db.prepare("SELECT COUNT(*) AS c FROM knowledge_docs").get() as { c: number }).c;
-    const chunkCount = (this.db.prepare("SELECT COUNT(*) AS c FROM knowledge_chunks").get() as { c: number }).c;
+    this.authorize("knowledge:read");
+    const docCount = (this.db.prepare(`SELECT COUNT(*) AS c FROM knowledge_docs WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }).c;
+    const chunkCount = (this.db.prepare(`SELECT COUNT(*) AS n FROM knowledge_chunks c JOIN knowledge_docs d ON d.id = c.doc_id WHERE ${this.docScopeWhere}`).get(...this.scope) as { n: number }).n;
     let vectorCount = 0;
-    if (this.isVecEnabled) {
-      vectorCount = (this.db.prepare("SELECT COUNT(*) AS c FROM knowledge_chunks_vec").get() as { c: number }).c;
+    if (this.hasVectorTable()) {
+      vectorCount = (this.db.prepare(`SELECT COUNT(*) AS n FROM knowledge_chunks_vec v JOIN knowledge_chunks c ON c.id = v.id JOIN knowledge_docs d ON d.id = c.doc_id WHERE ${this.docScopeWhere}`).get(...this.scope) as { n: number }).n;
     }
     return { docCount, chunkCount, vectorCount };
   }

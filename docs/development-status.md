@@ -1,6 +1,6 @@
 # Development status
 
-Updated: 2026-10-02.
+Updated: 2026-10-04.
 
 ## Current implementation
 
@@ -14,7 +14,8 @@ Updated: 2026-10-02.
 - Hosted context creation consumes trusted auth-adapter and membership-resolver outputs, intersects scopes with membership grants, and rejects missing/expired/wrong-audience authorization, forged contexts, expired deadlines and pre-cancelled requests. It does not verify token signatures or implement HTTP/OAuth.
 - Session memory supports a trusted request context and filters every data operation by execution mode, tenant and workspace. Permission checks apply at the storage boundary; capacity eviction is workspace-local. The additive SQLite migration keeps legacy rows in the local scope. Context omission retains the legacy local adapter only.
 - Entity graph storage now binds composite document/entity/link keys and every relational join to execution mode, tenant and workspace. Re-indexing a matching document id in another workspace cannot replace local links. Queries and stats enforce read permissions; indexing enforces write permissions. Transactional schema rebuilding keeps legacy graph rows and links in the local scope.
-- All 11 built-in handlers remain local-only: hosted dispatch is rejected before handler execution. Knowledge/private-cache isolation, hosted storage and quotas, HTTP authentication, and cancellation during provider/fetch/model work remain pending.
+- Knowledge storage accepts trusted context and enforces read/write permissions and document ownership for ids, lists, FTS/vector retrieval and stats. Ownership joins precede ordering/limits. New documents use opaque UUIDs; legacy documents/FTS/vectors retain their ids and become local-only through an additive document migration. Deletion removes vectors before chunks; queued embedding writes recheck context and surviving ownership. Query embedding waits recheck context before returning results.
+- All 11 built-in handlers remain local-only: hosted dispatch is rejected before handler execution. Private-cache isolation, hosted storage and quotas, HTTP authentication, and cancellation during provider/fetch/model work remain pending. The embedding queue is serialized per index, but its size and model inference are not bounded or forcibly cancellable.
 
 ## Development environment
 
