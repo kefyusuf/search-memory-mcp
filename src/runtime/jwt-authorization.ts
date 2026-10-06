@@ -52,8 +52,16 @@ export class JwtAuthorizationAdapter {
     catch { assertRequestInput(request); throw new InvocationError("authorization_unavailable"); }
     assertRequestInput(request);
     if (!membership || membership.workspaceId !== request.workspaceId) throw new InvocationError("forbidden");
+    const tenantId = membership.tenantId;
+    const lookup = Object.freeze({ ...request, issuer: this.options.issuer });
     const context = createHostedRequestContext({ authorization, membership, expectedAudience: this.options.audience,
-      requestId: request.requestId, deadlineAt: request.deadlineAt, signal: request.signal });
+      requestId: request.requestId, deadlineAt: request.deadlineAt, signal: request.signal,
+      revalidateMembership: async context => {
+        const latest = await this.options.resolveMembership(context.principalId, context.workspaceId, lookup);
+        return !!latest && latest.principalId === context.principalId && latest.workspaceId === context.workspaceId &&
+          latest.tenantId === tenantId && Array.isArray(latest.permissions) &&
+          context.permissions.every(permission => latest.permissions.includes(permission));
+      } });
     assertRequestContext(context);
     return context;
   }

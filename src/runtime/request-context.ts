@@ -44,10 +44,12 @@ export type HostedContextInput = {
   requestId: string;
   deadlineAt: number;
   signal: AbortSignal;
+  revalidateMembership?: (context: RequestContext) => Promise<boolean>;
 };
 
 // Runtime provenance prevents a cast, copied object, or caller payload from becoming a trusted context.
 const issuedContexts = new WeakMap<RequestContext, Readonly<{ expiresAt: number; isCurrent?: () => boolean }>>();
+const membershipCheckpoints = new WeakMap<RequestContext, { check: (context: RequestContext) => Promise<boolean>; failure?: string; pending?: Promise<void> }>();
 const nonblank = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const stringList = (value: unknown): value is readonly string[] => Array.isArray(value) && value.every(nonblank);
 
@@ -75,10 +77,15 @@ export function createHostedRequestContext(input: HostedContextInput): RequestCo
   }
   const permissions = PERMISSIONS.filter((permission) =>
     auth.scopes.includes(permission) && membership.permissions.includes(permission));
-  return issue({
+  const context = issue({
     mode: "hosted", principalId: auth.subject, tenantId: membership.tenantId, workspaceId: membership.workspaceId,
     permissions, requestId: input.requestId, deadlineAt: input.deadlineAt, signal: input.signal,
   }, auth.expiresAt, auth.isCurrent);
+  if (input.revalidateMembership !== undefined) {
+    if (typeof input.revalidateMembership !== "function") throw new InvocationError("invalid_context");
+    membershipCheckpoints.set(context, { check: input.revalidateMembership });
+  }
+  return context;
 }
 
 /** Only the trusted local stdio adapter should call this; hosted adapters must never use it as fallback. */
@@ -95,6 +102,8 @@ export function assertRequestContext(input: unknown): asserts input is RequestCo
     throw new InvocationError("invalid_context");
   }
   const context = input as RequestContext;
+  const failure = membershipCheckpoints.get(context)?.failure;
+  if (failure) throw new InvocationError(failure);
   if (context.mode === "hosted") {
     const authorization = issuedContexts.get(context)!;
     if (authorization.expiresAt <= Date.now()) throw new InvocationError("unauthenticated");
@@ -102,6 +111,31 @@ export function assertRequestContext(input: unknown): asserts input is RequestCo
   }
   if (context.signal.aborted) throw new InvocationError("cancelled");
   if (context.deadlineAt <= Date.now()) throw new InvocationError("deadline_exceeded");
+}
+
+/** Revalidate before protected effects after waits; no synchronous database calls. */
+export async function assertRequestAuthorization(input: RequestContext): Promise<void> {
+  assertRequestContext(input);
+  const checkpoint = membershipCheckpoints.get(input);
+  if (!checkpoint) return;
+  if (!checkpoint.pending) {
+    checkpoint.pending = Promise.resolve().then(async () => {
+      let current: boolean;
+      try { current = await checkpoint.check(input); }
+      catch {
+        assertRequestContext(input);
+        checkpoint.failure = "authorization_unavailable";
+        throw new InvocationError(checkpoint.failure);
+      }
+      assertRequestContext(input);
+      if (current !== true) {
+        checkpoint.failure = "forbidden";
+        throw new InvocationError(checkpoint.failure);
+      }
+    }).finally(() => { checkpoint.pending = undefined; });
+  }
+  await checkpoint.pending;
+  assertRequestContext(input);
 }
 
 function assertCurrentAuthorization(isCurrent: unknown): void {

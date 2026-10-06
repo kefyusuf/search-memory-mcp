@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import { generateKeyPair, SignJWT } from "jose";
 import { PostgresMembershipResolver } from "../build/identity/postgres-membership.js";
 import { JwtAuthorizationAdapter } from "../build/runtime/jwt-authorization.js";
+import { assertRequestAuthorization, assertRequestContext } from "../build/runtime/request-context.js";
 
 const configured = process.env.MEMBERSHIP_TEST_DATABASE_URL;
 if (!configured) throw new Error("MEMBERSHIP_TEST_DATABASE_URL must name the local disposable fixture database");
@@ -68,6 +69,15 @@ try {
   const adapter = new JwtAuthorizationAdapter({ issuer, audience, algorithm: "ES256", verificationKey: keys.publicKey, resolveMembership: reopened.resolveMembership });
   const signed = await new SignJWT({ sub: "alice", iss: issuer, aud: audience, exp: Math.floor(Date.now()/1000)+120, scope: "memory:read memory:write", tenantId: "attacker" }).setProtectedHeader({ alg: "ES256", typ: "at+jwt" }).sign(keys.privateKey);
   const context = await adapter.authenticate(`Bearer ${signed}`, request()); assert.equal(context.tenantId, "tenant-a"); assert.deepEqual(context.permissions, ["memory:read"]); checks++;
+  await assertRequestAuthorization(context);
+  await fixture.query("UPDATE mcp_identity.workspace_memberships SET revoked_at=now() WHERE issuer=$1 AND principal_id='alice' AND workspace_id='workspace-a'", [issuer]);
+  await assert.rejects(assertRequestAuthorization(context), /forbidden/);
+  await fixture.query("UPDATE mcp_identity.workspace_memberships SET revoked_at=NULL");
+  assert.throws(() => assertRequestContext(context), /forbidden/); checks++;
+  const reduced = await adapter.authenticate(`Bearer ${signed}`, request());
+  await fixture.query("UPDATE mcp_identity.workspace_memberships SET permissions=ARRAY[]::text[] WHERE issuer=$1 AND workspace_id='workspace-a'", [issuer]);
+  await assert.rejects(assertRequestAuthorization(reduced), /forbidden/);
+  await fixture.query("UPDATE mcp_identity.workspace_memberships SET permissions=ARRAY['memory:read'] WHERE issuer=$1 AND workspace_id='workspace-a'", [issuer]); checks++;
   const wrongIssuerAdapter = new JwtAuthorizationAdapter({ issuer: "https://other.example.com", audience, algorithm: "ES256", verificationKey: keys.publicKey, resolveMembership: reopened.resolveMembership });
   const foreignSigned = await new SignJWT({ sub: "alice", iss: "https://other.example.com", aud: audience, exp: Math.floor(Date.now()/1000)+120, scope: "memory:read" }).setProtectedHeader({ alg: "ES256", typ: "at+jwt" }).sign(keys.privateKey);
   await assert.rejects(wrongIssuerAdapter.authenticate(`Bearer ${foreignSigned}`, request()), /authorization_unavailable/); checks++;

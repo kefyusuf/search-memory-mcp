@@ -1,4 +1,4 @@
-import { assertRequestContext, InvocationError, type ExecutionMode, type Permission, type RequestContext } from "./request-context.js";
+import { assertRequestContext, assertRequestAuthorization, InvocationError, type ExecutionMode, type Permission, type RequestContext } from "./request-context.js";
 import type { InvocationAdmission } from "./invocation-admission.js";
 
 export type ToolHandler<T> = (args: unknown, context: RequestContext) => Promise<T>;
@@ -29,7 +29,7 @@ export class ToolDispatcher<T = unknown> {
     const release = input.mode === "hosted" ? await this.options.admission!.acquire(input) : undefined;
     let result: T;
     try {
-      assertRequestContext(input);
+      await assertRequestAuthorization(input);
       result = await tool.handler(args, input);
       assertRequestContext(input);
     } catch (error) {
@@ -39,7 +39,7 @@ export class ToolDispatcher<T = unknown> {
       // Aborting the request does not mean its underlying resources have stopped.
       if (release) await release();
     }
-    assertRequestContext(input);
+    await assertRequestAuthorization(input);
     return result;
   }
 }
