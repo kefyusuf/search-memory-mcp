@@ -6,6 +6,7 @@ import { generateKeyPair, SignJWT } from "jose";
 import { PostgresMembershipResolver } from "../build/identity/postgres-membership.js";
 import { JwtAuthorizationAdapter } from "../build/runtime/jwt-authorization.js";
 import { assertRequestAuthorization, assertRequestContext } from "../build/runtime/request-context.js";
+import { verifyMembershipAudit } from "./verify-membership-audit.mjs";
 
 const configured = process.env.MEMBERSHIP_TEST_DATABASE_URL;
 if (!configured) throw new Error("MEMBERSHIP_TEST_DATABASE_URL must name the local disposable fixture database");
@@ -16,9 +17,13 @@ if (!["127.0.0.1", "localhost", "[::1]"].includes(base.hostname) || base.pathnam
 const suffix = randomBytes(6).toString("hex");
 const database = `websearch_membership_test_${suffix}`;
 const role = `ws_membership_reader_${suffix}`;
+const operatorRole = `ws_membership_operator_${suffix}`;
+const ownerRole = `ws_membership_owner_${suffix}`;
 const password = randomBytes(20).toString("hex");
 const admin = new Pool({ connectionString: configured, connectionTimeoutMillis: 2000 });
 let fixture; let locked; let createdDatabase = false; let createdRole = false;
+let operatorPool; let auditReader; let operator; let createdOperator = false;
+let createdOwner = false;
 const resolvers = [];
 let checks = 0;
 const issuer = "https://auth.example.com";
@@ -38,12 +43,28 @@ try {
   const fixtureUrl = new URL(base); fixtureUrl.pathname = `/${database}`;
   fixture = new Pool({ connectionString: fixtureUrl.href, connectionTimeoutMillis: 2000 });
   await fixture.query(await readFile(new URL("../migrations/0001-hosted-membership.sql", import.meta.url), "utf8"));
+  await fixture.query("INSERT INTO mcp_identity.workspaces(workspace_id,tenant_id) VALUES ('pre-audit-workspace','pre-audit-tenant')");
+  await fixture.query(await readFile(new URL("../migrations/0002-hosted-membership-audit.sql", import.meta.url), "utf8"));
+  await admin.query(`CREATE ROLE ${ownerRole} NOLOGIN`); createdOwner = true;
+  await fixture.query(`ALTER SCHEMA mcp_identity OWNER TO ${ownerRole}`);
+  for (const table of ["workspaces", "workspace_memberships", "membership_audit"])
+    await fixture.query(`ALTER TABLE mcp_identity.${table} OWNER TO ${ownerRole}`);
+  await fixture.query(`ALTER FUNCTION mcp_identity.record_membership_audit() OWNER TO ${ownerRole}`);
   await admin.query(`CREATE ROLE ${role} LOGIN PASSWORD '${password}'`); createdRole = true;
   await fixture.query(`GRANT USAGE ON SCHEMA mcp_identity TO ${role}`);
-  await fixture.query(`GRANT SELECT ON ALL TABLES IN SCHEMA mcp_identity TO ${role}`);
+  await fixture.query(`GRANT SELECT ON mcp_identity.workspaces, mcp_identity.workspace_memberships TO ${role}`);
   await fixture.query("INSERT INTO mcp_identity.workspaces(workspace_id,tenant_id) VALUES ('workspace-a','tenant-a'),('workspace-b','tenant-b')");
   await fixture.query("INSERT INTO mcp_identity.workspace_memberships(issuer,principal_id,workspace_id,permissions) VALUES ($1,'alice','workspace-a',ARRAY['memory:read']),($2,'alice','workspace-b',ARRAY['memory:write'])", [issuer, "https://other.example.com"]);
   const readerUrl = new URL(fixtureUrl); readerUrl.username = role; readerUrl.password = password;
+  await admin.query(`CREATE ROLE ${operatorRole} LOGIN PASSWORD '${password}'`); createdOperator = true;
+  await fixture.query(`GRANT USAGE ON SCHEMA mcp_identity TO ${operatorRole}`);
+  await fixture.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON mcp_identity.workspaces, mcp_identity.workspace_memberships TO ${operatorRole}`);
+  const operatorUrl = new URL(fixtureUrl); operatorUrl.username = operatorRole; operatorUrl.password = password;
+  operatorPool = new Pool({ connectionString: operatorUrl.href, connectionTimeoutMillis: 2000 });
+  auditReader = new Pool({ connectionString: readerUrl.href, connectionTimeoutMillis: 2000 });
+  operator = await operatorPool.connect();
+  checks += await verifyMembershipAudit({ fixture, operator, reader: auditReader, operatorRole, ownerRole, issuer });
+  operator.release(); operator = undefined;
   const options = { connectionString: readerUrl.href, issuer, maxConcurrentLookups: 1, lookupTimeoutMs: 2000 };
   const create = (extra = {}) => { const resolver = new PostgresMembershipResolver({ ...options, ...extra }); resolvers.push(resolver); return resolver; };
   const resolver = create();
@@ -102,8 +123,13 @@ try {
 } finally {
   if (locked) { await locked.query("ROLLBACK").catch(() => {}); locked.release(); }
   await Promise.all(resolvers.map(resolver => resolver.close()));
+  if (operator) { await operator.query("ROLLBACK").catch(() => {}); operator.release(); }
+  if (operatorPool) await operatorPool.end();
+  if (auditReader) await auditReader.end();
   if (fixture) await fixture.end();
   if (createdDatabase) await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);
   if (createdRole) await admin.query(`DROP ROLE ${role}`);
+  if (createdOperator) await admin.query(`DROP ROLE ${operatorRole}`);
+  if (createdOwner) await admin.query(`DROP ROLE ${ownerRole}`);
   await admin.end();
 }

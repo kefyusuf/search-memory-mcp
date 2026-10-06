@@ -1,6 +1,12 @@
 # Development status
 
-Updated: 2026-10-05.
+Updated: 2026-10-06.
+
+Integration checkpoint: the implementation developed in PRs #10 through #26 is consolidated into `main` through sequential merge commits. Each PR is retargeted to `main`, incorporates the preceding main revision, and must pass fresh current-head CI before merging. The dependency security patches are also carried by the first PR so intermediate integration revisions retain patched proxy-addr/source-map-js resolutions. Resume development from verified `main`; the branch/PR checkpoints below describe historical increments rather than an outstanding development stack. The combined verification baseline is 551 unit/regression tests, 30 real PostgreSQL checks, build/typecheck, compiled MCP smoke, dependency audit and package qualification. Check live Git/CI state before relying on this record.
+
+Integration does not enable a public listener, hosted built-in tools or production deployment. Authenticated operator administration, conflict handling, atomic hosted data fencing, issuer/key distribution, distributed resource policy, audit retention/export and production migration/recovery remain release gates. New implementation should follow after the integration checks are complete, with a small open-PR backlog.
+
+Release-gate dependency update: the required audit detected GHSA-jqcg-44mw-7w3h and GHSA-68fv-2mgg-jv7q in the existing lockfile. Only the affected transitive resolutions changed: proxy-addr 2.0.7 to 2.0.8 and source-map-js 1.2.1 to 1.2.2. The subsequent audit reports zero vulnerabilities, and the 551-test suite and compiled MCP smoke pass with the patched dependencies. See the [proxy-addr advisory](https://github.com/advisories/GHSA-jqcg-44mw-7w3h) and [source-map-js advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
 
 ## Current implementation
 
@@ -40,6 +46,10 @@ HTTP-fetch and SSRF unit tests mock DNS answers as well as HTTP responses. They 
 The retrieval evaluation disables embeddings during both ingestion and search through `KnowledgeIndex`'s `enableEmbeddings: false` option. It measures a deterministic FTS baseline without model initialization or downloads.
 
 ## Next development work
+
+Latest checkpoint (2026-10-06): `codex/transactional-membership-audit` builds on PR #25 (`100acd8`, CI passed). The audit migration adds transactional INSERT/UPDATE/DELETE events for membership and workspace changes with explicit before/after fields, server timestamps/transaction identifiers and database login attribution. Existing rows survive without fabricated history. Operator/runtime credentials cannot modify audit records or disable/bypass triggers under the tested restricted grants; the function runs under a separate non-superuser owner. The real PostgreSQL verifier now has 30 checks, including failure atomicity, rollback, actor/shadowing resistance and privilege isolation. No TypeScript behavior changed; the suite remains 551 tests. See [membership audit](hosted-membership-audit.md). Next: authenticated provisioning/administration with expected-version/conflict policy, then hosted transaction fencing/bootstrap. Owners/superusers remain trusted; audit retention/export, human attribution, migration/recovery qualification and production operations remain release gates.
+
+Previous checkpoint (historical):
 
 Latest checkpoint (2026-10-05): `codex/active-membership-checkpoints` builds on PR #24 (`c2f0feb`, CI passed). This increment adds 12 regression tests: 551 tests pass locally, plus 16 real PostgreSQL checks. JWT-issued contexts revalidate membership after admission/before execution and before returning results. Long-running hosted handlers must explicitly await `assertRequestAuthorization(context)` before effects after waits. Denial or backend failure permanently closes the context; additional grants never expand its permission snapshot. Real SQL checks cover revocation and grant reduction on existing contexts. This supersedes the earlier snapshot-only limitation below. It does not provide atomic write fencing, retract completed writes/streamed bytes, observe changes restored between lookups, or enable built-in hosted tools. Next: trusted provisioning and audited membership administration, then hosted transaction fencing/bootstrap. See [hosted membership](hosted-membership.md) for boundaries.
 
