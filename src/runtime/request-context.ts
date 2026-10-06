@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 export const PERMISSIONS = [
   "search:read", "content:read", "knowledge:read", "knowledge:write",
-  "memory:read", "memory:write", "status:read",
+  "memory:read", "memory:write", "status:read", "cache:manage",
 ] as const;
 export type Permission = typeof PERMISSIONS[number];
 export type ExecutionMode = "local" | "hosted";

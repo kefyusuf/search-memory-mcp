@@ -1,3 +1,5 @@
+import type { Permission } from "../runtime/request-context.js";
+
 export interface TranslationResult {
   translation_text: string;
 }
@@ -38,6 +40,8 @@ export interface VectorMatch {
 }
 
 export interface IVectorStore {
+  /** Required for hosted adapters; optional only for legacy local implementations. */
+  assertAccess?(permission: Permission): void;
   add(id: string, vector: number[], metadata: CacheMetadata): Promise<void>;
   search(vector: number[], limit: number, namespace?: string): Promise<VectorMatch[]>;
   clear(): Promise<void>;

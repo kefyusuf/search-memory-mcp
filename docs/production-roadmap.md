@@ -79,6 +79,8 @@ P0-00b graph storage update (2026-10-02): document/entity/link keys, joins, repl
 
 P0-00b knowledge storage update (2026-10-04): trusted context and read/write permissions now bound document, chunk, FTS/vector result and statistics access by mode/tenant/workspace before ordering/limits. New document ids are UUIDs; legacy ids/index rows stay in the local scope. Owned deletion clears vectors before chunks; queued embedding writes check surviving ownership and query waits recheck context. Private-cache isolation, hosted DB/quotas and operational gates remain pending. The shared FTS corpus and vector full scan require hosted performance/ranking validation; the per-index embedding queue is serialized but unbounded. Built-in tools remain local-only.
 
+P0-00b private-cache update (2026-10-04): content URLs, native semantic metadata and JS fallback entries now bind to trusted mode/tenant/workspace ownership. Both vector paths preserve exact execution namespaces and filter before candidate limits. Migration keeps legacy caches local. Clear/TTL cleanup require cache:manage and affect only the owning scope; clear includes both persisted vector backends. SemanticCache preserves authorization and cancellation through inference/fallback paths. Hosted HTTP/auth wiring, browser resources, quotas, durable hosted storage and load/restore evidence remain pending. No shared public cache or hosted tool is enabled.
+
 ## 4. P1 — Ölçülebilir arama kalitesi ve ürün sözleşmesi
 
 P0 bulguları çözülmeden yeni kapsam büyütülmemeli. Sorumlu roller: retrieval geliştiricisi + değerlendirme sorumlusu.

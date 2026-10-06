@@ -1,6 +1,7 @@
 import { IEmbeddingProvider, IVectorStore, SearchResultItem, CacheMetadata } from "./types.js";
 import { SearchIntentDetector, type IntentDetector, type SearchIntent } from "../search/intent.js";
 import { cosineSimilarity } from "./utils.js";
+import { InvocationError } from "../runtime/request-context.js";
 
 const TTL_MAP: Record<string, number> = {
   price: 15 * 60 * 1000,              // 15 minutes
@@ -42,7 +43,9 @@ export class SemanticCache {
   }
 
   private async getQueryVector(query: string): Promise<number[] | null> {
+    this.vectorStore.assertAccess?.("search:read");
     const vector = await this.embeddingProvider.getEmbedding(query);
+    this.vectorStore.assertAccess?.("search:read");
     if (vector.length === 0) return null;
     return vector;
   }
@@ -55,6 +58,7 @@ export class SemanticCache {
       if (!vector) return null;
 
       const matches = await this.vectorStore.search(vector, 5, namespace);
+      this.vectorStore.assertAccess?.("search:read");
 
       for (const match of matches) {
         if (match.score < this.threshold) continue;
@@ -71,6 +75,8 @@ export class SemanticCache {
         return match.metadata.results;
       }
     } catch (error) {
+      if (error instanceof InvocationError) throw error;
+      this.vectorStore.assertAccess?.("search:read");
       console.error("Cache lookup error:", error);
     }
     return null;
@@ -92,15 +98,20 @@ export class SemanticCache {
       };
       await this.vectorStore.add(id, vector, metadata);
     } catch (error) {
+      if (error instanceof InvocationError) throw error;
+      this.vectorStore.assertAccess?.("search:read");
       console.error("Cache set error:", error);
     }
   }
 
   async clearSearchCache(): Promise<void> {
     try {
+      this.vectorStore.assertAccess?.("cache:manage");
       await this.vectorStore.clear();
       console.error("Search cache cleared.");
     } catch (error) {
+      if (error instanceof InvocationError) throw error;
+      this.vectorStore.assertAccess?.("cache:manage");
       console.error("Clear cache error:", error);
     }
   }
@@ -124,7 +135,9 @@ export class SemanticCache {
   }
 
   async getCachedContent(url: string): Promise<string | null> {
+    this.vectorStore.assertAccess?.("content:read");
     const entry = await this.vectorStore.getContent(url);
+    this.vectorStore.assertAccess?.("content:read");
     if (!entry) return null;
 
     const ttl = TTL_MAP[entry.category] || TTL_MAP.general;
@@ -192,8 +205,11 @@ export class SemanticCache {
       });
 
       rankedResults.sort((a, b) => b.rankingScore - a.rankingScore);
+      this.vectorStore.assertAccess?.("search:read");
       return rankedResults.slice(0, limit).map(({ rankingScore: _rankingScore, ...result }) => result);
     } catch (error) {
+      if (error instanceof InvocationError) throw error;
+      this.vectorStore.assertAccess?.("search:read");
       console.error("Re-ranking error:", error);
       return results.slice(0, limit);
     }
