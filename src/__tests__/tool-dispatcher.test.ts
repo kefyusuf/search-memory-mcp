@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ToolDispatcher } from "../runtime/tool-dispatcher.js";
 import { createHostedRequestContext, createLocalRequestContext } from "../runtime/request-context.js";
+import { InMemoryInvocationAdmission } from "../runtime/invocation-admission.js";
 
 function hosted(permissions = ["memory:read"]) {
   return createHostedRequestContext({
@@ -10,6 +11,17 @@ function hosted(permissions = ["memory:read"]) {
   });
 }
 describe("transport-independent tool dispatch", () => {
+  it("rejects hosted execution without a configured admission policy", async () => {
+    let executions = 0;
+    const dispatcher = new ToolDispatcher({ recall: { permission: "memory:read", modes: ["hosted"], handler: async () => { executions++; return "private"; } } });
+    await expect(dispatcher.call("recall", {}, hosted())).rejects.toThrow("admission_unavailable");
+    expect(executions).toBe(0);
+  });
+  it("does not return results when cancellation happens inside the handler", async () => {
+    const controller = new AbortController();
+    const dispatcher = new ToolDispatcher({ recall: { permission: "memory:read", modes: ["local"], handler: async () => { controller.abort(); return "private"; } } });
+    await expect(dispatcher.call("recall", {}, createLocalRequestContext({ signal: controller.signal }))).rejects.toThrow("cancelled");
+  });
   it("denies missing permission before a write can occur", async () => {
     const notes: string[] = [];
     const dispatcher = new ToolDispatcher({ remember: { permission: "memory:write", modes: ["hosted"], handler: async () => { notes.push("secret"); return {}; } } });
@@ -18,7 +30,7 @@ describe("transport-independent tool dispatch", () => {
   });
   it("uses trusted context instead of caller-supplied tenant/session/context fields", async () => {
     const notes = new Map([["workspace-a", "Alice private note"], ["workspace-b", "Bob private note"]]);
-    const dispatcher = new ToolDispatcher({ recall: { permission: "memory:read", modes: ["hosted"], handler: async (_args, context) => notes.get(context.workspaceId) } });
+    const dispatcher = new ToolDispatcher({ recall: { permission: "memory:read", modes: ["hosted"], handler: async (_args, context) => notes.get(context.workspaceId) } }, { admission: new InMemoryInvocationAdmission({ global: 10, tenant: 10, workspace: 10, principal: 10 }) });
     expect(await dispatcher.call("recall", { tenantId: "tenant-b", session: "workspace-b", context: { workspaceId: "workspace-b" } }, hosted())).toBe("Alice private note");
   });
   it("blocks local storage handlers for hosted callers even with write scopes", async () => {

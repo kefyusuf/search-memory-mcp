@@ -81,6 +81,8 @@ P0-00b knowledge storage update (2026-10-04): trusted context and read/write per
 
 P0-00b private-cache update (2026-10-04): content URLs, native semantic metadata and JS fallback entries now bind to trusted mode/tenant/workspace ownership. Both vector paths preserve exact execution namespaces and filter before candidate limits. Migration keeps legacy caches local. Clear/TTL cleanup require cache:manage and affect only the owning scope; clear includes both persisted vector backends. SemanticCache preserves authorization and cancellation through inference/fallback paths. Hosted HTTP/auth wiring, browser resources, quotas, durable hosted storage and load/restore evidence remain pending. No shared public cache or hosted tool is enabled.
 
+P0-00c concurrency update (2026-10-04): hosted dispatch now requires an explicit admission policy. A process-local reference enforces global, tenant, workspace and principal concurrency atomically and counts every invocation using trusted identities. A shared policy instance prevents separate dispatchers or repeated request IDs from bypassing limits. Handler settlement releases capacity once; aborted work retains its grant until it actually settles. Context is rechecked after admission/handler/release waits. Distributed quotas, rate/IP/batch ingress limits, cost budgets, bounded internal work, forced cancellation and hosted bootstrap configuration remain pending. Built-in handlers remain local-only; this is not a public launch gate completion.
+
 ## 4. P1 — Ölçülebilir arama kalitesi ve ürün sözleşmesi
 
 P0 bulguları çözülmeden yeni kapsam büyütülmemeli. Sorumlu roller: retrieval geliştiricisi + değerlendirme sorumlusu.
