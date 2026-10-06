@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import * as sqlite_vec from "sqlite-vec";
 import { randomUUID } from "node:crypto";
 import { chunkText } from "./chunker.js";
+import type { TransformersEmbeddingProvider } from "../cache/embedding.js";
 import { assertRequestContext, InvocationError, type Permission, type RequestContext } from "../runtime/request-context.js";
 
 export type KnowledgeDocInput = {
@@ -42,6 +43,7 @@ export class KnowledgeIndex {
   private pendingEmbeddings: Promise<void> = Promise.resolve();
   private pendingEmbeddingChunks = 0;
   private readonly maxPendingEmbeddingChunks: number;
+  private embeddingProvider?: Promise<TransformersEmbeddingProvider>;
   private readonly context?: RequestContext;
   private readonly scope: readonly [string, string, string];
   private readonly scopeWhere = "execution_mode = ? AND tenant_id = ? AND workspace_id = ?";
@@ -204,13 +206,16 @@ export class KnowledgeIndex {
     };
   }
 
+  private getEmbeddingProvider(): Promise<TransformersEmbeddingProvider> {
+    return this.embeddingProvider ??= import("../cache/embedding.js").then(({ TransformersEmbeddingProvider }) => new TransformersEmbeddingProvider());
+  }
+
   private async embedChunks(docId: string, chunks: { id: string; text: string }[]): Promise<void> {
     if (!this.isVecEnabled || chunks.length === 0 || this.closed) return;
 
     try {
       this.authorize("knowledge:write");
-      const { TransformersEmbeddingProvider } = await import("../cache/embedding.js");
-      const provider = new TransformersEmbeddingProvider();
+      const provider = await this.getEmbeddingProvider();
 
       for (const chunk of chunks) {
         if (this.closed) return;
@@ -322,8 +327,8 @@ export class KnowledgeIndex {
       if (embed) {
         vector = await embed(query);
       } else {
-        const { TransformersEmbeddingProvider } = await import("../cache/embedding.js");
-        vector = await new TransformersEmbeddingProvider().getEmbedding(query);
+        const provider = await this.getEmbeddingProvider();
+        vector = await provider.getEmbedding(query);
       }
       this.authorize("knowledge:read");
       if (vector.length !== EMBEDDING_DIM) return [];

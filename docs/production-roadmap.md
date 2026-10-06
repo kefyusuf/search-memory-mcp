@@ -87,6 +87,8 @@ P0-00c rate update (2026-10-04): the process-local shared admission policy now s
 
 P0-04 knowledge queue update (2026-10-04): active plus pending embedding chunks are now bounded per KnowledgeIndex instance with a configurable positive safe-integer limit (local default 256). Overload rejects ingest before document/chunk/FTS writes; failed SQL does not reserve capacity. Embedding job settlement releases its reservation, while document deletion does not hide pending work. FTS-only ingestion schedules no inference. Cross-index/model concurrency, input/storage byte budgets, model single-flight, inference deadlines/forced cancellation and durable worker recovery remain pending. The earlier unbounded-queue observation is superseded for this per-index backlog only.
 
+P0-04/P1-05 model update (2026-10-04): concurrent initialization now shares one pending loader per embedding provider, including failure. KnowledgeIndex reuses one lazy provider across document jobs and default vector queries instead of creating one for each operation. FTS-only/custom query paths bypass initialization; distinct index/provider instances remain independent. Load failure remains sticky for the retained provider; inference errors do not force model reload. Process-wide sharing, inference budgets, deliberate retry/readiness/disposal and real cold/warm memory/latency evidence remain pending. Built-in handlers remain local-only.
+
 ## 4. P1 — Ölçülebilir arama kalitesi ve ürün sözleşmesi
 
 P0 bulguları çözülmeden yeni kapsam büyütülmemeli. Sorumlu roller: retrieval geliştiricisi + değerlendirme sorumlusu.

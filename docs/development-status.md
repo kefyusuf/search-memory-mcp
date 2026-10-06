@@ -23,6 +23,8 @@ The process-local admission policy also accepts explicit optional sliding-window
 
 ## Development environment
 
+Embedding model loading is now single-flight per TransformersEmbeddingProvider: concurrent first calls share one pending loader promise, including failure. Successful loaders are reused; load failure remains sticky for that provider and returns empty vectors, while inference failures still propagate without reloading the model. KnowledgeIndex owns one lazy provider for queued document jobs and default vector queries; FTS-only indexes and custom query embeddings do not instantiate it. Provider/index instances remain independent. This does not establish process-wide model sharing, inference concurrency limits, retry/readiness/disposal behavior or real model memory/latency evidence.
+
 KnowledgeIndex limits active plus queued embedding chunks per instance with maxPendingEmbeddingChunks (positive safe integer, default 256). Overload throws embedding_queue_full before document/chunk/FTS writes. Successful or failed embedding settlement releases the reservation; deletion retains it until the job settles. SQL rollback consumes no reservation. FTS-only indexes do not queue embedding work or apply this inference budget. Documents exceeding the budget require an explicit capacity choice or FTS-only ingestion. This bounds per-index backlog, not incoming content allocation, stored data, cross-index/model work, CPU duration or durable background jobs.
 
 Use Node.js 24 (`.nvmrc`), also used by CI. Native modules must be installed for the same Node runtime that runs the server. A `better-sqlite3` binary from another runtime can break both server startup and storage tests.
@@ -33,7 +35,7 @@ The retrieval evaluation disables embeddings during both ingestion and search th
 
 ## Next development work
 
-Continuation checkpoint: `codex/bounded-knowledge-embedding-queue` builds on `codex/hosted-invocation-rate-limits` (PR #17, parent commit `54c64ca`; its GitHub CI passed). These branches are review increments, not merged releases. This increment adds 15 real SQLite embedding-queue tests with deterministic model substitutes; all 395 tests, TypeScript build and compiled stdio MCP smoke pass locally. Verify current PR heads and CI before resuming. The earlier two-query retrieval fixture is a deterministic baseline, not sector-scale quality evidence.
+Continuation checkpoint: `codex/embedding-model-single-flight` builds on `codex/bounded-knowledge-embedding-queue` (PR #18, parent commit `9361800`; its GitHub CI passed). These branches are review increments, not merged releases. This increment adds 9 lifecycle tests with deterministic loader/inference substitutes and real SQLite vectors for index integration; all 404 tests, TypeScript build and compiled stdio MCP smoke pass locally. Verify current PR heads and CI before resuming. The earlier two-query retrieval fixture is a deterministic baseline, not sector-scale quality evidence.
 
 The user selected an internet-facing multi-user product as the first live target. The [production roadmap](production-roadmap.md), informed by [the sector comparison](research/2026-10-02-production-benchmark.md), therefore puts HTTP MCP/auth, tenant isolation, quotas, cache/filter correctness, durable storage, fetch egress/resource limits, and staging/release operations before a hosted pilot. Local stdio remains a development/distribution option.
 

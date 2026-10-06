@@ -2,7 +2,7 @@ import { pipeline } from "@huggingface/transformers";
 import { IEmbeddingProvider } from "./types.js";
 
 export class TransformersEmbeddingProvider implements IEmbeddingProvider {
-  private extractor: any = null;
+  private extractorLoading: Promise<any> | null = null;
   private extractorFailed = false;
   private modelName: string;
 
@@ -13,16 +13,17 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private async getExtractor() {
     if (this.extractorFailed) return null;
 
-    if (!this.extractor) {
-      try {
-        this.extractor = await pipeline("feature-extraction", this.modelName);
-      } catch (e) {
-        this.extractorFailed = true;
-        console.error("Embedding model permanently failed:", e);
-        return null;
-      }
+    if (!this.extractorLoading) {
+      // Publish the promise before starting the loader so concurrent callers share it.
+      this.extractorLoading = Promise.resolve()
+        .then(() => pipeline("feature-extraction", this.modelName))
+        .catch((e) => {
+          this.extractorFailed = true;
+          console.error("Embedding model permanently failed:", e);
+          return null;
+        });
     }
-    return this.extractor;
+    return this.extractorLoading;
   }
 
   async getEmbedding(text: string): Promise<number[]> {
