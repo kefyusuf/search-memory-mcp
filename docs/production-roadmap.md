@@ -75,6 +75,8 @@ Bu faz hosted davetli pilotun ön koşuludur. Sorumlu roller: backend, auth/secu
 
 SSRF tasarımındaki ağ seviyesinde egress önlemleri uygulama doğrulamasını tamamlar ve hosted worker'lar için zorunlu sınırdır. [OWASP yaklaşımı](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
 
+P0-00b graph storage update (2026-10-02): document/entity/link keys, joins, replacement writes and statistics now enforce execution mode + tenant + workspace. Storage checks trusted-context provenance and knowledge read/write permissions. A transactional schema rebuild preserves legacy rows in the local scope; matching ids or entity names cannot cross workspaces. Built-in tools remain local-only. Knowledge/vector retrieval and private-cache ownership, hosted storage and quotas are still pending. Scope-aware rollback and backup/restore verification remain release requirements.
+
 ## 4. P1 — Ölçülebilir arama kalitesi ve ürün sözleşmesi
 
 P0 bulguları çözülmeden yeni kapsam büyütülmemeli. Sorumlu roller: retrieval geliştiricisi + değerlendirme sorumlusu.
