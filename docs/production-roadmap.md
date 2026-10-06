@@ -83,6 +83,8 @@ P0-00b private-cache update (2026-10-04): content URLs, native semantic metadata
 
 P0-00c concurrency update (2026-10-04): hosted dispatch now requires an explicit admission policy. A process-local reference enforces global, tenant, workspace and principal concurrency atomically and counts every invocation using trusted identities. A shared policy instance prevents separate dispatchers or repeated request IDs from bypassing limits. Handler settlement releases capacity once; aborted work retains its grant until it actually settles. Context is rechecked after admission/handler/release waits. Distributed quotas, rate/IP/batch ingress limits, cost budgets, bounded internal work, forced cancellation and hosted bootstrap configuration remain pending. Built-in handlers remain local-only; this is not a public launch gate completion.
 
+P0-00c rate update (2026-10-04): the process-local shared admission policy now supports explicit sliding-window global/tenant/workspace/principal accepted-call limits. It uses monotonic time and individually expires timestamps; denied attempts consume neither rate nor concurrency capacity. Failed/cancelled accepted invocations retain rate usage. All expired identity histories are swept on admission checks so state is bounded by configured global accepted usage. Configuration is optional for compatibility and must be selected explicitly by hosted bootstrap. Distributed/durable quotas, unauthenticated HTTP/IP/signup/batch protection, spend budgets and bounded internal work remain pending. Built-in handlers remain local-only.
+
 ## 4. P1 — Ölçülebilir arama kalitesi ve ürün sözleşmesi
 
 P0 bulguları çözülmeden yeni kapsam büyütülmemeli. Sorumlu roller: retrieval geliştiricisi + değerlendirme sorumlusu.

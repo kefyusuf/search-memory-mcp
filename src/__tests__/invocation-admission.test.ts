@@ -125,3 +125,89 @@ describe("hosted invocation admission", () => {
     expect(await dispatcher(admission, async () => "next").call("recall", {}, hosted())).toBe("next");
   });
 });
+
+describe("hosted invocation sliding-window rate limits", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const rate = { ...generous, windowMs: 1000 };
+  it.each([
+    ["global", () => hosted("b", "other", "bob")],
+    ["tenant", () => hosted("a", "other", "bob")],
+    ["workspace", () => hosted("a", "w", "bob")],
+    ["principal", () => hosted("b", "other", "alice")],
+  ] as const)("limits completed invocations by %s within the window", (dimension, second) => {
+    vi.spyOn(performance, "now").mockReturnValue(100);
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, [dimension]: 1 } });
+    admission.acquire(hosted())();
+    expect(() => admission.acquire(second())).toThrow("rate_exceeded");
+  });
+  it("does not reset at a wall-clock window boundary", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(999);
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, global: 1 } });
+    admission.acquire(hosted())(); clock.mockReturnValue(1000);
+    expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+    clock.mockReturnValue(1999); admission.acquire(hosted())();
+  });
+  it("does not refund accepted rate capacity when a grant is released twice", () => {
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, global: 1 } });
+    const release = admission.acquire(hosted()); release(); release();
+    expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+  });
+  it("expires individual accepted timestamps rather than resetting the whole window", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(0);
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, global: 2 } });
+    admission.acquire(hosted())(); clock.mockReturnValue(500); admission.acquire(hosted())();
+    clock.mockReturnValue(999); expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+    clock.mockReturnValue(1000); admission.acquire(hosted())();
+    clock.mockReturnValue(1001); expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+    clock.mockReturnValue(1500); admission.acquire(hosted())();
+  });
+  it("does not refill when the wall clock jumps forward", () => {
+    vi.spyOn(performance, "now").mockReturnValue(100);
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, global: 1 } });
+    admission.acquire(hosted())(); vi.spyOn(Date, "now").mockReturnValue(Date.now() + 86_400_000);
+    expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+  });
+  it("does not allocate a concurrency grant on rate rejection", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(100);
+    const admission = new InMemoryInvocationAdmission({ ...generous, global: 1 }, { rateLimits: { ...rate, global: 1 } });
+    admission.acquire(hosted())(); expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+    clock.mockReturnValue(1100); admission.acquire(hosted())();
+  });
+  it("does not charge rejected rate attempts to unrelated dimensions", () => {
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, global: 2, tenant: 1 } });
+    admission.acquire(hosted())();
+    expect(() => admission.acquire(hosted("a", "other", "bob"))).toThrow("rate_exceeded");
+    admission.acquire(hosted("b", "w", "bob"))();
+  });
+  it("does not charge concurrency rejection to rate capacity", () => {
+    const admission = new InMemoryInvocationAdmission({ ...generous, global: 1 }, { rateLimits: { ...rate, global: 2 } });
+    const release = admission.acquire(hosted());
+    expect(() => admission.acquire(hosted())).toThrow("concurrency_exceeded"); release();
+    admission.acquire(hosted())();
+    expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+  });
+  it("keeps active concurrency grants after their rate timestamps expire", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(100);
+    const admission = new InMemoryInvocationAdmission({ ...generous, global: 1 }, { rateLimits: { ...rate, global: 1 } });
+    const release = admission.acquire(hosted()); clock.mockReturnValue(1100);
+    expect(() => admission.acquire(hosted())).toThrow("concurrency_exceeded"); release();
+    admission.acquire(hosted())();
+  });
+  it.each([0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1])("rejects invalid rate settings: %s", invalid => {
+    for (const dimension of [...Object.keys(generous), "windowMs"]) {
+      expect(() => new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, [dimension]: invalid } })).toThrow("invalid_rate_limits");
+    }
+  });
+  it("snapshots rate limits and isolates tenant-qualified workspace keys", () => {
+    const limits = { ...rate, workspace: 1 }; const admission = new InMemoryInvocationAdmission(generous, { rateLimits: limits });
+    limits.workspace = 10; admission.acquire(hosted())();
+    expect(() => admission.acquire(hosted())).toThrow("rate_exceeded");
+    admission.acquire(hosted("b", "w", "bob"))();
+  });
+  it("retains accepted rate usage for failed handlers across shared dispatchers", async () => {
+    const admission = new InMemoryInvocationAdmission(generous, { rateLimits: { ...rate, global: 1 } });
+    await expect(dispatcher(admission, async () => { throw new Error("failed"); }).call("recall", {}, hosted())).rejects.toThrow("failed");
+    await expect(dispatcher(admission, async () => "bypass").call("recall", { requestId: "new", tenantId: "other" }, hosted())).rejects.toThrow("rate_exceeded");
+    expect(await dispatcher(admission, async () => "local").call("recall", {}, createLocalRequestContext())).toBe("local");
+  });
+});
