@@ -27,6 +27,8 @@ export type VerifiedAuthorization = {
   audiences: readonly string[];
   expiresAt: number;
   scopes: readonly string[];
+  /** Optional server-owned live trust lease; never serialized into request data. */
+  isCurrent?: () => boolean;
 };
 /** Must come from a trusted membership resolver, never tool arguments or JWT workspace claims alone. */
 export type WorkspaceMembership = {
@@ -45,16 +47,16 @@ export type HostedContextInput = {
 };
 
 // Runtime provenance prevents a cast, copied object, or caller payload from becoming a trusted context.
-const issuedContexts = new WeakMap<RequestContext, number>();
+const issuedContexts = new WeakMap<RequestContext, Readonly<{ expiresAt: number; isCurrent?: () => boolean }>>();
 const nonblank = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const stringList = (value: unknown): value is readonly string[] => Array.isArray(value) && value.every(nonblank);
 
-function issue(context: RequestContext, authorizationExpiresAt: number): RequestContext {
+function issue(context: RequestContext, authorizationExpiresAt: number, isCurrent?: () => boolean): RequestContext {
   if (!nonblank(context.requestId) || !Number.isFinite(context.deadlineAt) || !(context.signal instanceof AbortSignal)) {
     throw new InvocationError("invalid_context");
   }
   const snapshot = Object.freeze({ ...context, permissions: Object.freeze([...context.permissions]) });
-  issuedContexts.set(snapshot, authorizationExpiresAt);
+  issuedContexts.set(snapshot, Object.freeze({ expiresAt: authorizationExpiresAt, isCurrent }));
   return snapshot;
 }
 
@@ -65,6 +67,7 @@ export function createHostedRequestContext(input: HostedContextInput): RequestCo
       !Number.isFinite(auth.expiresAt) || auth.expiresAt <= Date.now() || !stringList(auth.scopes)) {
     throw new InvocationError("unauthenticated");
   }
+  assertCurrentAuthorization(auth.isCurrent);
   const membership = input.membership;
   if (!membership || membership.principalId !== auth.subject || !nonblank(membership.tenantId) ||
       !nonblank(membership.workspaceId) || !stringList(membership.permissions)) {
@@ -75,7 +78,7 @@ export function createHostedRequestContext(input: HostedContextInput): RequestCo
   return issue({
     mode: "hosted", principalId: auth.subject, tenantId: membership.tenantId, workspaceId: membership.workspaceId,
     permissions, requestId: input.requestId, deadlineAt: input.deadlineAt, signal: input.signal,
-  }, auth.expiresAt);
+  }, auth.expiresAt, auth.isCurrent);
 }
 
 /** Only the trusted local stdio adapter should call this; hosted adapters must never use it as fallback. */
@@ -92,7 +95,18 @@ export function assertRequestContext(input: unknown): asserts input is RequestCo
     throw new InvocationError("invalid_context");
   }
   const context = input as RequestContext;
-  if (context.mode === "hosted" && issuedContexts.get(context)! <= Date.now()) throw new InvocationError("unauthenticated");
+  if (context.mode === "hosted") {
+    const authorization = issuedContexts.get(context)!;
+    if (authorization.expiresAt <= Date.now()) throw new InvocationError("unauthenticated");
+    assertCurrentAuthorization(authorization.isCurrent);
+  }
   if (context.signal.aborted) throw new InvocationError("cancelled");
   if (context.deadlineAt <= Date.now()) throw new InvocationError("deadline_exceeded");
+}
+
+function assertCurrentAuthorization(isCurrent: unknown): void {
+  if (isCurrent === undefined) return;
+  try {
+    if (typeof isCurrent !== "function" || isCurrent() !== true) throw new InvocationError("unauthenticated");
+  } catch { throw new InvocationError("unauthenticated"); }
 }

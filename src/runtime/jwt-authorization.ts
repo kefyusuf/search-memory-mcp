@@ -1,9 +1,10 @@
 import { jwtVerify } from "jose";
 import { assertRequestContext, createHostedRequestContext, InvocationError, type RequestContext, type VerifiedAuthorization, type WorkspaceMembership } from "./request-context.js";
+import { JwtVerificationKeyRing, type JwtKeyLease, type JwtSignatureAlgorithm } from "./jwt-key-ring.js";
 
 export type AuthenticatedRequestInput = { workspaceId: string; requestId: string; deadlineAt: number; signal: AbortSignal };
 export type JwtAuthorizationOptions = {
-  issuer: string; audience: string; algorithm: "RS256" | "ES256" | "EdDSA"; verificationKey: CryptoKey;
+  issuer: string; audience: string; algorithm: JwtSignatureAlgorithm; verificationKey: CryptoKey | JwtVerificationKeyRing;
   resolveMembership: (subject: string, workspaceId: string, request: AuthenticatedRequestInput) => Promise<WorkspaceMembership | null>;
 };
 export class JwtAuthorizationAdapter {
@@ -11,7 +12,8 @@ export class JwtAuthorizationAdapter {
   constructor(options: JwtAuthorizationOptions) {
     if (!options || !secureIdentifier(options.issuer) || !secureIdentifier(options.audience) ||
         !["RS256", "ES256", "EdDSA"].includes(options.algorithm) ||
-        !(options.verificationKey instanceof CryptoKey) || options.verificationKey.type !== "public" ||
+        !((options.verificationKey instanceof CryptoKey && options.verificationKey.type === "public") ||
+          (options.verificationKey instanceof JwtVerificationKeyRing && options.verificationKey.algorithm === options.algorithm)) ||
         typeof options.resolveMembership !== "function") throw new InvocationError("invalid_auth_configuration");
     this.options = Object.freeze({ ...options });
   }
@@ -24,17 +26,24 @@ export class JwtAuthorizationAdapter {
     if (!match) throw new InvocationError("unauthenticated");
     let authorization: VerifiedAuthorization;
     try {
-      const { payload } = await jwtVerify(match[1], this.options.verificationKey, {
+      let lease: JwtKeyLease | undefined;
+      const verificationKey = this.options.verificationKey;
+      const { payload } = await jwtVerify(match[1], header => {
+        if (verificationKey instanceof JwtVerificationKeyRing) {
+          lease = verificationKey.select(header.kid); return lease.key;
+        }
+        return verificationKey;
+      }, {
         issuer: this.options.issuer, audience: this.options.audience, algorithms: [this.options.algorithm],
         typ: "at+jwt", requiredClaims: ["sub", "exp"], clockTolerance: 0,
       });
       const expiresAt = payload.exp! * 1000;
-      if (typeof payload.sub !== "string" || !payload.sub.trim() || !Number.isSafeInteger(expiresAt) ||
+      if ((lease && !lease.isCurrent()) || typeof payload.sub !== "string" || !payload.sub.trim() || !Number.isSafeInteger(expiresAt) ||
           (payload.scope !== undefined && (typeof payload.scope !== "string" || !SCOPE.test(payload.scope)))) {
         throw new InvocationError("unauthenticated");
       }
       authorization = { subject: payload.sub, audiences: typeof payload.aud === "string" ? [payload.aud] : payload.aud!, expiresAt,
-        scopes: typeof payload.scope === "string" && payload.scope ? payload.scope.split(" ") : [] };
+        scopes: typeof payload.scope === "string" && payload.scope ? payload.scope.split(" ") : [], isCurrent: lease?.isCurrent };
     } catch { throw new InvocationError("unauthenticated"); }
     assertRequestInput(request);
     let membership: WorkspaceMembership | null;

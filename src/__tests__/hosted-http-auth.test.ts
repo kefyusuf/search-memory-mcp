@@ -9,6 +9,7 @@ import { CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { ToolDispatcher } from "../runtime/tool-dispatcher.js";
 import { InMemoryInvocationAdmission } from "../runtime/invocation-admission.js";
 import { assertRequestContext } from "../runtime/request-context.js";
+import { JwtVerificationKeyRing } from "../runtime/jwt-key-ring.js";
 import { createHostedHttpAuthHandler, type HostedHttpAuthOptions } from "../runtime/hosted-http-auth.js";
 
 const issuer = "https://auth.example.com";
@@ -213,5 +214,17 @@ describe("hosted HTTP credential boundary", () => {
     } });
     const result = await send(undefined, { authorization: await bearer(), "x-workspace-id": "workspace-a" });
     expect(result.status).toBe(504); finish(); await done; expect(effects).toBe(0);
+  });
+  it("returns 401 challenges for retired keys and rejects an in-flight retired-key result", async () => {
+    const ring = new JwtVerificationKeyRing("ES256", [{ kid: "key", key: keys.publicKey }]);
+    const resolveMembership = vi.fn(async () => ({ principalId: "alice", tenantId: "tenant-a", workspaceId: "workspace-a", permissions: ["memory:read"] }));
+    const protectedHandler = vi.fn(async (_req, res, context) => { ring.replace([]); assertRequestContext(context); res.end("private"); });
+    const { send } = await setup({ authorization: { issuer, audience: resource, algorithm: "ES256", verificationKey: ring, resolveMembership }, onAuthorized: protectedHandler });
+    const header = "Bearer " + await new SignJWT({ sub: "alice", iss: issuer, aud: resource, exp: Math.floor(Date.now() / 1000) + 120, scope: "memory:read" })
+      .setProtectedHeader({ alg: "ES256", typ: "at+jwt", kid: "key" }).sign(keys.privateKey);
+    const firstResult = await send(undefined, { authorization: header, "x-workspace-id": "workspace-a" });
+    expect(firstResult.status).toBe(401); expect(firstResult.headers["www-authenticate"]).toContain(metadata); expect(firstResult.text).not.toContain("private");
+    const nextResult = await send(undefined, { authorization: header, "x-workspace-id": "workspace-a" });
+    expect(nextResult.status).toBe(401); expect(protectedHandler).toHaveBeenCalledOnce(); expect(resolveMembership).toHaveBeenCalledOnce();
   });
 });
