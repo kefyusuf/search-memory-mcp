@@ -12,9 +12,9 @@ describe("embedding model lifecycle", () => {
   });
   it("shares one pending model load among concurrent calls on the same provider", async () => {
     const load = deferred<typeof model.extract>(); model.load.mockImplementation(() => load.promise);
-    const provider = new TransformersEmbeddingProvider("test-model");
+    const provider = new TransformersEmbeddingProvider("test-model", { maxConcurrentInferences: 2 });
     const a = provider.getEmbedding("Alice"); const b = provider.getEmbedding("Bob");
-    await Promise.resolve();
+    await new Promise<void>(resolve => setImmediate(resolve));
     expect(model.load).toHaveBeenCalledTimes(1);
     load.resolve(model.extract); expect(await Promise.all([a, b])).toEqual([[0.25, 0.75], [0.25, 0.75]]);
     expect(model.extract.mock.calls.map(call => call[0])).toEqual(["Alice", "Bob"]);
@@ -22,8 +22,8 @@ describe("embedding model lifecycle", () => {
   });
   it("shares one failed load and keeps the existing no-retry fallback", async () => {
     const load = deferred<typeof model.extract>(); model.load.mockImplementation(() => load.promise);
-    const provider = new TransformersEmbeddingProvider();
-    const a = provider.getEmbedding("Alice"); const b = provider.getEmbedding("Bob"); await Promise.resolve();
+    const provider = new TransformersEmbeddingProvider(undefined, { maxConcurrentInferences: 2 });
+    const a = provider.getEmbedding("Alice"); const b = provider.getEmbedding("Bob"); await new Promise<void>(resolve => setImmediate(resolve));
     expect(model.load).toHaveBeenCalledTimes(1);
     load.reject(new Error("model unavailable"));
     expect(await Promise.all([a, b])).toEqual([[], []]); expect(provider.isAvailable()).toBe(false);

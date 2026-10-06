@@ -89,6 +89,8 @@ P0-04 knowledge queue update (2026-10-04): active plus pending embedding chunks 
 
 P0-04/P1-05 model update (2026-10-04): concurrent initialization now shares one pending loader per embedding provider, including failure. KnowledgeIndex reuses one lazy provider across document jobs and default vector queries instead of creating one for each operation. FTS-only/custom query paths bypass initialization; distinct index/provider instances remain independent. Load failure remains sticky for the retained provider; inference errors do not force model reload. Process-wide sharing, inference budgets, deliberate retry/readiness/disposal and real cold/warm memory/latency evidence remain pending. Built-in handlers remain local-only.
 
+P0-04 inference update (2026-10-04): each embedding provider now bounds active calls (default 1) and FIFO waiters (default 32), including model-load waits. Overflow rejects before additional model work; admitted calls release/transfer slots on settlement and queued inputs are truncated to the existing 512-character limit. Configuration supports explicit parallel capacity and zero waiters. SemanticCache propagates typed overload. Cross-provider/process budgets, tenant fairness, cancellation/deadlines, deliberate large-batch policy, model disposal and real-model resource measurements remain pending. Built-in handlers remain local-only.
+
 ## 4. P1 — Ölçülebilir arama kalitesi ve ürün sözleşmesi
 
 P0 bulguları çözülmeden yeni kapsam büyütülmemeli. Sorumlu roller: retrieval geliştiricisi + değerlendirme sorumlusu.
