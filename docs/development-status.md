@@ -12,7 +12,8 @@ Updated: 2026-10-02.
 - Cache filters now isolate exact domain/date constraints and reapply them before output/deep fetching; namespace filtering precedes vector-store limits, and expired candidates do not hide later valid hits.
 - Tool routing now passes through a transport-independent dispatcher with per-tool permissions and execution modes. The stdio adapter issues an immutable local request context, using the SDK request id and cancellation signal.
 - Hosted context creation consumes trusted auth-adapter and membership-resolver outputs, intersects scopes with membership grants, and rejects missing/expired/wrong-audience authorization, forged contexts, expired deadlines and pre-cancelled requests. It does not verify token signatures or implement HTTP/OAuth.
-- All 11 built-in handlers remain local-only: hosted dispatch is rejected before handler execution. Tenant-scoped storage, HTTP authentication, and cancellation during provider/fetch/model work remain pending.
+- Session memory supports a trusted request context and filters every data operation by execution mode, tenant and workspace. Permission checks apply at the storage boundary; capacity eviction is workspace-local. The additive SQLite migration keeps legacy rows in the local scope. Context omission retains the legacy local adapter only.
+- All 11 built-in handlers remain local-only: hosted dispatch is rejected before handler execution. Knowledge/graph/cache isolation, hosted storage and quotas, HTTP authentication, and cancellation during provider/fetch/model work remain pending.
 
 ## Development environment
 

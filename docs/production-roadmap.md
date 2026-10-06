@@ -57,6 +57,8 @@ Kod incelemesinden çıkarılan öncelikli riskler:
 
 2026-10-02 uygulama durumu: P0-00 için transporttan bağımsız tool dispatcher ve sunucu tarafından oluşturulan değiştirilemez request context eklendi. Scope/üyelik izin kesişimi, audience/expiry, context kaynağı, execution mode, deadline ve önceden iptal edilmiş istek kontrol ediliyor. Stdio bu akışı kullanıyor. Token imzası/issuer doğrulaması, HTTP/OAuth, tenant storage ve çalışan işlere cancellation yayılımı tamamlanmadı. Mevcut 11 handler yalnızca local modda açılıyor; bu nedenle hosted çağrı bu aşamada işlem başlamadan reddediliyor. P0-00 ve P0-00b tamamlanmış sayılmıyor.
 
+P0-00b ilk depolama dilimi: SQLite session memory için execution mode + tenant + workspace sınırı, depoda read/write izin kontrolü ve workspace bazlı kapasite temizliği uygulandı. Eski notlar transaction içindeki eklemeli migration ile local alanda kalıyor; eşleşen id/session/topic diğer tenant verisine erişim vermiyor. Hosted araçlar hâlâ kapalı. Knowledge/graph/private cache izolasyonu, hosted DB adapter/migration, kotalar ve backup/restore tamamlanmadan public pilot kapısı açılmıyor. Sahiplik kolonlarını yok sayan eski sürüme aynı DB üzerinde rollback güvenli değil; scoped query sınırını koruyan sürüm veya ayrı local restore gerekiyor.
+
 Bu faz hosted davetli pilotun ön koşuludur. Sorumlu roller: backend, auth/security, platform; doğrulama rolü: test ve release sorumlusu. Efor etiketi göreli büyüklüktür, teslim tarihi değildir.
 
 | İş | Kapsam | Kabul kanıtı | Efor |

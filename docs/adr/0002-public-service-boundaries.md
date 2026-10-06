@@ -1,7 +1,7 @@
 # ADR-0002: Public multi-user service boundaries
 
 Date: 2026-10-02
-Status: Accepted design; context and dispatcher foundation implemented; hosted adapters pending
+Status: Accepted design; context, dispatcher and scoped SQLite memory implemented; hosted adapters pending
 
 ## Context
 
@@ -21,7 +21,11 @@ Target MCP protocol/client support must be explicit. The installed v1 SDK suppor
 
 ## Required acceptance scenarios for the next implementation slice
 
-Implemented foundation: a server-issued immutable context and transport-independent dispatcher check permissions, provenance, auth expiry, execution mode, deadline and cancellation before executing a handler. The stdio adapter uses this path. All existing handlers explicitly allow only local mode because their stores and budgets remain process-local. The hosted context factory accepts already-verified authorization and trusted membership outputs; token signature/issuer verification and HTTP/OAuth integration are still required. Preflight cancellation is implemented; cancellation during running work and tenant-safe storage are not.
+Implemented foundation: a server-issued immutable context and transport-independent dispatcher check permissions, provenance, auth expiry, execution mode, deadline and cancellation before executing a handler. The stdio adapter uses this path. All existing handlers explicitly allow only local mode because hosted storage and budgets remain incomplete. The hosted context factory accepts already-verified authorization and trusted membership outputs; token signature/issuer verification and HTTP/OAuth integration are still required. Preflight cancellation is implemented; cancellation during running work is not.
+
+SQLite session memory now accepts a trusted context, rechecks its validity and read/write permissions on every operation, and filters get/list/search/delete/clear/stats/eviction by execution mode, tenant and workspace. Legacy callers without a context use the local scope; adapters for hosted requests must always provide one. Matching session labels or workspace names in different tenants cannot cross this boundary. This is an isolation reference implementation, not a hosted database selection or proof of multi-replica durability. Knowledge, graph, caches, browser resources and quotas still require their own boundaries.
+
+The additive migration assigns legacy rows to the local/local/local scope and creates a scope index in one transaction; writes and scoped eviction are also transactional. Once hosted rows exist, running an older binary against that database is unsafe because old queries ignore ownership columns. Any rollback must preserve scoped-query enforcement, or restore a pre-migration local-only backup into a separate local database. Production backup/restore, journal policy and migration operations remain release gates.
 
 - Missing, expired, wrong-audience and insufficient-permission credentials cannot call protected tools.
 - A principal without workspace membership cannot read/write that workspace.
