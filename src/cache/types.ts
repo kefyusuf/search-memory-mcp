@@ -39,7 +39,7 @@ export interface VectorMatch {
 
 export interface IVectorStore {
   add(id: string, vector: number[], metadata: CacheMetadata): Promise<void>;
-  search(vector: number[], limit: number): Promise<VectorMatch[]>;
+  search(vector: number[], limit: number, namespace?: string): Promise<VectorMatch[]>;
   clear(): Promise<void>;
   getStats(): { contentCount: number; vectorCount: number };
   close(): void;

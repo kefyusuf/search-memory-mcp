@@ -36,4 +36,12 @@ describe("SQLiteVectorStore", () => {
     const entry = await store!.getContent("https://nonexistent.com");
     expect(entry).toBeNull();
   });
+
+  it("filters namespaces before applying the nearest-neighbor limit", async () => {
+    const vector = [1, ...new Array(383).fill(0)];
+    for (let i = 0; i < 6; i++) {
+      await store!.add(`id-${i}`, vector, { query: `q${i}`, results: [], timestamp: Date.now(), namespace: i === 5 ? "aggregate" : "fallback" });
+    }
+    expect((await store!.search(vector, 1, "aggregate")).map((hit) => hit.id)).toEqual(["id-5"]);
+  });
 });

@@ -4,6 +4,8 @@ Date: 2026-08-24
 Status: Design approved in chat; written spec pending review
 Branch: `design/v1.2-intent-aware-search-routing`
 
+> Historical design: routing shipped in commit `f2b0979`. Later work added plan-aware caching, so the cache exclusions below describe the original release scope. See [current development status](../../development-status.md).
+
 ## 1. Objective
 
 Add an opt-in `strategy=auto` mode that classifies search intent, selects an intent-specific subset/order of the already configured search providers, and then delegates execution to the existing `fallback` or `aggregate` engines.

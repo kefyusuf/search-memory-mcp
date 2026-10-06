@@ -39,7 +39,8 @@ import { ContentFetcher } from "./fetch-module.js";
 import { KnowledgeIndex, type KnowledgeChunkHit } from "./knowledge/index-store.js";
 import { SessionMemory } from "./memory/session-memory.js";
 import { SearchTrace, formatTraceSummary } from "./observability/search-trace.js";
-import { rewriteQuery } from "./search/query-rewrite.js";
+import { expandQuery, rewriteQuery } from "./search/query-rewrite.js";
+import { fuseQueryResults } from "./search/multi-query.js";
 import {
   buildAnswerJson,
   buildIndexHitJson,
@@ -52,7 +53,8 @@ import { EntityGraph } from "./graph/entity-graph.js";
 // --- Types & Schemas ---
 
 export const SearchSchema = z.object({
-  query: z.string().min(1).describe("The search query to perform"),
+  query: z.string().min(1).refine((query) => query.trim().length > 0, "Query must not be blank").describe("The search query to perform"),
+  expand_query: z.boolean().optional().describe("If true, search the original query plus up to two rewritten variants and fuse results. Default false; increases provider requests."),
   deep: z.boolean().optional().describe("If true, fetch the top result pages and extract a direct answer. If false (default), return a ranked list of results quickly without page fetching."),
   max_results: z.number().int().min(1).max(10).optional().describe("Maximum number of results to return (1-10, default 5)."),
   domain: z.string().min(1).optional().describe("Optional domain filter, for example react.dev or github.com."),
@@ -266,6 +268,7 @@ export class WebSearchServer {
             type: "object",
             properties: {
               query: { type: "string", description: "The search query" },
+              expand_query: { type: "boolean", description: "Search up to two extra query variants and fuse results (default: false; increases provider requests)" },
               deep: { type: "boolean", description: "Fetch pages and extract answer (default: false)" },
               max_results: { type: "number", description: "Number of results to return, 1-10 (default: 5)" },
               domain: { type: "string", description: "Optional domain filter, for example react.dev or github.com" },
@@ -474,10 +477,9 @@ export class WebSearchServer {
       };
     }
 
-    const { query, deep = false, max_results = 5, domain, from_date, to_date, format = "text", strategy = "fallback" } = SearchSchema.parse(args);
+    const { query, expand_query = false, deep = false, max_results = 5, domain, from_date, to_date, format = "text", strategy = "fallback" } = SearchSchema.parse(args);
     const outputFormat: OutputFormat = format;
     const normalizedDomain = normalizeDomainFilter(domain);
-    const providerQuery = normalizedDomain ? `${query} site:${normalizedDomain}` : query;
     const cacheKey = normalizedDomain ? `${query} domain:${normalizedDomain}` : query;
     const detectedLanguage = this.crossLingual
       ? await this.crossLingual.detectLanguage(query).catch(() => null)
@@ -502,9 +504,22 @@ export class WebSearchServer {
       );
     }
 
-    const cacheNamespace = searchPlan
+    const baseCacheNamespace = searchPlan
       ? `auto:${searchPlan.profileVersion}:${searchPlan.intent}:${searchPlan.primaryProviderNames.join(",")}`
       : strategy;
+    const executionNamespace = expand_query ? `${baseCacheNamespace}:expand:v1` : baseCacheNamespace;
+    // Filters are exact cache constraints, not semantic similarity signals.
+    const cacheNamespace = normalizedDomain || from_date || to_date
+      ? `${executionNamespace}:filters:v1:${JSON.stringify([normalizedDomain ?? "", from_date ?? "", to_date ?? ""])}`
+      : executionNamespace;
+    const applyFilters = (candidates: SearchResultItem[]) => filterResultsByDate(
+      filterSearchResultsByDomain(candidates, normalizedDomain),
+      from_date || to_date ? { from: from_date, to: to_date } : undefined,
+      { keepUndated: true },
+    );
+    const queries = expand_query
+      ? expandQuery(query, { maxVariants: 2, context: { intent: searchPlan?.intent } })
+      : [query];
 
     const trace = new SearchTrace(query);
     trace.setMeta({
@@ -513,13 +528,16 @@ export class WebSearchServer {
       max_results,
       deep,
       cache_namespace: cacheNamespace,
+      expand_query,
+      query_variants: queries.length,
     });
     if (searchPlan) {
       trace.setMeta({ intent: searchPlan.intent, plan: searchPlan.strategy });
     }
 
     trace.startStage("cache.lookup");
-    const cached = await this.cache.get(cacheKey, cacheNamespace);
+    const cacheCandidates = await this.cache.get(cacheKey, cacheNamespace);
+    const cached = cacheCandidates === null ? null : applyFilters(cacheCandidates);
 
     if (cached !== null && cached.length > 0) {
       trace.endStage("cache.lookup", { status: "ok", resultCount: cached.length });
@@ -546,33 +564,31 @@ export class WebSearchServer {
     trace.endStage("cache.lookup", { status: "empty", error: "miss" });
     trace.setMeta({ cache: "miss" });
 
-    let rawResults: SearchResultItem[];
+    const resultSets: SearchResultItem[][] = [];
     trace.startStage("providers");
-    if (searchPlan) {
-      rawResults = await executeSearchPlan({
-        providers: this.providers,
-        query: providerQuery,
-        locale: queryLocale,
-        plan: searchPlan,
-        healthTracker: this.healthTracker,
-      });
-    } else {
-      rawResults = await this.executeProviderSearch(
-        providerQuery,
-        queryLocale,
-        strategy === "aggregate" ? "aggregate" : "fallback",
-      );
+    for (const variant of queries) {
+      const providerQuery = normalizedDomain ? `${variant} site:${normalizedDomain}` : variant;
+      resultSets.push(searchPlan
+        ? await executeSearchPlan({
+            providers: this.providers,
+            query: providerQuery,
+            locale: queryLocale,
+            plan: searchPlan,
+            healthTracker: this.healthTracker,
+          })
+        : await this.executeProviderSearch(
+            providerQuery,
+            queryLocale,
+            strategy === "aggregate" ? "aggregate" : "fallback",
+          ));
     }
+    const rawResults = resultSets.length > 1 ? fuseQueryResults(resultSets) : resultSets[0];
     trace.endStage("providers", {
       status: rawResults.length > 0 ? "ok" : "empty",
       resultCount: rawResults.length,
     });
 
-    const results = filterResultsByDate(
-      filterSearchResultsByDomain(rawResults, normalizedDomain),
-      from_date || to_date ? { from: from_date, to: to_date } : undefined,
-      { keepUndated: true },
-    );
+    const results = applyFilters(rawResults);
 
     if (results.length === 0) {
       trace.endStage("filters", { status: "empty", resultCount: 0 });
@@ -586,7 +602,8 @@ export class WebSearchServer {
     }
 
     trace.endStage("filters", { status: "ok", resultCount: results.length });
-    await this.cache.set(cacheKey, results, cacheNamespace);
+    // Preserve provider candidates; reapply filters on every hit before output/fetch.
+    await this.cache.set(cacheKey, rawResults, cacheNamespace);
 
     if (!deep) {
       const ranked = this.reranker

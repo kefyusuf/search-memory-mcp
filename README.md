@@ -11,7 +11,7 @@ Offline-first MCP server for web search, content fetching, and a local knowledge
 - Federated search across providers with URL normalization, cross-provider deduplication, and Reciprocal Rank Fusion (RRF).
 - Opt-in intent-aware search routing (`strategy=auto`) with heuristics, local classifier fallback, and versioned provider profiles.
 - Domain filter (`domain`) and date-range filter (`from_date` / `to_date`).
-- Query rewrite and multi-query expansion (abbreviation expansion, question normalization, news year bias).
+- Query rewrite for local-index searches and opt-in web multi-query expansion (`expand_query=true`): abbreviation expansion, question normalization, and news year bias.
 - Optional cross-encoder reranking (`ENABLE_RERANKER`).
 - Deep-search answers with paragraph/sentence term scoring, stopword filtering, and per-source citations.
 - Structured JSON output (`format: "json"`) for machine-readable search results and answers.
@@ -39,6 +39,7 @@ Offline-first MCP server for web search, content fetching, and a local knowledge
 ## Requirements
 
 - Node.js 20.9.0 or newer.
+- Node.js 24 is the development baseline (`.nvmrc`); CI uses the same version. After switching Node versions, reinstall dependencies so native modules such as `better-sqlite3` match the active runtime.
 - npm.
 - Network access during installation for npm packages, Playwright Chromium, and first-run model downloads.
 
@@ -118,6 +119,8 @@ For package-runner based clients, the command can be `npx` with `args` set to `[
 
 Semantic query cache keys are namespaced by execution strategy (and by plan fingerprint for `auto`), so a cached `fallback` result is never reused for `aggregate` or a different auto plan. Deep-search page content continues to use the normal content cache.
 
+Domain and date bounds are exact cache constraints, isolated from semantic query similarity. Provider candidates are cached and the requested domain/date filters are reapplied on every hit, including before deep page fetching. A cache entry with no eligible candidates triggers provider execution. Namespace filtering happens before the vector-store result limit so unrelated strategies cannot crowd out eligible entries.
+
 `SEARCH_PROVIDERS` is an **allowlist** as well as the configured provider set. Auto routing never activates a provider omitted from `SEARCH_PROVIDERS`; the routing profile only changes ordering and how many configured providers are selected as primary candidates.
 
 For aggregate auto profiles, secondary configured providers are contacted only if **all** selected primary providers return no usable result. A partial primary success is accepted instead of widening the request just to increase result count. This limits scraping load and reduces unnecessary blocking/CAPTCHA exposure.
@@ -173,6 +176,19 @@ Search snippets with old detected dates include a short freshness warning so cli
   "max_results": 5
 }
 ```
+
+### Example: multi-query search
+
+```json
+{
+  "query": "how to configure db backup",
+  "strategy": "auto",
+  "expand_query": true,
+  "max_results": 5
+}
+```
+
+`expand_query` defaults to `false`. When enabled, the server searches the original query plus up to two variants, then deduplicates URLs and combines query rankings with RRF before reranking. This can make up to three times as many provider requests. The original query determines intent and locale; every variant keeps the domain restriction and uses the same provider plan. Date filters apply to the combined results. Expanded searches use a separate cache namespace, and cache hits skip all provider requests.
 
 ### Example: structured JSON output
 
@@ -238,6 +254,8 @@ Docker Compose stores the SQLite cache in a named volume mounted at `/app/data` 
 
 ## Development
 
+See the [production roadmap](docs/production-roadmap.md) and [sector comparison](docs/research/2026-10-02-production-benchmark.md) for release scope, production gaps, and measurable launch gates.
+
 ```bash
 npm run build
 npm run typecheck
@@ -250,13 +268,14 @@ npm pack --dry-run --json
 
 `npm run smoke:mcp` starts the compiled server over stdio, verifies the `web_search` strategy values (`fallback`, `aggregate`, `auto`), checks the knowledge/memory tools, confirms routing diagnostics from `server_status`, and confirms that `fetch_content` blocks localhost. It does not perform a live provider search, keeping CI independent of search-engine HTML/network availability.
 
-`npm run eval:retrieval` runs offline retrieval metrics (recall@k, precision@k, MRR) over the knowledge index using fixtures in `evals/retrieval/cases.jsonl`.
+`npm run eval:retrieval` runs an offline FTS-only retrieval baseline (recall@k, precision@k, MRR) over the knowledge index using fixtures in `evals/retrieval/cases.jsonl`. Embeddings are disabled for both ingestion and search, so the evaluation does not load or download models. It does not measure semantic/hybrid retrieval quality.
 
 Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl` and are exercised by the normal Vitest suite. They validate intent coverage, conservative heuristic behavior, ambiguity defer cases, and provider-allowlist enforcement without loading the real classifier or contacting providers.
 
 ## Troubleshooting
 
 - If startup fails after install, run `npx playwright install chromium`.
+- If `better-sqlite3` reports `NODE_MODULE_VERSION` mismatch, switch to the Node version in `.nvmrc` and run `npm ci` using that runtime before building again.
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.
 - If search returns no results, change `SEARCH_PROVIDERS` order/set or try a direct `fetch_content` URL.
 - If aggregate mode is too slow or triggers provider blocking, use the default `fallback` strategy.

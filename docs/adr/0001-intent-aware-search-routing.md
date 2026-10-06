@@ -3,6 +3,8 @@
 Date: 2026-08-24
 Status: Accepted
 
+Implementation update (2026-10-02): auto routing shipped in `f2b0979`; `1a54286` subsequently added plan-aware semantic cache namespaces. The cache bypass described below is historical. See [current development status](../development-status.md).
+
 ## Context
 
 The server currently supports explicit ordered fallback and federated aggregate search. Provider choice is configuration-driven but not query-intent-aware. A simplistic global provider order is insufficient because technical, news, shopping, local, company, and navigational searches benefit from different provider preferences and different execution breadth.

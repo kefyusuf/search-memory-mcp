@@ -93,7 +93,7 @@ export class SQLiteVectorStore implements IVectorStore {
     }
   }
 
-  async search(vector: number[], limit: number): Promise<VectorMatch[]> {
+  async search(vector: number[], limit: number, namespace?: string): Promise<VectorMatch[]> {
     if (this.isVecEnabled) {
       // SQLite-vec KNN search
       const rows = this.db.prepare(`
@@ -103,9 +103,10 @@ export class SQLiteVectorStore implements IVectorStore {
           m.metadata
         FROM semantic_cache_vec v
         JOIN semantic_cache_metadata m ON v.id = m.id
+        WHERE (? IS NULL OR COALESCE(json_extract(m.metadata, '$.namespace'), 'fallback') = ?)
         ORDER BY distance ASC
         LIMIT ?
-      `).all(new Float32Array(vector), limit) as any[];
+      `).all(new Float32Array(vector), namespace ?? null, namespace ?? null, limit) as any[];
 
       return rows.map(row => ({
         id: row.id,
@@ -127,6 +128,7 @@ export class SQLiteVectorStore implements IVectorStore {
       });
 
       return results
+        .filter((result) => namespace === undefined || (result.metadata.namespace ?? "fallback") === namespace)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
     }

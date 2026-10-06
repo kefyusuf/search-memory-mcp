@@ -27,6 +27,22 @@ describe("SemanticCache", () => {
     store = new InMemoryVectorStore();
   });
 
+  it("finds an eligible namespace even when five closer entries use other namespaces", async () => {
+    cache = new SemanticCache(createMockEmbedding({}), store);
+    for (let i = 0; i < 6; i++) {
+      await cache.set(`query ${i}`, [{ title: `Result ${i}`, url: `https://example.com/${i}`, snippet: "s", source: "test" }], `namespace-${i}`);
+    }
+    expect((await cache.get("query", "namespace-5"))?.[0].title).toBe("Result 5");
+  });
+
+  it("skips expired candidates and still uses a later valid hit", async () => {
+    cache = new SemanticCache(createMockEmbedding({}), store);
+    const vector = new Array(384).fill(0.01);
+    await store.add("expired", vector, { query: "q", timestamp: Date.now() - 7_200_000, results: [{ title: "Expired", url: "https://example.com/old", snippet: "s", source: "test" }] });
+    await cache.set("fresh", [{ title: "Fresh", url: "https://example.com/new", snippet: "s", source: "test" }]);
+    expect((await cache.get("q", "fallback"))?.[0].title).toBe("Fresh");
+  });
+
   it("should return cached results for semantically similar query", async () => {
     const mockEmbed = createMockEmbedding({
       "weather london":  makeVec([1, 0]),

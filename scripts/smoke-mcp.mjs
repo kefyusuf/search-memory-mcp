@@ -85,6 +85,9 @@ try {
   assertIncludes(toolNames, "server_status", "tools/list");
 
   const webSearchTool = tools.result.tools.find((tool) => tool.name === "web_search");
+  if (webSearchTool?.inputSchema?.properties?.expand_query?.type !== "boolean") {
+    fail("web_search did not expose the expand_query boolean option.");
+  }
   const strategyEnum = webSearchTool?.inputSchema?.properties?.strategy?.enum ?? [];
   for (const strategy of ["fallback", "aggregate", "auto"]) {
     assertIncludes(strategyEnum, strategy, "web_search strategy enum");

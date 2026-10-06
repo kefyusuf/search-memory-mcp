@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { promises as dns } from "node:dns";
 import { isPrivateIP, isPrivateHost, validatePublicHttpUrl } from "../ssrf.js";
+
+beforeEach(() => {
+  vi.spyOn(dns, "resolve4").mockResolvedValue(["93.184.216.34"] as never);
+  vi.spyOn(dns, "resolve6").mockResolvedValue([] as never);
+});
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("isPrivateIP", () => {
   it("should block loopback (127.x.x.x)", () => {
@@ -65,6 +73,16 @@ describe("isPrivateIP", () => {
 });
 
 describe("isPrivateHost", () => {
+  it("blocks a hostname when any IPv4 answer is private", async () => {
+    vi.mocked(dns.resolve4).mockResolvedValue(["93.184.216.34", "10.0.0.1"] as never);
+    expect(await isPrivateHost("mixed.example")).toBe(true);
+  });
+
+  it("blocks a hostname resolving to a private IPv6 address", async () => {
+    vi.mocked(dns.resolve6).mockResolvedValue(["fd00::1"] as never);
+    expect(await isPrivateHost("private.example")).toBe(true);
+  });
+
   it("should block localhost string", async () => {
     expect(await isPrivateHost("localhost")).toBe(true);
     expect(await isPrivateHost("localhost6")).toBe(true);

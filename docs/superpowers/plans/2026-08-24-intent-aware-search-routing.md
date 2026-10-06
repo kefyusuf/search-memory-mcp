@@ -1,5 +1,7 @@
 # v1.2 Intent-Aware Search Routing Implementation Plan
 
+Historical plan: routing shipped in commit `f2b0979`. The unchecked steps below are the original implementation instructions, not the current backlog. Later work added plan-aware caching and other features; see [current development status](../../development-status.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add opt-in `strategy=auto` routing that detects query intent, builds a deterministic provider plan from configured providers, delegates to existing fallback/aggregate execution, fixes Turkish locale inference, and preserves all v1.1 explicit-strategy behavior.

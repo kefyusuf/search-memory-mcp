@@ -43,11 +43,11 @@ export class KnowledgeIndex {
   private closed = false;
   private pendingEmbeddings: Promise<void> = Promise.resolve();
 
-  constructor(dbPath: string = "websearch_cache.db") {
+  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean } = {}) {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = MEMORY");
     this.db.pragma("temp_store = MEMORY");
-    this.tryEnableVec();
+    if (options.enableEmbeddings !== false) this.tryEnableVec();
     this.init();
   }
 

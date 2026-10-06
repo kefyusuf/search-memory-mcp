@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { promises as dns } from "node:dns";
 import type { BrowserContext } from "playwright";
 import { ContentFetcher } from "../fetch-module.js";
 import { SemanticCache } from "../cache/semantic-cache.js";
@@ -38,6 +39,12 @@ function createFetcher(overrides?: {
 
 describe("ContentFetcher", () => {
   const originalForcePlaywright = process.env.FORCE_PLAYWRIGHT;
+
+  beforeEach(() => {
+    // HTTP is mocked below; DNS must also be offline while URL safety stays real.
+    vi.spyOn(dns, "resolve4").mockResolvedValue(["93.184.216.34"] as never);
+    vi.spyOn(dns, "resolve6").mockResolvedValue([] as never);
+  });
 
   afterEach(() => {
     if (originalForcePlaywright === undefined) {

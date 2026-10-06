@@ -41,6 +41,16 @@ describe("KnowledgeIndex", () => {
     index?.close();
   });
 
+  it("supports offline FTS-only indexing without loading embedding models", async () => {
+    index = new KnowledgeIndex(":memory:", { enableEmbeddings: false });
+    index.ingest({ source: "offline-guide", content: "PgBouncer connection pooling guide." });
+    await index.flush();
+    const hits = await index.search("connection pooling");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ source: "offline-guide", matchedBy: "fts" });
+    expect(index.getStats().vectorCount).toBe(0);
+  });
+
   it("ingests a document into FTS-searchable chunks", async () => {
     index = new KnowledgeIndex(":memory:");
 

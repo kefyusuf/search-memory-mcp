@@ -54,7 +54,7 @@ export class SemanticCache {
       const vector = await this.getQueryVector(query);
       if (!vector) return null;
 
-      const matches = await this.vectorStore.search(vector, 5);
+      const matches = await this.vectorStore.search(vector, 5, namespace);
 
       for (const match of matches) {
         if (match.score < this.threshold) continue;
@@ -65,7 +65,7 @@ export class SemanticCache {
         const age = Date.now() - match.metadata.timestamp;
         if (age > 60 * 60 * 1000) {
           console.error(`Cache expired (age: ${Math.round(age / 1000 / 60)}m)`);
-          return null;
+          continue;
         }
         console.error(`Cache Hit! Similarity: ${match.score.toFixed(4)} namespace: ${matchNamespace}`);
         return match.metadata.results;

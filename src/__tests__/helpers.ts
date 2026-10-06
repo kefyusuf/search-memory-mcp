@@ -9,10 +9,11 @@ export class InMemoryVectorStore implements IVectorStore {
     this.store.set(id, { vector, metadata });
   }
 
-  async search(vector: number[], limit: number): Promise<VectorMatch[]> {
+  async search(vector: number[], limit: number, namespace?: string): Promise<VectorMatch[]> {
     const results: VectorMatch[] = [];
 
     for (const [id, entry] of this.store.entries()) {
+      if (namespace !== undefined && (entry.metadata.namespace ?? "fallback") !== namespace) continue;
       const score = cosineSimilarity(vector, entry.vector);
       results.push({ id, score, metadata: entry.metadata });
     }

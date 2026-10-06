@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Offline retrieval eval over KnowledgeIndex hybrid search.
+ * Offline FTS-only baseline over KnowledgeIndex (no model loading/downloads).
  * Usage: node scripts/eval-retrieval.mjs [path/to/cases.jsonl]
  */
 import { createInterface } from "node:readline";
@@ -27,7 +27,7 @@ for await (const line of lines) {
   const trimmed = line.trim();
   if (!trimmed) continue;
   const row = JSON.parse(trimmed);
-  const index = new KnowledgeIndex(":memory:");
+  const index = new KnowledgeIndex(":memory:", { enableEmbeddings: false });
   for (const doc of row.docs ?? []) {
     index.ingest({
       title: doc.title,
@@ -37,7 +37,7 @@ for await (const line of lines) {
     });
   }
 
-  const hits = await index.search(row.query, 5, { embed: async () => [] });
+  const hits = await index.search(row.query, 5);
   evalCases.push({
     query: row.query,
     retrievedIds: hits.map((hit) => hit.source),
