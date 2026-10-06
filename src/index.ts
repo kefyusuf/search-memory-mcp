@@ -49,6 +49,8 @@ import {
   type OutputFormat,
 } from "./format/structured-output.js";
 import { EntityGraph } from "./graph/entity-graph.js";
+import { createLocalRequestContext, InvocationError } from "./runtime/request-context.js";
+import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
 
 // --- Types & Schemas ---
 
@@ -128,6 +130,7 @@ function getEnvBool(key: string, defaultVal: boolean): boolean {
 
 export class WebSearchServer {
   private server: Server;
+  private dispatcher: ToolDispatcher<Awaited<ReturnType<WebSearchServer["handleSearch"]>>>;
   private browser: Browser | null = null;
   private browserContext: BrowserContext | null = null;
   private cache: SemanticCache;
@@ -207,6 +210,21 @@ export class WebSearchServer {
     });
 
     this.setupProviders();
+    // These stores and resource limits are process-local. Hosted execution stays
+    // closed until each handler has tenant-scoped dependencies.
+    this.dispatcher = new ToolDispatcher({
+      web_search: { permission: "search:read", modes: ["local"], handler: (args) => this.handleSearch(args) },
+      fetch_content: { permission: "content:read", modes: ["local"], handler: (args) => this.handleFetch(args) },
+      server_status: { permission: "status:read", modes: ["local"], handler: () => this.handleStatus() },
+      ingest_document: { permission: "knowledge:write", modes: ["local"], handler: (args) => this.handleIngestDocument(args) },
+      index_url: { permission: "knowledge:write", modes: ["local"], handler: (args) => this.handleIndexUrl(args) },
+      search_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => this.handleSearchIndex(args) },
+      list_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => this.handleListIndex(args) },
+      remember: { permission: "memory:write", modes: ["local"], handler: (args) => this.handleRemember(args) },
+      recall: { permission: "memory:read", modes: ["local"], handler: (args) => this.handleRecall(args) },
+      forget: { permission: "memory:write", modes: ["local"], handler: (args) => this.handleForget(args) },
+      find_related: { permission: "knowledge:read", modes: ["local"], handler: (args) => this.handleFindRelated(args) },
+    });
     this.setupTools();
     this.setupShutdownHandlers();
   }
@@ -411,51 +429,11 @@ export class WebSearchServer {
       ],
     }));
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const { name, arguments: args } = request.params;
-
-      try {
-        if (name === "web_search") {
-          return await this.handleSearch(args);
-        } else if (name === "fetch_content") {
-          return await this.handleFetch(args);
-        } else if (name === "server_status") {
-          return await this.handleStatus();
-        } else if (name === "ingest_document") {
-          return await this.handleIngestDocument(args);
-        } else if (name === "index_url") {
-          return await this.handleIndexUrl(args);
-        } else if (name === "search_index") {
-          return await this.handleSearchIndex(args);
-        } else if (name === "list_index") {
-          return await this.handleListIndex(args);
-        } else if (name === "remember") {
-          return await this.handleRemember(args);
-        } else if (name === "recall") {
-          return await this.handleRecall(args);
-        } else if (name === "forget") {
-          return await this.handleForget(args);
-        } else if (name === "find_related") {
-          return await this.handleFindRelated(args);
-        } else {
-          return {
-            content: [{ type: "text", text: `Unknown tool: ${name}` }],
-            isError: true,
-          };
-        }
-      } catch (error: unknown) {
-        if (error instanceof z.ZodError) {
-          return {
-            content: [{ type: "text", text: `Invalid arguments: ${error.issues.map((issue) => issue.message).join("; ")}` }],
-            isError: true,
-          };
-        }
-
-        return {
-          content: [{ type: "text", text: `Internal error: ${error instanceof Error ? error.message : String(error)}` }],
-          isError: true,
-        };
-      }
+      return this.callTool(name, args, createLocalRequestContext({
+        requestId: String(extra.requestId), signal: extra.signal,
+      }));
     });
   }
 
@@ -465,6 +443,22 @@ export class WebSearchServer {
     }
     this.providers = providers;
     this.healthTracker = new ProviderHealthTracker();
+  }
+
+  async callTool(name: string, args: unknown, context: unknown) {
+    try {
+      return await this.dispatcher.call(name, args, context);
+    } catch (error: unknown) {
+      let text: string;
+      if (error instanceof InvocationError) {
+        text = error.code === "unknown_tool" ? `Unknown tool: ${name}` : `Request rejected: ${error.code}`;
+      } else if (error instanceof z.ZodError) {
+        text = `Invalid arguments: ${error.issues.map((issue) => issue.message).join("; ")}`;
+      } else {
+        text = `Internal error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+      return { content: [{ type: "text", text }], isError: true };
+    }
   }
 
   private async handleSearch(args: unknown) {

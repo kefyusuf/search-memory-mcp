@@ -10,6 +10,9 @@ Updated: 2026-10-02.
 - Local FTS5/vector knowledge index, session memory, entity graph, JSON output, search traces, and offline retrieval evaluation.
 - Query rewriting for local-index search. Web multi-query retrieval is available through `expand_query=true`, with at most two additional variants and RRF fusion that retains actual provider provenance.
 - Cache filters now isolate exact domain/date constraints and reapply them before output/deep fetching; namespace filtering precedes vector-store limits, and expired candidates do not hide later valid hits.
+- Tool routing now passes through a transport-independent dispatcher with per-tool permissions and execution modes. The stdio adapter issues an immutable local request context, using the SDK request id and cancellation signal.
+- Hosted context creation consumes trusted auth-adapter and membership-resolver outputs, intersects scopes with membership grants, and rejects missing/expired/wrong-audience authorization, forged contexts, expired deadlines and pre-cancelled requests. It does not verify token signatures or implement HTTP/OAuth.
+- All 11 built-in handlers remain local-only: hosted dispatch is rejected before handler execution. Tenant-scoped storage, HTTP authentication, and cancellation during provider/fetch/model work remain pending.
 
 ## Development environment
 

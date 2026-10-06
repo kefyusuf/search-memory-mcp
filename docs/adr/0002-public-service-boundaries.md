@@ -1,7 +1,7 @@
 # ADR-0002: Public multi-user service boundaries
 
 Date: 2026-10-02
-Status: Accepted design; implementation pending
+Status: Accepted design; context and dispatcher foundation implemented; hosted adapters pending
 
 ## Context
 
@@ -20,6 +20,8 @@ Browser contexts, queued jobs, deduplication keys and quotas must respect the sa
 Target MCP protocol/client support must be explicit. The installed v1 SDK supports the 2025-era protocol; adding the 2026-07-28 revision requires a tested migration and compatibility strategy. This ADR does not claim newer protocol support.
 
 ## Required acceptance scenarios for the next implementation slice
+
+Implemented foundation: a server-issued immutable context and transport-independent dispatcher check permissions, provenance, auth expiry, execution mode, deadline and cancellation before executing a handler. The stdio adapter uses this path. All existing handlers explicitly allow only local mode because their stores and budgets remain process-local. The hosted context factory accepts already-verified authorization and trusted membership outputs; token signature/issuer verification and HTTP/OAuth integration are still required. Preflight cancellation is implemented; cancellation during running work and tenant-safe storage are not.
 
 - Missing, expired, wrong-audience and insufficient-permission credentials cannot call protected tools.
 - A principal without workspace membership cannot read/write that workspace.

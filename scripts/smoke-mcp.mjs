@@ -102,6 +102,21 @@ try {
   const parsedStatus = JSON.parse(statusText);
   assertHasStatusShape(parsedStatus);
 
+  const noteText = "Dispatcher smoke note";
+  const noteSession = `smoke-${process.pid}`;
+  const remembered = await request("tools/call", {
+    name: "remember", arguments: { text: noteText, session: noteSession },
+  });
+  assertNoError(remembered, "remember");
+  if (remembered.result?.isError) fail("remember failed through the stdio dispatcher.");
+  const recalled = await request("tools/call", {
+    name: "recall", arguments: { session: noteSession },
+  });
+  assertNoError(recalled, "recall");
+  if (recalled.result?.isError || !recalled.result?.content?.[0]?.text?.includes(noteText)) {
+    fail("recall did not return the note saved through the stdio dispatcher.");
+  }
+
   const invalidSearch = await request("tools/call", {
     name: "web_search",
     arguments: {
