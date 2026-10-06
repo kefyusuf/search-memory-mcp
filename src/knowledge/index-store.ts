@@ -40,14 +40,20 @@ export class KnowledgeIndex {
   private vecLoaded = false;
   private closed = false;
   private pendingEmbeddings: Promise<void> = Promise.resolve();
+  private pendingEmbeddingChunks = 0;
+  private readonly maxPendingEmbeddingChunks: number;
   private readonly context?: RequestContext;
   private readonly scope: readonly [string, string, string];
   private readonly scopeWhere = "execution_mode = ? AND tenant_id = ? AND workspace_id = ?";
   private readonly docScopeWhere = "d.execution_mode = ? AND d.tenant_id = ? AND d.workspace_id = ?";
 
-  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean; context?: RequestContext } = {}) {
+  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean; context?: RequestContext; maxPendingEmbeddingChunks?: number } = {}) {
     // Omitted context is the legacy local adapter; an invalid supplied context cannot fall back.
     if ("context" in options) assertRequestContext(options.context);
+    this.maxPendingEmbeddingChunks = options.maxPendingEmbeddingChunks ?? 256;
+    if (!Number.isSafeInteger(this.maxPendingEmbeddingChunks) || this.maxPendingEmbeddingChunks <= 0) {
+      throw new InvocationError("invalid_embedding_queue_limit");
+    }
     this.context = options.context;
     this.scope = this.context ? [this.context.mode, this.context.tenantId, this.context.workspaceId] : ["local", "local", "local"];
     this.db = new Database(dbPath);
@@ -149,6 +155,9 @@ export class KnowledgeIndex {
     const title = (input.title || source || "Untitled").trim();
     const category = (input.category || "general").trim();
     const chunks = chunkText(content);
+    if (this.isVecEnabled && chunks.length > this.maxPendingEmbeddingChunks - this.pendingEmbeddingChunks) {
+      throw new InvocationError("embedding_queue_full");
+    }
     const timestamp = Date.now();
     // Opaque global ids keep chunk/vector references unique even for concurrent identical inputs.
     const docId = randomUUID();
@@ -175,9 +184,14 @@ export class KnowledgeIndex {
     });
     run();
 
-    this.pendingEmbeddings = this.pendingEmbeddings
-      .then(() => this.embedChunks(docId, chunks.map((chunk) => ({ id: `${docId}:${chunk.index}`, text: chunk.text }))))
-      .catch(() => undefined);
+    if (this.isVecEnabled && chunks.length > 0) {
+      // Ingest/transaction/reservation are synchronous; failed writes consume no queue capacity.
+      this.pendingEmbeddingChunks += chunks.length;
+      this.pendingEmbeddings = this.pendingEmbeddings
+        .then(() => this.embedChunks(docId, chunks.map((chunk) => ({ id: `${docId}:${chunk.index}`, text: chunk.text }))))
+        .catch(() => undefined)
+        .finally(() => { this.pendingEmbeddingChunks -= chunks.length; });
+    }
 
     return {
       id: docId,
