@@ -9,6 +9,7 @@
   },
   "files": [
     "build/",
+    "migrations/",
     "README.md",
     "LICENSE",
     "SECURITY.md"
@@ -48,6 +49,7 @@
     "test:watch": "vitest --configLoader native --pool forks",
     "test:coverage": "vitest run --configLoader native --pool forks --coverage",
     "smoke:mcp": "node scripts/smoke-mcp.mjs",
+    "test:postgres": "node scripts/verify-membership-postgres.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "prepack": "npm run build",
     "postinstall": "npx playwright install chromium",
@@ -63,6 +65,7 @@
     "jose": "6.2.3",
     "jsdom": "^24.0.0",
     "lru-cache": "^10.4.3",
+    "pg": "8.23.1",
     "playwright": "^1.42.1",
     "sqlite-vec": "^0.1.9",
     "turndown": "^7.1.3",
@@ -76,6 +79,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/jsdom": "^21.1.6",
     "@types/node": "^20.11.24",
+    "@types/pg": "8.23.1",
     "@types/turndown": "^5.0.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",

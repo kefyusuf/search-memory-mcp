@@ -18,12 +18,18 @@ async function token(payload: JWTPayload = {}, key = keys.privateKey, header: Re
 }
 describe("verified hosted JWT authorization", () => {
   afterEach(() => vi.restoreAllMocks());
+  it("supplies only the verified configured issuer to membership lookup", async () => {
+    const { adapter, resolveMembership } = setup(); const input = { ...request(), issuer: "https://attacker.example" };
+    await adapter.authenticate(`Bearer ${await token()}`, input);
+    expect(resolveMembership).toHaveBeenCalledWith("alice", "workspace-a", { ...input, issuer });
+    expect(Object.isFrozen(resolveMembership.mock.calls[0][2])).toBe(true);
+  });
   it("verifies real signatures and uses membership instead of token workspace claims", async () => {
     const { adapter, resolveMembership } = setup(); const input = request();
     const context = await adapter.authenticate(`Bearer ${await token()}`, input);
     assertRequestContext(context);
     expect(context).toMatchObject({ mode: "hosted", principalId: "alice", tenantId: "tenant-a", workspaceId: "workspace-a", permissions: ["memory:read"] });
-    expect(resolveMembership).toHaveBeenCalledWith("alice", "workspace-a", input);
+    expect(resolveMembership).toHaveBeenCalledWith("alice", "workspace-a", { ...input, issuer });
     expect(JSON.stringify(context)).not.toContain("attacker"); expect(Object.isFrozen(context)).toBe(true);
   });
   it.each([

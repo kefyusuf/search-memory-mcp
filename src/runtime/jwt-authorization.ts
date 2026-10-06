@@ -3,9 +3,10 @@ import { assertRequestContext, createHostedRequestContext, InvocationError, type
 import { JwtVerificationKeyRing, type JwtKeyLease, type JwtSignatureAlgorithm } from "./jwt-key-ring.js";
 
 export type AuthenticatedRequestInput = { workspaceId: string; requestId: string; deadlineAt: number; signal: AbortSignal };
+export type MembershipLookupInput = AuthenticatedRequestInput & { issuer: string };
 export type JwtAuthorizationOptions = {
   issuer: string; audience: string; algorithm: JwtSignatureAlgorithm; verificationKey: CryptoKey | JwtVerificationKeyRing;
-  resolveMembership: (subject: string, workspaceId: string, request: AuthenticatedRequestInput) => Promise<WorkspaceMembership | null>;
+  resolveMembership: (subject: string, workspaceId: string, request: MembershipLookupInput) => Promise<WorkspaceMembership | null>;
 };
 export class JwtAuthorizationAdapter {
   private readonly options: Readonly<JwtAuthorizationOptions>;
@@ -47,7 +48,7 @@ export class JwtAuthorizationAdapter {
     } catch { throw new InvocationError("unauthenticated"); }
     assertRequestInput(request);
     let membership: WorkspaceMembership | null;
-    try { membership = await this.options.resolveMembership(authorization.subject, request.workspaceId, request); }
+    try { membership = await this.options.resolveMembership(authorization.subject, request.workspaceId, Object.freeze({ ...request, issuer: this.options.issuer })); }
     catch { assertRequestInput(request); throw new InvocationError("authorization_unavailable"); }
     assertRequestInput(request);
     if (!membership || membership.workspaceId !== request.workspaceId) throw new InvocationError("forbidden");
