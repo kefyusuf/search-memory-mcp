@@ -127,7 +127,14 @@ try {
   if (operatorPool) await operatorPool.end();
   if (auditReader) await auditReader.end();
   if (fixture) await fixture.end();
-  if (createdDatabase) await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);
+  if (createdDatabase) {
+    // Pool bookkeeping can finish before the driver's socket shutdown completes.
+    await until(async () => {
+      const result = await admin.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname=$1", [database]);
+      return result.rows[0].count === 0;
+    }, "Fixture connections did not drain before database deletion");
+    await admin.query(`DROP DATABASE ${database}`);
+  }
   if (createdRole) await admin.query(`DROP ROLE ${role}`);
   if (createdOperator) await admin.query(`DROP ROLE ${operatorRole}`);
   if (createdOwner) await admin.query(`DROP ROLE ${ownerRole}`);

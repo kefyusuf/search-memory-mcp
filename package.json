@@ -50,6 +50,7 @@
     "test:coverage": "vitest run --configLoader native --pool forks --coverage",
     "smoke:mcp": "node scripts/smoke-mcp.mjs",
     "test:postgres": "node scripts/verify-membership-postgres.mjs",
+    "test:postgres:shutdown": "node scripts/verify-membership-shutdown.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "prepack": "npm run build",
     "postinstall": "npx playwright install chromium",
