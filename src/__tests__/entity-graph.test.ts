@@ -33,6 +33,37 @@ describe("extractEntities", () => {
       { name: "PostgreSQL", count: 1 },
     ]);
   });
+
+  it("keeps compound names without emitting their component mentions", () => {
+    expect(extractEntities("React Native integrates with Docker Compose.")).toEqual([
+      { name: "Docker Compose", count: 1 },
+      { name: "React Native", count: 1 },
+    ]);
+  });
+
+  it("retains separate standalone mentions outside compound names", () => {
+    expect(extractEntities("React Native uses React and React.")).toEqual([
+      { name: "React", count: 2 },
+      { name: "React Native", count: 1 },
+    ]);
+  });
+
+  it.each(["PostgreSQL. Redis!", "PostgreSQL\nRedis"])(
+    "retains real names across sentence or line boundaries: %s",
+    (text) => {
+      expect(extractEntities(text)).toEqual(expect.arrayContaining([
+        { name: "PostgreSQL", count: 1 },
+        { name: "Redis", count: 1 },
+      ]));
+    },
+  );
+
+  it("preserves dots inside compound names", () => {
+    expect(extractEntities("Node.js SDK works with Redis.")).toEqual([
+      { name: "Node.js SDK", count: 1 },
+      { name: "Redis", count: 1 },
+    ]);
+  });
 });
 
 describe("EntityGraph", () => {

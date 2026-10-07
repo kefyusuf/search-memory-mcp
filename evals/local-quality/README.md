@@ -38,6 +38,12 @@ These observations identify separate candidates, not an approved combined rewrit
 
 ## Standalone mention correction
 
-The extractor now counts an occurrence only once when both extraction passes return the same name at the same text offset. Distinct mentions and overlapping multi-word/component names remain separate.
+The counting correction counts an occurrence only once when both extraction passes return the same name at the same text offset. At that checkpoint, distinct mentions and overlapping multi-word/component names remained separate.
 
 With the unchanged fixture, incorrect mention counts fell from nine to zero. Entity name precision/recall/F1 and all retrieval results remained identical to the initial observation; this fix does not improve name selection. A failing count regression passed after the change, graph count storage was checked through its public interface, and all 553 tests plus typecheck/build and compiled stdio smoke passed locally. Existing stored counts are not migrated; the correction applies to newly indexed or re-indexed documents.
+
+## Compound component correction
+
+Tokens inside an extracted multi-word phrase on one line are no longer emitted as separate entities. The phrase must not cross a period followed by whitespace; malformed phrases spanning sentence or line boundaries must not suppress genuine names. Separately occurring names remain independent, and internal dots such as `Node.js` are supported. The ordered phrase/token scans remain linear; there is no per-token search across all phrase ranges.
+
+The unchanged fixture's name precision increased from 0.5200 to 0.6190 and F1 from 0.6500 to 0.7222. Recall remained 0.8667, count mismatches stayed zero, and the retrieval report was unchanged. All 558 tests, build/typecheck and compiled stdio smoke passed locally. Generic headings, malformed phrase detection and missing short names are separate unresolved candidates; existing stored entity links require re-indexing to adopt the corrected extractor.
