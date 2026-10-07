@@ -47,3 +47,9 @@ With the unchanged fixture, incorrect mention counts fell from nine to zero. Ent
 Tokens inside an extracted multi-word phrase on one line are no longer emitted as separate entities. The phrase must not cross a period followed by whitespace; malformed phrases spanning sentence or line boundaries must not suppress genuine names. Separately occurring names remain independent, and internal dots such as `Node.js` are supported. The ordered phrase/token scans remain linear; there is no per-token search across all phrase ranges.
 
 The unchanged fixture's name precision increased from 0.5200 to 0.6190 and F1 from 0.6500 to 0.7222. Recall remained 0.8667, count mismatches stayed zero, and the retrieval report was unchanged. All 558 tests, build/typecheck and compiled stdio smoke passed locally. Generic headings, malformed phrase detection and missing short names are separate unresolved candidates; existing stored entity links require re-indexing to adopt the corrected extractor.
+
+## Phrase boundary correction
+
+Phrase extraction now joins capitalized words only across spaces/tabs and stops joining after a terminal period. Newlines cannot merge adjacent headings or names into a synthetic phrase. Internal dots, such as `Node.js SDK`, remain valid. This is a boundary rule, not a heading classifier or a complete sentence parser.
+
+On the unchanged fixture, name precision increased from 0.6190 to 0.7647 and F1 from 0.7222 to 0.8125. Recall remained 0.8667, count mismatches stayed zero, and retrieval results were identical. The punctuation case now contains only its three labelled names. Generic headings still produce four extra names; C++/C# remain absent. All 563 tests, build/typecheck and compiled stdio smoke passed locally. Existing stored links still require re-indexing.
