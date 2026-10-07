@@ -47,6 +47,7 @@ export function extractEntities(text: string): ExtractedEntity[] {
 
   const counts = new Map<string, number>();
   const phraseMentions = new Map<number, string>();
+  const compoundMentions: Array<{ start: number; end: number }> = [];
 
   // Multi-word capitalized phrases: "Machine Learning", "React Native"
   const phrasePattern = /\b([A-Z][A-Za-z0-9+#.\-_]*(?:\s+[A-Z][A-Za-z0-9+#.\-_]*){0,3})\b/g;
@@ -57,10 +58,15 @@ export function extractEntities(text: string): ExtractedEntity[] {
     if (STOPWORDS.has(first) || phrase.length < 3) continue;
     counts.set(phrase, (counts.get(phrase) ?? 0) + 1);
     phraseMentions.set(match.index, phrase);
+    // Do not hide real names inside phrases spanning line/sentence boundaries.
+    if (phrase.includes(" ") && !/[\r\n]|\.[ \t]/.test(match[1])) {
+      compoundMentions.push({ start: match.index, end: match.index + match[1].length });
+    }
   }
 
   // Standalone tech-looking tokens: PgBouncer, kubernetes, PostgreSQL
   const tokenPattern = /\b([A-Za-z][A-Za-z0-9+#.\-_]{2,30})\b/g;
+  let compoundIndex = 0;
   while ((match = tokenPattern.exec(text)) !== null) {
     const token = match[1];
     if (STOPWORDS.has(token) || !TECH_TOKEN.test(token)) continue;
@@ -72,6 +78,11 @@ export function extractEntities(text: string): ExtractedEntity[] {
       /^[A-Z][a-z]+[A-Z]/.test(token);
     const startsCapital = /^[A-Z]/.test(token);
     if (!looksTechnical && !startsCapital) continue;
+    while (compoundIndex < compoundMentions.length && compoundMentions[compoundIndex].end <= match.index) {
+      compoundIndex++;
+    }
+    const compound = compoundMentions[compoundIndex];
+    if (compound && compound.start <= match.index && match.index + token.length <= compound.end) continue;
     // The phrase pass may already have counted this exact text occurrence.
     if (phraseMentions.get(match.index) === token) continue;
     counts.set(token, (counts.get(token) ?? 0) + 1);
