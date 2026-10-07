@@ -117,6 +117,45 @@ try {
     fail("recall did not return the note saved through the stdio dispatcher.");
   }
 
+  const rememberedId = remembered.result.content?.[0]?.text?.match(/id=([^,]+)/)?.[1];
+  if (!rememberedId) throw new Error("remember did not return a usable note id.");
+  const forgotten = await request("tools/call", {
+    name: "forget", arguments: { id: rememberedId },
+  });
+  assertNoError(forgotten, "forget remembered id");
+  if (forgotten.result?.isError) throw new Error("forget could not delete the note using the id returned by remember.");
+  const afterForget = await request("tools/call", {
+    name: "recall", arguments: { session: noteSession },
+  });
+  assertNoError(afterForget, "recall after forget");
+  if (afterForget.result?.isError || !afterForget.result?.content?.[0]?.text?.includes("No memory notes matched.")) {
+    throw new Error("recall still returned the note deleted using the remember id.");
+  }
+
+  const recallNote = await request("tools/call", {
+    name: "remember", arguments: { text: "Recall deletion smoke note", session: noteSession },
+  });
+  assertNoError(recallNote, "remember recall deletion note");
+  if (recallNote.result?.isError) throw new Error("remember failed to create the recall deletion note.");
+  const recallForDeletion = await request("tools/call", {
+    name: "recall", arguments: { session: noteSession },
+  });
+  assertNoError(recallForDeletion, "recall deletion id");
+  const recalledId = recallForDeletion.result?.content?.[0]?.text?.match(/1\. \[([^\]]+)\]/)?.[1];
+  if (!recalledId) throw new Error("recall did not return a usable note id.");
+  const forgottenRecall = await request("tools/call", {
+    name: "forget", arguments: { id: recalledId },
+  });
+  assertNoError(forgottenRecall, "forget recalled id");
+  if (forgottenRecall.result?.isError) throw new Error("forget could not delete the note using the id returned by recall.");
+  const afterRecallForget = await request("tools/call", {
+    name: "recall", arguments: { session: noteSession },
+  });
+  assertNoError(afterRecallForget, "recall after recalled id deletion");
+  if (afterRecallForget.result?.isError || !afterRecallForget.result?.content?.[0]?.text?.includes("No memory notes matched.")) {
+    throw new Error("recall still returned the note deleted using the recall id.");
+  }
+
   const invalidSearch = await request("tools/call", {
     name: "web_search",
     arguments: {
