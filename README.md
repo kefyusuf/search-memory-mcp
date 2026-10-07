@@ -292,6 +292,8 @@ npm pack --dry-run --json
 
 `npm run eval:retrieval` runs an offline FTS-only retrieval baseline (recall@k, precision@k, MRR) over the knowledge index using fixtures in `evals/retrieval/cases.jsonl`. Embeddings are disabled for both ingestion and search, so the evaluation does not load or download models. It does not measure semantic/hybrid retrieval quality.
 
+After building, `node scripts/eval-local-quality.mjs` prints a broader synthetic FTS/entity characterization as JSON. See [fixture labels and limitations](evals/local-quality/README.md). Keep generated reports in ignored `.cache/`; this diagnostic does not change runtime behavior or enforce a release threshold.
+
 Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl` and are exercised by the normal Vitest suite. They validate intent coverage, conservative heuristic behavior, ambiguity defer cases, and provider-allowlist enforcement without loading the real classifier or contacting providers.
 
 ## Troubleshooting

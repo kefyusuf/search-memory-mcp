@@ -26,6 +26,13 @@ describe("extractEntities", () => {
     expect(extractEntities("   ")).toEqual([]);
     expect(extractEntities("")).toEqual([]);
   });
+
+  it("counts each standalone mention once", () => {
+    expect(extractEntities("Redis and Redis support PostgreSQL.")).toEqual([
+      { name: "Redis", count: 2 },
+      { name: "PostgreSQL", count: 1 },
+    ]);
+  });
 });
 
 describe("EntityGraph", () => {
@@ -68,6 +75,21 @@ describe("EntityGraph", () => {
     const docs = graph.docsForEntity("Kubernetes");
     expect(docs).toHaveLength(1);
     expect(docs[0].source).toBe("https://a.example");
+  });
+
+  it("stores real mention counts alongside multi-word entities", () => {
+    graph = new EntityGraph(":memory:");
+    graph.indexDocument({
+      docId: "counted-doc",
+      source: "fixture:counted-doc",
+      title: "Entity counts",
+      content: "React Native works with Redis and Redis.",
+    });
+
+    expect(graph.entitiesForDoc("counted-doc")).toEqual(expect.arrayContaining([
+      { name: "React Native", count: 1 },
+      { name: "Redis", count: 2 },
+    ]));
   });
 
   it("returns co-occurring entities for an entity", () => {
