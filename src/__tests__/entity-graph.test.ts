@@ -48,7 +48,7 @@ describe("extractEntities", () => {
     ]);
   });
 
-  it.each(["PostgreSQL. Redis!", "PostgreSQL\nRedis"])(
+  it.each(["PostgreSQL. Redis!", "PostgreSQL\nRedis", "PostgreSQL\r\nRedis", "PostgreSQL.\tRedis"])(
     "retains real names across sentence or line boundaries: %s",
     (text) => {
       expect(extractEntities(text)).toEqual(expect.arrayContaining([
@@ -62,6 +62,24 @@ describe("extractEntities", () => {
     expect(extractEntities("Node.js SDK works with Redis.")).toEqual([
       { name: "Node.js SDK", count: 1 },
       { name: "Redis", count: 1 },
+    ]);
+  });
+
+  it.each(["PostgreSQL. Redis!", "PostgreSQL\nRedis"])(
+    "does not join entities across sentence or line boundaries: %s",
+    // Exact output also rejects synthetic phrases, not just missing real names.
+    (text) => {
+      expect(extractEntities(text)).toEqual([
+        { name: "PostgreSQL", count: 1 },
+        { name: "Redis", count: 1 },
+      ]);
+    },
+  );
+
+  it("retains compound names separated by horizontal tabs", () => {
+    expect(extractEntities("React\tNative works with Docker\tCompose.")).toEqual([
+      { name: "Docker Compose", count: 1 },
+      { name: "React Native", count: 1 },
     ]);
   });
 });
