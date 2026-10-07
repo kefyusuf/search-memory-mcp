@@ -58,7 +58,7 @@ export async function searchSearXng(query: string, locale: SearchLocale): Promis
 
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "local-websearch-mcp/1.0",
+      "User-Agent": "search-memory-mcp/1.0",
       "Accept": "application/json",
       "Accept-Language": locale.acceptLanguage,
     },

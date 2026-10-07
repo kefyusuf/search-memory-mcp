@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const smokeDir = mkdtempSync(join(tmpdir(), "local-websearch-mcp-smoke-"));
+const smokeDir = mkdtempSync(join(tmpdir(), "search-memory-mcp-smoke-"));
 const cacheDbPath = join(smokeDir, "websearch_cache.db");
 const child = spawn(process.execPath, ["build/index.js"], {
   cwd: process.cwd(),
@@ -69,11 +69,14 @@ try {
     protocolVersion: "2024-11-05",
     capabilities: {},
     clientInfo: {
-      name: "local-websearch-mcp-smoke",
+      name: "search-memory-mcp-smoke",
       version: "1.0.0",
     },
   });
   assertNoError(init, "initialize");
+  if (init.result?.serverInfo?.name !== "search-memory-mcp") {
+    throw new Error(`Unexpected MCP server name: ${init.result?.serverInfo?.name}`);
+  }
 
   notify("notifications/initialized", {});
 
