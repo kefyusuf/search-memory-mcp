@@ -927,7 +927,7 @@ export class WebSearchServer {
       return {
         content: [{
           type: "text",
-          text: `Remembered (id=${note.id.slice(0, 12)}…, topic=${note.topic}, session=${note.session}): ${note.text}`,
+          text: `Remembered (id=${note.id}, topic=${note.topic}, session=${note.session}): ${note.text}`,
         }],
       };
     } catch (error) {
@@ -954,7 +954,7 @@ export class WebSearchServer {
     }
 
     const lines = notes.map((note, index) =>
-      `${index + 1}. [${note.id.slice(0, 12)}…] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`
+      `${index + 1}. [${note.id}] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`
     );
 
     return {
