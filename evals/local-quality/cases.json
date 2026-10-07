@@ -1,0 +1,39 @@
+{
+  "documents": [
+    {"source":"fixture:node-api","title":"Node.js API reference","content":"Node.js provides built-in modules for filesystem access, HTTP servers and asynchronous streams. The API reference documents these module interfaces and runtime behavior."},
+    {"source":"fixture:pooling","title":"PgBouncer connection pooling","content":"PgBouncer pools PostgreSQL database connections. Transaction pooling reuses a server connection after each transaction, while session pooling retains a connection for a client session."},
+    {"source":"fixture:redis","title":"Redis cache expiration","content":"Redis caches application data in memory. Cache expiration uses a TTL, and invalidation removes stale entries. Connection configuration affects the Redis client, not PostgreSQL pooling."},
+    {"source":"fixture:browser","title":"Playwright browser waits","content":"Playwright uses Chromium to render browser pages. The domcontentloaded event marks document parsing, while networkidle waits for network connections to become idle."},
+    {"source":"fixture:sqlite","title":"SQLite crash recovery","content":"SQLite WAL journal mode supports crash recovery for database writes. A checkpoint transfers committed records from the write-ahead log into the main database file."},
+    {"source":"fixture:docker","title":"Docker Compose volume isolation","content":"Docker Compose project names isolate named volumes between test stacks. A disposable test project should remove its own volumes after checking the runtime, while keeping development data."},
+    {"source":"fixture:turkish-pooling","title":"PostgreSQL bağlantı havuzu","content":"PostgreSQL bağlantı havuzu, istemci bağlantılarını yeniden kullanır. İşlem sonunda bağlantı havuza döner. Havuz kapasitesi sınırlıdır ve bekleyen istekler için zaman aşımı uygulanır."},
+    {"source":"fixture:chunked","title":"Embedding queue limits","content":"Embedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes.\n\nEmbedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes.\n\nEmbedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes.\n\nEmbedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes.\n\nEmbedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes.\n\nEmbedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes.\n\nEmbedding queue limits bound waiting inference work. Active inference is serialized and queued requests have a fixed capacity. Cancellation signals waiting tasks and prevents late writes."}
+  ],
+  "queries": [
+    {"id":"exact-api","group":"lexical","query":"Node.js API reference","relevantSources":["fixture:node-api"]},
+    {"id":"pooling","group":"lexical","query":"PgBouncer transaction pooling","relevantSources":["fixture:pooling"]},
+    {"id":"natural-pooling","group":"lexical","query":"How can I reuse PostgreSQL connections after a transaction?","relevantSources":["fixture:pooling"]},
+    {"id":"redis-ttl","group":"lexical","query":"Redis cache expiration TTL","relevantSources":["fixture:redis"]},
+    {"id":"browser-wait","group":"lexical","query":"Playwright domcontentloaded networkidle","relevantSources":["fixture:browser"]},
+    {"id":"sqlite-wal","group":"lexical","query":"SQLite WAL crash recovery","relevantSources":["fixture:sqlite"]},
+    {"id":"docker-volumes","group":"lexical","query":"Docker Compose project volumes","relevantSources":["fixture:docker"]},
+    {"id":"turkish-pooling","group":"lexical","query":"PostgreSQL bağlantı havuzu zaman aşımı","relevantSources":["fixture:turkish-pooling"]},
+    {"id":"embedding-capacity","group":"lexical","query":"Embedding queue capacity cancellation","relevantSources":["fixture:chunked"]},
+    {"id":"mixed-language","group":"mixed-language","query":"istemci bağlantılarını transaction pooling ile yeniden kullanma","relevantSources":["fixture:pooling","fixture:turkish-pooling"]},
+    {"id":"cross-language","group":"cross-language","query":"arka uç soketini her işlemden sonra tekrar kullanma","relevantSources":["fixture:pooling"]},
+    {"id":"paraphrase","group":"paraphrase","query":"reuse a backend socket when a unit of work finishes","relevantSources":["fixture:pooling"]},
+    {"id":"multi-source","group":"lexical","query":"PostgreSQL connection pooling bağlantı havuzu","relevantSources":["fixture:pooling","fixture:turkish-pooling"]},
+    {"id":"unrelated","group":"negative","query":"volcanic basalt mineral layers","relevantSources":[]},
+    {"id":"partial-overlap","group":"negative","query":"Redis nuclear reactor certification","relevantSources":[]}
+  ],
+  "entities": [
+    {"id":"software-list","text":"PostgreSQL and Redis support this stack.","expected":{"PostgreSQL":1,"Redis":1}},
+    {"id":"multiword","text":"React Native integrates with Docker Compose.","expected":{"React Native":1,"Docker Compose":1}},
+    {"id":"punctuation","text":"Node.js, PostgreSQL. Redis!","expected":{"Node.js":1,"PostgreSQL":1,"Redis":1}},
+    {"id":"short-names","text":"C++ and C# use SQL libraries.","expected":{"C++":1,"C#":1,"SQL":1}},
+    {"id":"headings","text":"Getting Started\nInstallation Guide\nRead the Documentation before configuring PostgreSQL.","expected":{"PostgreSQL":1}},
+    {"id":"mentions","text":"Redis and Redis support PostgreSQL.","expected":{"Redis":2,"PostgreSQL":1}},
+    {"id":"unicode-context","text":"PostgreSQL bağlantı havuzu Redis ile birlikte çalışır.","expected":{"PostgreSQL":1,"Redis":1}},
+    {"id":"no-entities","text":"the application stores ordinary notes in a local file.","expected":{}}
+  ]
+}

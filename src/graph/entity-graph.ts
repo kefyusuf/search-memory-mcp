@@ -46,6 +46,7 @@ export function extractEntities(text: string): ExtractedEntity[] {
   if (!text || !text.trim()) return [];
 
   const counts = new Map<string, number>();
+  const phraseMentions = new Map<number, string>();
 
   // Multi-word capitalized phrases: "Machine Learning", "React Native"
   const phrasePattern = /\b([A-Z][A-Za-z0-9+#.\-_]*(?:\s+[A-Z][A-Za-z0-9+#.\-_]*){0,3})\b/g;
@@ -55,6 +56,7 @@ export function extractEntities(text: string): ExtractedEntity[] {
     const first = phrase.split(" ")[0];
     if (STOPWORDS.has(first) || phrase.length < 3) continue;
     counts.set(phrase, (counts.get(phrase) ?? 0) + 1);
+    phraseMentions.set(match.index, phrase);
   }
 
   // Standalone tech-looking tokens: PgBouncer, kubernetes, PostgreSQL
@@ -70,6 +72,8 @@ export function extractEntities(text: string): ExtractedEntity[] {
       /^[A-Z][a-z]+[A-Z]/.test(token);
     const startsCapital = /^[A-Z]/.test(token);
     if (!looksTechnical && !startsCapital) continue;
+    // The phrase pass may already have counted this exact text occurrence.
+    if (phraseMentions.get(match.index) === token) continue;
     counts.set(token, (counts.get(token) ?? 0) + 1);
   }
 
