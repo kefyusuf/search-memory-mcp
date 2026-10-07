@@ -12,6 +12,7 @@ coverage/
 .env.local
 
 # Local agent and review artifacts
+docs/handoff.md
 .ai/
 .claude/
 .playwright-mcp/

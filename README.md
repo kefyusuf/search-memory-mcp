@@ -254,6 +254,26 @@ npm run docker:up
 
 Docker Compose stores the SQLite cache in a named volume mounted at `/app/data` and stores Hugging Face models in a separate named volume. The container sets `CACHE_DB_PATH=/app/data/websearch_cache.db`.
 
+Both Docker stages use Node 24, matching `.nvmrc` and CI. The runtime explicitly initializes the native SQLite binding after installing dependencies with lifecycle scripts disabled. To check the compiled stdio interface with a disposable database, run from the repository root:
+
+```bash
+docker compose -p search-memory-mcp-check run --rm -T \
+  -v "${PWD}/scripts:/app/scripts:ro" \
+  -e CACHE_DB_PATH=/tmp/search-memory-mcp-smoke.db \
+  search-memory-mcp node scripts/smoke-mcp.mjs
+docker compose -p search-memory-mcp-check down --volumes --remove-orphans
+```
+
+The smoke check verifies initialization, tool discovery, status, memory save/recall/deletion, argument validation and loopback blocking. It does not qualify live search providers or model inference. Use a distinct Compose project name for checks so the development data volumes remain separate.
+
+If a trusted TLS inspection proxy intercepts browser downloads, supply its public CA certificate as the optional BuildKit `build_ca` secret:
+
+```bash
+docker build --secret id=build_ca,src=/path/to/trusted-ca.pem -t search-memory-mcp:latest .
+```
+
+The certificate is used only during dependency installation and is not copied into the image. Runtime HTTPS trust is a separate configuration concern; keep TLS verification enabled.
+
 ## Development
 
 See the [production roadmap](docs/production-roadmap.md) and [sector comparison](docs/research/2026-10-02-production-benchmark.md) for release scope, production gaps, and measurable launch gates.
