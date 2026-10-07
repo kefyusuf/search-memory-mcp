@@ -30,11 +30,11 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kefyusuf/local-websearch-mcp.git"
+    "url": "git+https://github.com/kefyusuf/search-memory-mcp.git"
   },
-  "homepage": "https://github.com/kefyusuf/local-websearch-mcp#readme",
+  "homepage": "https://github.com/kefyusuf/search-memory-mcp#readme",
   "bugs": {
-    "url": "https://github.com/kefyusuf/local-websearch-mcp/issues"
+    "url": "https://github.com/kefyusuf/search-memory-mcp/issues"
   },
   "engines": {
     "node": ">=20.9.0"
