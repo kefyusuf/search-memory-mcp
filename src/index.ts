@@ -156,7 +156,7 @@ export class WebSearchServer {
   constructor(intentDetector: IntentDetector = new SearchIntentDetector()) {
     this.server = new Server(
       {
-        name: "local-websearch-mcp",
+        name: "search-memory-mcp",
         version: "1.0.0",
       },
       {
@@ -255,7 +255,7 @@ export class WebSearchServer {
 
   private setupShutdownHandlers() {
     const shutdown = async () => {
-      console.error("Shutting down Web Search MCP Server...");
+      console.error("Shutting down Search Memory MCP Server...");
       if (this.browserContext) {
         try { await this.browserContext.close(); } catch {}
         this.browserContext = null;
@@ -1013,7 +1013,7 @@ export class WebSearchServer {
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error("Web Search MCP Server running on stdio");
+    console.error("Search Memory MCP Server running on stdio");
   }
 }
 

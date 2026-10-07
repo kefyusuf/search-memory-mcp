@@ -1,11 +1,11 @@
 {
-  "name": "local-websearch-mcp",
+  "name": "search-memory-mcp",
   "version": "1.0.0",
-  "description": "Offline-first MCP server for web search and content fetching - no API keys required. Uses local AI models for intent classification, cross-lingual search, and semantic re-ranking.",
+  "description": "Offline-first MCP server for web search, content fetching, semantic retrieval and persistent memory - no external API keys required.",
   "type": "module",
   "main": "build/index.js",
   "bin": {
-    "local-websearch-mcp": "build/index.js"
+    "search-memory-mcp": "build/index.js"
   },
   "files": [
     "build/",
@@ -18,6 +18,7 @@
     "mcp",
     "web-search",
     "semantic-search",
+    "memory",
     "cross-lingual",
     "sqlite-vec",
     "playwright",

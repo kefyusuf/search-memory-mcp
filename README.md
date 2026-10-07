@@ -1,4 +1,4 @@
-# Local Web Search MCP Server
+# Search Memory MCP
 
 Offline-first MCP server for web search, content fetching, and a local knowledge base. It requires no external API keys and uses local models for intent classification, optional cross-lingual search, semantic re-ranking, hybrid retrieval, and extractive deep-search answers.
 
@@ -56,12 +56,14 @@ The `postinstall` script downloads Playwright Chromium. On first use of model-ba
 
 Add the built server to your MCP client config:
 
+The package, command and MCP server identity are `search-memory-mcp`. Use your actual checkout path in the configuration below. Existing clients that launch `node` with an absolute `build/index.js` path can keep that path even if the checkout directory still has its previous name. Restart the MCP connection after rebuilding to load the updated server identity. Keep existing `CACHE_DB_PATH` values to retain stored data.
+
 ```json
 {
   "mcpServers": {
     "websearch": {
       "command": "node",
-      "args": ["path/to/local-websearch-mcp/build/index.js"],
+      "args": ["path/to/search-memory-mcp/build/index.js"],
       "env": {
         "RATE_LIMIT_SEARCH_PER_MIN": "10",
         "RATE_LIMIT_FETCH_PER_MIN": "20",
@@ -80,7 +82,7 @@ If the package is installed globally or through a package runner, use the binary
 {
   "mcpServers": {
     "websearch": {
-      "command": "local-websearch-mcp",
+      "command": "search-memory-mcp",
       "args": [],
       "env": {
         "SEARCH_PROVIDERS": "duckduckgo,bing",
@@ -91,7 +93,7 @@ If the package is installed globally or through a package runner, use the binary
 }
 ```
 
-For package-runner based clients, the command can be `npx` with `args` set to `["-y", "local-websearch-mcp"]` once the package is available from the configured npm registry.
+For package-runner based clients, the command can be `npx` with `args` set to `["-y", "search-memory-mcp"]` once the package is available from the configured npm registry.
 
 ## Tools
 

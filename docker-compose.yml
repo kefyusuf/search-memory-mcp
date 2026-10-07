@@ -1,8 +1,8 @@
 services:
-  local-websearch-mcp:
+  search-memory-mcp:
     build: .
-    image: local-websearch-mcp:latest
-    container_name: local-websearch-mcp
+    image: search-memory-mcp:latest
+    container_name: search-memory-mcp
     stdin_open: true
     tty: true
     environment:
