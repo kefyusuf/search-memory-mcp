@@ -53,7 +53,8 @@ export class SessionMemory {
       ? [this.context.mode, this.context.tenantId, this.context.workspaceId]
       : ["local", "local", "local"];
     this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = MEMORY");
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("synchronous = FULL");
     this.db.pragma("temp_store = MEMORY");
     this.maxNotes = options?.maxNotes ?? DEFAULT_MAX_NOTES;
     try { this.init(); } catch (error) { this.db.close(); throw error; }

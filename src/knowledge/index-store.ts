@@ -59,7 +59,8 @@ export class KnowledgeIndex {
     this.context = options.context;
     this.scope = this.context ? [this.context.mode, this.context.tenantId, this.context.workspaceId] : ["local", "local", "local"];
     this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = MEMORY");
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("synchronous = FULL");
     this.db.pragma("temp_store = MEMORY");
     if (options.enableEmbeddings !== false) this.tryEnableVec();
     try { this.init(); } catch (error) { this.db.close(); throw error; }
