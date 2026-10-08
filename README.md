@@ -32,7 +32,7 @@ Add this to your MCP client config (for example `claude_desktop_config.json` or 
 
 Restart your client and ask: *"Search the web for the latest Node.js release and remember the version number."*
 
-> The first install downloads Playwright Chromium (over 100 MB). Model-backed features download small local models on first use.
+> Search and most pages work right away. Pages that need a real browser use Playwright Chromium (about 180 MB). It is downloaded during install, or on first use if your package manager skipped install scripts, so that first request can take a few minutes. To download it ahead of time, run `npx playwright install chromium`. Model-backed features download small local models on first use.
 
 ## Features
 
@@ -332,7 +332,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 
 ## Troubleshooting
 
-- If startup fails after install, run `npx playwright install chromium`.
+- The server downloads Chromium automatically the first time a page needs a browser. If that download fails (for example offline or behind a proxy), run `npx playwright install chromium` manually.
 - If `better-sqlite3` reports `NODE_MODULE_VERSION` mismatch, switch to the Node version in `.nvmrc` and run `npm ci` using that runtime before building again.
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.
 - If search returns no results, change `SEARCH_PROVIDERS` order/set or try a direct `fetch_content` URL.

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kefyusuf/search-memory-mcp",
+  "title": "Search Memory",
+  "description": "Free web search and long-term memory for AI assistants. No API keys; data stays local.",
+  "repository": {
+    "url": "https://github.com/kefyusuf/search-memory-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "search-memory-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SEARCH_PROVIDERS",
+          "description": "Comma-separated search provider order, for example duckduckgo,bing",
+          "isRequired": false
+        },
+        {
+          "name": "CACHE_DB_PATH",
+          "description": "Path of the local SQLite database for cache, memory, and index",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

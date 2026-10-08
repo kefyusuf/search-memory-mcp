@@ -1,5 +1,6 @@
 {
   "name": "search-memory-mcp",
+  "mcpName": "io.github.kefyusuf/search-memory-mcp",
   "version": "1.0.0",
   "description": "Free web search and long-term memory for AI assistants via MCP. No API keys; cache, memory and index stay local.",
   "type": "module",
@@ -61,7 +62,7 @@
     "test:postgres:shutdown": "node scripts/verify-membership-shutdown.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "prepack": "npm run build",
-    "postinstall": "npx playwright install chromium",
+    "postinstall": "playwright install chromium || node -e \"process.exit(0)\"",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up"
   },
