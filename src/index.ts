@@ -51,6 +51,7 @@ import {
 import { EntityGraph } from "./graph/entity-graph.js";
 import { createLocalRequestContext, InvocationError } from "./runtime/request-context.js";
 import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
+import { launchWithAutoInstall } from "./browser-launcher.js";
 
 // --- Types & Schemas ---
 
@@ -133,6 +134,7 @@ export class WebSearchServer {
   private dispatcher: ToolDispatcher<Awaited<ReturnType<WebSearchServer["handleSearch"]>>>;
   private browser: Browser | null = null;
   private browserContext: BrowserContext | null = null;
+  private browserLaunch: Promise<Browser> | null = null;
   private cache: SemanticCache;
   private crossLingual: CrossLingualEngine | null = null;
   private searchLimiter: TokenBucket;
@@ -237,7 +239,9 @@ export class WebSearchServer {
   private async getBrowser() {
     if (!this.browser) {
       console.error("Launching persistent browser instance...");
-      this.browser = await chromium.launch({ headless: true });
+      this.browserLaunch ??= launchWithAutoInstall(() => chromium.launch({ headless: true }))
+        .finally(() => { this.browserLaunch = null; });
+      this.browser = await this.browserLaunch;
     }
     return this.browser;
   }

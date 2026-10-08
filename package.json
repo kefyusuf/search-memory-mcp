@@ -1,7 +1,8 @@
 {
   "name": "search-memory-mcp",
+  "mcpName": "io.github.kefyusuf/search-memory-mcp",
   "version": "1.0.0",
-  "description": "Offline-first MCP server for web search, content fetching, semantic retrieval and persistent memory - no external API keys required.",
+  "description": "Free web search and long-term memory for AI assistants via MCP. No API keys; cache, memory and index stay local.",
   "type": "module",
   "main": "build/index.js",
   "bin": {
@@ -25,7 +26,14 @@
     "transformers.js",
     "model-context-protocol",
     "web-scraping",
-    "markdown"
+    "markdown",
+    "claude",
+    "claude-desktop",
+    "cursor",
+    "mcp-server",
+    "no-api-key",
+    "rag",
+    "local-first"
   ],
   "author": "kefyusuf",
   "license": "ISC",
@@ -54,7 +62,7 @@
     "test:postgres:shutdown": "node scripts/verify-membership-shutdown.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "prepack": "npm run build",
-    "postinstall": "npx playwright install chromium",
+    "postinstall": "playwright install chromium || node -e \"process.exit(0)\"",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up"
   },
