@@ -1,6 +1,38 @@
 # Search Memory MCP
 
-Offline-first MCP server for web search, content fetching, and a local knowledge base. It requires no external API keys and uses local models for intent classification, optional cross-lingual search, semantic re-ranking, hybrid retrieval, and extractive deep-search answers.
+**Free web search and long-term memory for your AI assistant. No API keys. Your data stays on your machine.**
+
+[![npm](https://img.shields.io/npm/v/search-memory-mcp)](https://www.npmjs.com/package/search-memory-mcp)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
+
+Works with Claude Desktop, Claude Code, Cursor, Windsurf, and any other MCP client.
+
+## Why Search Memory MCP?
+
+- 🔎 **Search the web for free.** DuckDuckGo, Bing, Brave, and Google, with automatic fallback. No API keys, no subscriptions.
+- 📄 **Read any page as clean Markdown.** Fast paths for GitHub, RSS, and static pages. A real browser only when a page needs it.
+- 🧠 **Remember across sessions.** Your assistant can save notes and recall them later.
+- 📚 **Build a private knowledge base.** Index pages and documents, then search them with keyword + semantic search and get answers with citations.
+- 🔒 **Local first.** Cache, memory, index, and models all run on your machine.
+
+## Quick start
+
+Add this to your MCP client config (for example `claude_desktop_config.json` or `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "search-memory": {
+      "command": "npx",
+      "args": ["-y", "search-memory-mcp@latest"]
+    }
+  }
+}
+```
+
+Restart your client and ask: *"Search the web for the latest Node.js release and remember the version number."*
+
+> The first install downloads Playwright Chromium (over 100 MB). Model-backed features download small local models on first use.
 
 ## Features
 
@@ -93,7 +125,7 @@ If the package is installed globally or through a package runner, use the binary
 }
 ```
 
-For package-runner based clients, the command can be `npx` with `args` set to `["-y", "search-memory-mcp"]` once the package is available from the configured npm registry.
+For package-runner based clients, use the `npx` configuration from [Quick start](#quick-start).
 
 ## Tools
 
