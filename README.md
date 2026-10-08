@@ -245,7 +245,7 @@ Or explore the entity graph:
 | `CACHE_DB_PATH` | `websearch_cache.db` | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph. |
 | `CACHE_CLEANUP_INTERVAL_HOURS` | `24` | Interval for expired content cache cleanup. |
 
-File-backed SQLite stores use WAL journaling with `synchronous=FULL`; `:memory:` databases remain in memory. Use a writable local data directory: WAL requires shared memory on the same host and is unsuitable for a database shared over a network filesystem. While the server is running, the `-wal` and `-shm` files belong to the database; copying only the `.db` file does not provide a consistent live backup. See [SQLite WAL documentation](https://www.sqlite.org/wal.html). Application backup/restore qualification remains separate from process-crash recovery.
+File-backed SQLite stores use WAL journaling with `synchronous=FULL`; `:memory:` databases remain in memory. Use a writable local data directory: WAL requires shared memory on the same host and is unsuitable for a database shared over a network filesystem. While the server is running, the `-wal` and `-shm` files belong to the database; copying only the `.db` file does not provide a consistent live backup. See [SQLite WAL documentation](https://www.sqlite.org/wal.html) and the [disposable backup/restore rehearsal](docs/sqlite-backup-restore.md). Production backup operations remain separate from these local regressions.
 
 ## Docker
 
