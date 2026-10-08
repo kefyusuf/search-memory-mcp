@@ -18,8 +18,9 @@ export class SQLiteVectorStore implements IVectorStore {
     this.context = options.context;
     this.scope = this.context ? [this.context.mode, this.context.tenantId, this.context.workspaceId] : ["local", "local", "local"];
     this.db = new Database(dbPath);
-    // Reconstructable local cache; hosted durability and resource budgets remain separate gates.
-    this.db.pragma("journal_mode = MEMORY");
+    // All stores share this file; keep rollback data durable across process crashes.
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("synchronous = FULL");
     this.db.pragma("temp_store = MEMORY");
     if (options.useNativeVectors !== false) this.tryEnableVec();
     try { this.db.transaction(() => this.init())(); } catch (error) { this.db.close(); throw error; }
