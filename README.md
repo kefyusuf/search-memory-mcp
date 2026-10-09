@@ -391,6 +391,15 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 - If cache files appear in the project root, set `CACHE_DB_PATH` to a dedicated data directory.
 - If knowledge search only hits keywords, embeddings may still be indexing; `search_index` falls back to FTS-only until vectors are ready.
 
+## Known limitations
+
+- **Default search depends mostly on DuckDuckGo.** Search engines block scraping clients. In our measurements, Brave answers with HTTP 429 and Google serves a JavaScript-only page; both now show up as provider errors. When Bing blocks a client, it returns a normal-looking "no results" page that cannot be told apart from a real empty result. For dependable results, add a self-hosted [SearXNG](#optional-searxng) (`SEARXNG_BASE_URL`) as a second source; see [Troubleshooting](#troubleshooting).
+- **Hidden-content filtering is best effort.** Elements hidden by the `hidden` attribute, `aria-hidden`, `<template>` or inline styles are removed. Content hidden by external stylesheets or scripts is not. Web content is wrapped in `<untrusted_web_content>` markers, but the client model must still treat it as data.
+- **Scanned PDFs are not read.** PDF text is extracted without OCR, so image-only pages produce no text.
+- **The first run downloads models and a browser.** The embedding model and Playwright Chromium are fetched on first use. Offline machines need them pre-installed, or the Docker image.
+- **Single local user.** The server runs over stdio for one local client. There is no authentication and no shared HTTP endpoint yet.
+- **Web steps need an open network.** `npm run e2e` reports web steps as SKIP when search engines are unreachable.
+
 ## npm Packaging
 
 The npm package includes only `build/`, `README.md`, `LICENSE`, and `SECURITY.md`. `npm pack` runs `npm run build` through `prepack` so the package contains compiled JavaScript instead of local planning files, tests, caches, or source-only artifacts.
