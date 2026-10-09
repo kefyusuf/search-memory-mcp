@@ -23,6 +23,20 @@ export const WEB_SEARCH_OUTPUT_SCHEMA = {
     results: { type: "array", items: searchResult },
     meta: { type: "object", additionalProperties: { type: ["string", "number", "boolean"] } },
     answer: { type: "string" },
+    providerAttempts: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          provider: { type: "string" },
+          status: { type: "string", enum: ["ok", "empty", "error", "backoff"] },
+          resultCount: { type: "number" },
+          durationMs: { type: "number" },
+          error: { type: "string" },
+        },
+        required: ["provider", "status", "resultCount", "durationMs"],
+      },
+    },
     sources: {
       type: "array",
       items: {
