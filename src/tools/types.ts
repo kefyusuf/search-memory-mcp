@@ -2,11 +2,15 @@ import type { TokenBucket } from "../rate-limiter.js";
 
 export type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
 };
 
-export function textResult(text: string): ToolResult {
-  return { content: [{ type: "text", text }] };
+/** Success result; tools with an outputSchema must pass their structured payload. */
+export function textResult(text: string, structuredContent?: object): ToolResult {
+  return structuredContent
+    ? { content: [{ type: "text", text }], structuredContent: structuredContent as Record<string, unknown> }
+    : { content: [{ type: "text", text }] };
 }
 
 export function errorResult(text: string): ToolResult {

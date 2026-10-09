@@ -48,6 +48,6 @@ export function createStatusHandler(deps: StatusToolDeps) {
       },
       uptime_seconds: Math.floor((Date.now() - deps.startedAt) / 1000),
     };
-    return textResult(JSON.stringify(status, null, 2));
+    return textResult(JSON.stringify(status, null, 2), status);
   };
 }
