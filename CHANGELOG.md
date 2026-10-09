@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Marginalia: when it answers with its "Wait A Moment" bot-check page, the provider waits the requested time and follows the one-time continue link; a repeated check is reported as an error instead of an empty result.
 - New opt-in scraping providers `yahoo` and `marginalia` (an independent index of non-commercial sites); add them to `SEARCH_PROVIDERS`.
 - Fix: the database now defaults to `~/.search-memory-mcp/websearch_cache.db` instead of the working directory, which MCP clients such as Claude Desktop on Windows start in a read-only folder (`SQLITE_CANTOPEN`). An existing `websearch_cache.db` in the working directory is still used.
 - Routing profile `v2`: `auto` search tries providers in measured reliability order (SearXNG, Brave, DuckDuckGo, then Bing and Google) instead of preferring Google and Bing, which mostly block scrapers.
