@@ -52,7 +52,7 @@ export interface IVectorStore {
   
   // Content Cache Methods
   getContent(url: string): Promise<ContentEntry | null>;
-  setContent(url: string, content: string, category: string): Promise<void>;
+  setContent(url: string, content: string, category: string, publishedAt?: string): Promise<void>;
   deleteExpiredContent(maxAgeMs: number): number;
 }
 
@@ -61,6 +61,8 @@ export interface ContentEntry {
   content: string;
   category: string;
   timestamp: number;
+  /** Publication date (YYYY-MM-DD) found in the page, if any. */
+  publishedAt?: string | null;
 }
 
 export interface CacheEntry {

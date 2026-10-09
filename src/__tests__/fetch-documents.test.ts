@@ -80,7 +80,7 @@ describe("ContentFetcher documents", () => {
     await fetcher.fetchContent("https://example.com/cache.docx");
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("should use cache"); }));
     const cached = await fetcher.fetchContent("https://example.com/cache.docx");
-    expect(cached).toEqual({ kind: "content", source: "content-cache", text: "# Cache test\n\nCached once." });
+    expect(cached).toEqual({ kind: "content", source: "content-cache", text: "# Cache test\n\nCached once.", fetchedAt: expect.any(String) });
   });
 
   it("lets index_url add a PDF to the knowledge base", async () => {

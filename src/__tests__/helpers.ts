@@ -3,7 +3,7 @@ import { cosineSimilarity } from "../cache/utils.js";
 
 export class InMemoryVectorStore implements IVectorStore {
   private store: Map<string, { vector: number[]; metadata: CacheMetadata }> = new Map();
-  private contentStore: Map<string, { content: string; category: string; timestamp: number }> = new Map();
+  private contentStore: Map<string, { content: string; category: string; timestamp: number; publishedAt: string | null }> = new Map();
 
   async add(id: string, vector: number[], metadata: CacheMetadata): Promise<void> {
     this.store.set(id, { vector, metadata });
@@ -44,8 +44,8 @@ export class InMemoryVectorStore implements IVectorStore {
     return { url, ...entry };
   }
 
-  async setContent(url: string, content: string, category: string): Promise<void> {
-    this.contentStore.set(url, { content, category, timestamp: Date.now() });
+  async setContent(url: string, content: string, category: string, publishedAt?: string): Promise<void> {
+    this.contentStore.set(url, { content, category, timestamp: Date.now(), publishedAt: publishedAt ?? null });
   }
 
   deleteExpiredContent(maxAgeMs: number): number {

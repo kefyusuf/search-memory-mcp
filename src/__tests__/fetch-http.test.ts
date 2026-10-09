@@ -226,6 +226,7 @@ describe("ContentFetcher", () => {
       kind: "content",
       text: "# Cached\n\nBody",
       source: "content-cache",
+      fetchedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
     });
     expect(fetchSpy).not.toHaveBeenCalled();
   });

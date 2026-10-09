@@ -13,7 +13,7 @@ Works with Claude Desktop, Claude Code, Cursor, Windsurf, and any other MCP clie
 - 📄 **Read any page as clean Markdown.** Fast paths for GitHub, RSS, and static pages. PDF, DOCX and EPUB links are converted to text. A real browser only when a page needs it.
 - 🧠 **Remember across sessions.** Your assistant can save notes and recall them later.
 - 📚 **Build a private knowledge base.** Index pages and documents, then search them with keyword + semantic search and get answers with citations.
-- 🔁 **Research that remembers.** One `research` call checks what you already indexed, searches the web, reads the top pages, answers with citations, and keeps the pages for next time.
+- 🔁 **Research that remembers.** One `research` call checks what you already indexed, searches the web, reads the top pages, answers with citations, and keeps the pages for next time. Every source shows when it was published (from page or PDF metadata) and when it was fetched or indexed, so you can tell how current an answer is.
 - 🔒 **Local first.** Cache, memory, index, and models all run on your machine.
 
 ## Quick start

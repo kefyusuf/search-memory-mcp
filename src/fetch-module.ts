@@ -1,3 +1,4 @@
+import { normalizePublishedDate } from "./documents/dates.js";
 import { extractDocument } from "./documents/extract.js";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
@@ -16,6 +17,8 @@ export type FetchArticle = {
   title: string;
   content: string;
   fullText: string;
+  /** Publication date (YYYY-MM-DD) found in the page or document metadata. */
+  publishedAt?: string;
 };
 
 type FetchFailure = {
@@ -46,6 +49,10 @@ export type FetchContentResult =
       kind: "content";
       text: string;
       source: "content-cache" | "http" | "playwright" | "github-raw" | "rss";
+      /** When the text was fetched from the web (ISO 8601); for cache hits, the original fetch. */
+      fetchedAt: string;
+      /** Publication date (YYYY-MM-DD) found in the page or document, when present. */
+      publishedAt?: string;
     }
   | FetchFailure;
 
@@ -136,12 +143,14 @@ export class ContentFetcher {
 
   async fetchContent(url: string, forceRefresh: boolean = false): Promise<FetchContentResult> {
     if (!forceRefresh) {
-      const cachedContent = await this.cache.getCachedContent(url);
-      if (cachedContent) {
+      const cached = await this.cache.getCachedContentEntry(url);
+      if (cached) {
         return {
           kind: "content",
-          text: cachedContent,
+          text: cached.content,
           source: "content-cache",
+          fetchedAt: new Date(cached.fetchedAt).toISOString(),
+          ...(cached.publishedAt ? { publishedAt: cached.publishedAt } : {}),
         };
       }
     }
@@ -160,6 +169,8 @@ export class ContentFetcher {
       kind: "content",
       text: result.article.fullText,
       source: result.source === "page-cache" ? "http" : result.source,
+      fetchedAt: new Date().toISOString(),
+      ...(result.article.publishedAt ? { publishedAt: result.article.publishedAt } : {}),
     };
   }
 
@@ -324,7 +335,7 @@ export class ContentFetcher {
     }
 
     const intent = await this.detectArticleIntent(article);
-      await this.cache.setCachedContent(article.url, article.fullText, article.title, intent);
+      await this.cache.setCachedContent(article.url, article.fullText, article.title, intent, article.publishedAt);
   }
 
   private async fetchViaFastPath(url: string): Promise<FetchArticleResult | { kind: "blocked" } | null> {
@@ -406,7 +417,10 @@ export class ContentFetcher {
       if (!extracted.text) return null;
       const title = extracted.title || filename || document.url;
       const content = this.truncateContent(extracted.text);
-      return { url: document.url, title, content, fullText: `# ${title}\n\n${content}` };
+      return {
+        url: document.url, title, content, fullText: `# ${title}\n\n${content}`,
+        ...(extracted.publishedAt ? { publishedAt: extracted.publishedAt } : {}),
+      };
     } catch (error) {
       console.error(`Document extraction failed for ${document.url}:`, error instanceof Error ? error.message : String(error));
       return null;
@@ -423,12 +437,14 @@ export class ContentFetcher {
 
     const content = this.truncateContent(this.turndown.turndown(article.content));
     const title = article.title || "Untitled Page";
+    const publishedAt = normalizePublishedDate(article.publishedTime);
 
     return {
       url,
       title,
       content,
       fullText: `# ${title}\n\n${content}`,
+      ...(publishedAt ? { publishedAt } : {}),
     };
   }
 

@@ -64,6 +64,8 @@ export const RESEARCH_OUTPUT_SCHEMA = {
           url: { type: "string" },
           title: { type: "string" },
           status: { type: "string", enum: ["indexed", "already_indexed", "not_indexed", "fetch_failed", "rate_limited"] },
+          publishedAt: { type: "string" },
+          fetchedAt: { type: "string" },
         },
         required: ["origin", "url", "title", "status"],
       },

@@ -26,7 +26,9 @@ function setup(overrides: { search?: (args: unknown) => Promise<ToolResult>; fet
   stores.push(knowledgeIndex, entityGraph);
   const search = vi.fn(overrides.search ?? (async () => textResult("ignored", { query: "q", resultCount: 3, results: webResults, meta: {} })));
   const fetchContent = vi.fn(async (url: string): Promise<FetchContentResult> =>
-    pages[url] ? { kind: "content", text: pages[url], source: "http" } : { kind: "error", reason: "fetch_failed" });
+    pages[url]
+      ? { kind: "content", text: pages[url], source: "http", fetchedAt: "2026-10-09T08:00:00.000Z", ...(url.includes("pgbouncer") ? { publishedAt: "2024-03-05" } : {}) }
+      : { kind: "error", reason: "fetch_failed" });
   const research = createResearchHandler({
     search,
     fetchContent,
@@ -82,7 +84,7 @@ describe("research tool", () => {
 
     expect(later.content[0].text).toContain("PgBouncer is a lightweight connection pooler");
     expect(later.structuredContent?.sources).toEqual(expect.arrayContaining([
-      { origin: "local", url: "https://pgbouncer.example/docs", title: "PgBouncer docs", status: "already_indexed" },
+      expect.objectContaining({ origin: "local", url: "https://pgbouncer.example/docs", title: "PgBouncer docs", status: "already_indexed" }),
     ]));
   });
 
@@ -115,6 +117,27 @@ describe("research tool", () => {
     const result = await research({ query: "pgbouncer", max_sources: 3 });
     expect(fetchContent).toHaveBeenCalledTimes(1);
     expect((result.structuredContent?.sources as Array<{ status: string }>).map((source) => source.status)).toEqual(["indexed", "rate_limited", "rate_limited"]);
+  });
+});
+
+describe("research source dates", () => {
+  it("shows when each web page was published and fetched", async () => {
+    const { research } = setup();
+    const result = await research({ query: "what is pgbouncer connection pooling" });
+    const sources = result.structuredContent?.sources as Array<Record<string, unknown>>;
+    expect(sources[0]).toMatchObject({ url: "https://pgbouncer.example/docs", publishedAt: "2024-03-05", fetchedAt: "2026-10-09T08:00:00.000Z" });
+    expect(sources[1]).not.toHaveProperty("publishedAt");
+    expect(sources[1]).toMatchObject({ fetchedAt: "2026-10-09T08:00:00.000Z" });
+    expect(result.content[0].text).toContain("PgBouncer docs — https://pgbouncer.example/docs (added to knowledge base; published 2024-03-05; fetched 2026-10-09)");
+  });
+
+  it("shows when local knowledge was indexed", async () => {
+    const { research, knowledgeIndex } = setup({ search: async () => errorResult("offline") });
+    knowledgeIndex.ingest({ content: "PgBouncer keeps a pool of server connections.", title: "Local note", source: "notes.md" });
+    const result = await research({ query: "pgbouncer pool" });
+    const local = (result.structuredContent?.sources as Array<Record<string, unknown>>)[0];
+    expect(local).toMatchObject({ origin: "local", fetchedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
+    expect(result.content[0].text).toMatch(/Local note — notes\.md \(already in knowledge base; indexed \d{4}-\d{2}-\d{2}\)/);
   });
 });
 

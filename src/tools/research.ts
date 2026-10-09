@@ -24,6 +24,10 @@ export type ResearchSource = {
   url: string;
   title: string;
   status: ResearchSourceStatus;
+  /** Publication date (YYYY-MM-DD) found in the page, when present. */
+  publishedAt?: string;
+  /** When the web page was fetched, or when the local document was indexed (ISO 8601). */
+  fetchedAt?: string;
 };
 
 export type ResearchToolDeps = {
@@ -45,6 +49,14 @@ const STATUS_LABELS: Record<ResearchSourceStatus, string> = {
   fetch_failed: "could not be read",
   rate_limited: "skipped (fetch rate limit)",
 };
+
+/** Status plus the dates that tell the reader how current a source is. */
+function describeSource(source: ResearchSource): string {
+  const parts = [STATUS_LABELS[source.status]];
+  if (source.publishedAt) parts.push(`published ${source.publishedAt}`);
+  if (source.fetchedAt) parts.push(`${source.origin === "local" ? "indexed" : "fetched"} ${source.fetchedAt.slice(0, 10)}`);
+  return parts.join("; ");
+}
 
 /**
  * One call that checks the local knowledge base, searches the web, reads the
@@ -82,6 +94,7 @@ export function createResearchHandler(deps: ResearchToolDeps) {
         continue;
       }
       documents.push({ title: result.title, url: result.url, content: page.text });
+      const dates = { ...(page.publishedAt ? { publishedAt: page.publishedAt } : {}), fetchedAt: page.fetchedAt };
 
       let status: ResearchSourceStatus = "not_indexed";
       if (knowledgeIndex.findDocBySource(result.url)) {
@@ -92,19 +105,23 @@ export function createResearchHandler(deps: ResearchToolDeps) {
         status = "indexed";
         indexedCount += 1;
       }
-      sources.push({ origin: "web", url: result.url, title: result.title, status });
+      sources.push({ origin: "web", url: result.url, title: result.title, status, ...dates });
     }
 
     const webUrls = new Set(webResults.map((result) => result.url));
     for (const hit of localHits) {
       if (webUrls.has(hit.source) || sources.some((source) => source.origin === "local" && source.url === hit.source)) continue;
       documents.push({ title: hit.title, url: hit.source, content: hit.text });
-      sources.push({ origin: "local", url: hit.source, title: hit.title, status: "already_indexed" });
+      const indexedAt = knowledgeIndex.getDoc(hit.docId)?.timestamp;
+      sources.push({
+        origin: "local", url: hit.source, title: hit.title, status: "already_indexed",
+        ...(indexedAt ? { fetchedAt: new Date(indexedAt).toISOString() } : {}),
+      });
     }
 
     const answer = extractAnswerFromDocuments(query, documents);
     const lines = sources.map((source, position) =>
-      `${position + 1}. [${source.origin}] ${source.title} — ${source.url} (${STATUS_LABELS[source.status]})`);
+      `${position + 1}. [${source.origin}] ${source.title} — ${source.url} (${describeSource(source)})`);
     const text = [
       answer,
       "",
