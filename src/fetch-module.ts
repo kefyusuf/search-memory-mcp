@@ -1,3 +1,4 @@
+import { extractDocument } from "./documents/extract.js";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { LRUCache } from "lru-cache";
@@ -30,6 +31,8 @@ type FetchArticleResult = {
 
 type HttpFetchResult =
   | { kind: "html"; html: string; buffer: Buffer }
+  | { kind: "document"; data: Uint8Array; contentType: string; url: string }
+  | { kind: "document_too_large" }
   | { kind: "blocked" }
   | null;
 
@@ -52,8 +55,48 @@ type ContentFetcherOptions = {
   fetchWaitUntil: WaitUntilMode;
   detectIntent?: ((text: string) => Promise<SearchIntent>) | null;
   maxContentChars?: number;
+  /** Largest PDF/DOCX/EPUB response downloaded for extraction (default 25 MB). */
+  maxDocumentBytes?: number;
   forcePlaywright?: () => boolean;
 };
+
+const DOCUMENT_CONTENT_TYPES = /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/epub\+zip)\b/i;
+const DOCUMENT_EXTENSIONS = /\.(pdf|docx|epub)$/i;
+
+/** Document responses are recognized by content type, or by extension when served as a generic binary. */
+function isDocumentResponse(contentType: string, url: string): boolean {
+  if (DOCUMENT_CONTENT_TYPES.test(contentType)) return true;
+  const generic = contentType === "" || /^(application\/octet-stream|binary\/octet-stream)\b/i.test(contentType);
+  return generic && DOCUMENT_EXTENSIONS.test(new URL(url).pathname);
+}
+
+/** Reads at most maxBytes of a body; null when the declared or actual size is larger. */
+async function readLimitedBody(response: Response, maxBytes: number): Promise<Uint8Array | null> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (!response.body) return new Uint8Array(await response.arrayBuffer());
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const data = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    data.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return data;
+}
 
 export class ContentFetcher {
   private static readonly MAX_HTTP_REDIRECTS = 5;
@@ -63,6 +106,7 @@ export class ContentFetcher {
   private readonly fetchWaitUntil: WaitUntilMode;
   private readonly detectIntent: ((text: string) => Promise<SearchIntent>) | null;
   private readonly maxContentChars: number;
+  private readonly maxDocumentBytes: number;
   private readonly forcePlaywright: () => boolean;
   private readonly turndown: TurndownService;
   private readonly pageCache: LRUCache<string, FetchArticle>;
@@ -73,6 +117,7 @@ export class ContentFetcher {
     this.fetchWaitUntil = options.fetchWaitUntil;
     this.detectIntent = options.detectIntent ?? null;
     this.maxContentChars = options.maxContentChars ?? 50_000;
+    this.maxDocumentBytes = options.maxDocumentBytes ?? 25 * 1024 * 1024;
     this.forcePlaywright = options.forcePlaywright ?? (() => isEnabledEnvFlag(process.env.FORCE_PLAYWRIGHT));
     this.turndown = new TurndownService({
       headingStyle: "atx",
@@ -165,6 +210,18 @@ export class ContentFetcher {
       const httpResult = await this.fetchViaHttp(url);
       if (httpResult?.kind === "blocked") {
         return { kind: "error", reason: "blocked_url" };
+      }
+
+      if (httpResult?.kind === "document_too_large") {
+        return { kind: "error", reason: "fetch_failed" };
+      }
+
+      if (httpResult?.kind === "document") {
+        // A browser cannot render document text better than the extractor, so no Playwright fallback.
+        const documentArticle = await this.parseDocumentToArticle(httpResult);
+        if (!documentArticle) return { kind: "error", reason: "parse_failed" };
+        await this.persistArticle(documentArticle, options);
+        return { kind: "article", article: documentArticle, source: "http" };
       }
 
       if (httpResult) {
@@ -339,6 +396,23 @@ export class ContentFetcher {
       : markdown;
   }
 
+  private async parseDocumentToArticle(document: { data: Uint8Array; contentType: string; url: string }): Promise<FetchArticle | null> {
+    const filename = decodeURIComponent(new URL(document.url).pathname.split("/").pop() ?? "");
+    try {
+      const extracted = await extractDocument(
+        { data: document.data, contentType: document.contentType, filename },
+        { maxBytes: this.maxDocumentBytes },
+      );
+      if (!extracted.text) return null;
+      const title = extracted.title || filename || document.url;
+      const content = this.truncateContent(extracted.text);
+      return { url: document.url, title, content, fullText: `# ${title}\n\n${content}` };
+    } catch (error) {
+      console.error(`Document extraction failed for ${document.url}:`, error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
   private parseHtmlToArticle(html: string, url: string): FetchArticle | null {
     const dom = new JSDOM(html, { url });
     const reader = new Readability(dom.window.document);
@@ -391,7 +465,13 @@ export class ContentFetcher {
           continue;
         }
 
-        if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (response.ok && isDocumentResponse(contentType, currentUrl)) {
+          const data = await readLimitedBody(response, this.maxDocumentBytes);
+          return data ? { kind: "document", data, contentType, url: currentUrl } : { kind: "document_too_large" };
+        }
+
+        if (!response.ok || !contentType.includes("text/html")) {
           return null;
         }
 

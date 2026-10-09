@@ -10,7 +10,7 @@ Works with Claude Desktop, Claude Code, Cursor, Windsurf, and any other MCP clie
 ## Why Search Memory MCP?
 
 - 🔎 **Search the web for free.** DuckDuckGo, Bing, Brave, and Google, with automatic fallback. No API keys, no subscriptions.
-- 📄 **Read any page as clean Markdown.** Fast paths for GitHub, RSS, and static pages. A real browser only when a page needs it.
+- 📄 **Read any page as clean Markdown.** Fast paths for GitHub, RSS, and static pages. PDF, DOCX and EPUB links are converted to text. A real browser only when a page needs it.
 - 🧠 **Remember across sessions.** Your assistant can save notes and recall them later.
 - 📚 **Build a private knowledge base.** Index pages and documents, then search them with keyword + semantic search and get answers with citations.
 - 🔒 **Local first.** Cache, memory, index, and models all run on your machine.
@@ -42,6 +42,7 @@ Restart your client and ask: *"Search the web for the latest Node.js release and
 - Web search through configurable providers with health tracking and ordered fallback. Supported scrapers: DuckDuckGo, Bing, Brave, Google. Optional SearXNG meta-search provider (self-hosted or trusted public instance) via `SEARXNG_BASE_URL`.
 - Search responses report which providers were tried and why any failed, were empty, or were skipped (`providerAttempts` in structured output, a short "Provider notes" line in text output).
 - Search-result cache lifetime follows the query type: news 15 minutes; shopping, local and general 1 hour; technical, research and navigational 24 hours.
+- `fetch_content` and `index_url` extract text from PDF, DOCX and EPUB responses (detected by content type, or by extension for generic binary responses), up to 25 MB per document, without opening a browser.
 - Federated search across providers with URL normalization, cross-provider deduplication, and Reciprocal Rank Fusion (RRF).
 - Opt-in intent-aware search routing (`strategy=auto`) with heuristics, local classifier fallback, and versioned provider profiles.
 - Domain filter (`domain`) and date-range filter (`from_date` / `to_date`).
