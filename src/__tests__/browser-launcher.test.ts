@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import type { Browser } from "playwright";
-import { isMissingBrowserError, launchWithAutoInstall } from "../browser-launcher.js";
+import { installChromium, isMissingBrowserError, launchWithAutoInstall } from "../browser-launcher.js";
 
 const fakeBrowser = {} as Browser;
 const missingBrowser = new Error(
@@ -39,6 +42,47 @@ describe("launchWithAutoInstall", () => {
       launchWithAutoInstall(async () => { throw missingBrowser; }, async () => { throw new Error("offline"); }),
     ).rejects.toThrow("offline");
   });
+});
+
+function isAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+describe("installChromium", () => {
+  const node = process.execPath;
+
+  it("resolves when the installer exits with code 0", async () => {
+    await expect(installChromium({ command: { file: node, args: ["-e", "process.exit(0)"] } })).resolves.toBeUndefined();
+  });
+
+  it("rejects with a manual-install hint when the installer fails", async () => {
+    await expect(installChromium({ command: { file: node, args: ["-e", "process.exit(3)"] } }))
+      .rejects.toThrow(/exited with code 3.*npx playwright install chromium/);
+  });
+
+  it("stops a stalled installer and its child process after the timeout", async () => {
+    // The fake installer starts a long-lived worker (like Playwright's download worker),
+    // writes the worker pid to a file, and then hangs.
+    const pidFile = join(mkdtempSync(join(tmpdir(), "smm-install-")), "worker.pid");
+    const script = [
+      "const { spawn } = require('node:child_process');",
+      "const worker = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
+      `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(worker.pid));`,
+      "setInterval(() => {}, 1000);",
+    ].join("\n");
+
+    const started = Date.now();
+    await expect(installChromium({ timeoutMs: 1500, command: { file: node, args: ["-e", script] } }))
+      .rejects.toThrow(/did not finish within 2 seconds.*npx playwright install chromium/);
+    expect(Date.now() - started).toBeLessThan(5000);
+
+    const workerPid = Number(readFileSync(pidFile, "utf8"));
+    expect(workerPid).toBeGreaterThan(0);
+    // taskkill / SIGKILL are asynchronous; give the OS a moment.
+    for (let i = 0; i < 30 && isAlive(workerPid); i++) await new Promise((r) => setTimeout(r, 100));
+    expect(isAlive(workerPid)).toBe(false);
+    rmSync(dirname(pidFile), { recursive: true, force: true });
+  }, 15000);
 });
 
 describe("isMissingBrowserError", () => {

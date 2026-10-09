@@ -273,6 +273,7 @@ Or explore the entity graph:
 | `TRACE_SEARCHES` | `false` | Logs a compact per-search execution trace (stages, timings, cache) to stderr. Recent searches are always exposed via `server_status`. |
 | `MEMORY_MAX_NOTES` | `500` | Maximum session-memory notes kept; oldest notes are evicted first. |
 | `FETCH_WAIT_UNTIL` | `networkidle` | Playwright wait strategy. Use `domcontentloaded` for faster rendered-page fallback. |
+| `CHROMIUM_INSTALL_TIMEOUT_MS` | `600000` | Maximum time for the automatic first-use Chromium download. A stalled download is stopped after this time and the next browser request tries again. |
 | `FORCE_PLAYWRIGHT` | unset | Set to `true` to skip HTTP-first fetch and always use Playwright. |
 | `CACHE_DB_PATH` | `websearch_cache.db` | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph. |
 | `CACHE_CLEANUP_INTERVAL_HOURS` | `24` | Interval for expired content cache cleanup. |
@@ -332,7 +333,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 
 ## Troubleshooting
 
-- The server downloads Chromium automatically the first time a page needs a browser. If that download fails (for example offline or behind a proxy), run `npx playwright install chromium` manually.
+- The server downloads Chromium automatically the first time a page needs a browser. If that download fails or stalls (for example offline or behind a proxy), it stops after `CHROMIUM_INSTALL_TIMEOUT_MS`; run `npx playwright install chromium` manually.
 - If `better-sqlite3` reports `NODE_MODULE_VERSION` mismatch, switch to the Node version in `.nvmrc` and run `npm ci` using that runtime before building again.
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.
 - If search returns no results, change `SEARCH_PROVIDERS` order/set or try a direct `fetch_content` URL.

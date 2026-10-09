@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import type { Browser } from "playwright";
@@ -9,22 +9,65 @@ export function isMissingBrowserError(error: unknown): boolean {
   return error instanceof Error && MISSING_BROWSER_PATTERN.test(error.message);
 }
 
+const DEFAULT_INSTALL_TIMEOUT_MS = 10 * 60 * 1000;
+
+export const MANUAL_INSTALL_HINT = "Run `npx playwright install chromium` manually, then retry.";
+
+export interface InstallOptions {
+  /** Stops the installer after this time. Defaults to CHROMIUM_INSTALL_TIMEOUT_MS or 10 minutes. */
+  timeoutMs?: number;
+  /** Command and arguments to run. Defaults to the bundled Playwright CLI. Override in tests. */
+  command?: { file: string; args: string[] };
+}
+
+function playwrightInstallCommand(): { file: string; args: string[] } {
+  // "playwright/cli" is not in the package exports; resolve cli.js next to package.json.
+  const packageJsonPath = createRequire(import.meta.url).resolve("playwright/package.json");
+  return { file: process.execPath, args: [join(dirname(packageJsonPath), "cli.js"), "install", "chromium"] };
+}
+
+function resolveTimeoutMs(timeoutMs?: number): number {
+  if (timeoutMs !== undefined) return timeoutMs;
+  const fromEnv = Number(process.env.CHROMIUM_INSTALL_TIMEOUT_MS);
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_INSTALL_TIMEOUT_MS;
+}
+
+/** Stops the installer and the download worker it starts. */
+function killProcessTree(child: ChildProcess): void {
+  if (child.pid === undefined || child.exitCode !== null) return;
+  if (process.platform === "win32") {
+    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+  } else {
+    try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+  }
+}
+
 /**
  * Installs Playwright Chromium with the CLI of the installed playwright package.
  * Output goes to stderr only, because stdout carries the MCP stdio protocol.
+ * A stalled download is stopped after the timeout, so callers never wait forever.
  */
-export function installChromium(): Promise<void> {
-  // "playwright/cli" is not in the package exports; resolve cli.js next to package.json.
-  const packageJsonPath = createRequire(import.meta.url).resolve("playwright/package.json");
-  const cliPath = join(dirname(packageJsonPath), "cli.js");
+export function installChromium(options: InstallOptions = {}): Promise<void> {
+  const { file, args } = options.command ?? playwrightInstallCommand();
+  const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cliPath, "install", "chromium"], {
+    const child = spawn(file, args, {
       stdio: ["ignore", process.stderr, process.stderr],
+      // A process group lets the timeout stop the download worker too (POSIX).
+      detached: process.platform !== "win32",
     });
-    child.on("error", reject);
+    const timer = setTimeout(() => {
+      killProcessTree(child);
+      reject(new Error(`Chromium download did not finish within ${Math.round(timeoutMs / 1000)} seconds. ${MANUAL_INSTALL_HINT}`));
+    }, timeoutMs);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(new Error(`Could not start the Chromium installer: ${error.message}. ${MANUAL_INSTALL_HINT}`));
+    });
     child.on("exit", (code) => {
+      clearTimeout(timer);
       if (code === 0) resolve();
-      else reject(new Error(`playwright install chromium exited with code ${code}`));
+      else reject(new Error(`Chromium installer exited with code ${code}. ${MANUAL_INSTALL_HINT}`));
     });
   });
 }
