@@ -27,6 +27,16 @@
           "name": "CACHE_DB_PATH",
           "description": "Path of the local SQLite database for cache, memory, and index",
           "isRequired": false
+        },
+        {
+          "name": "INGEST_ALLOWED_DIRS",
+          "description": "Comma-separated directories whose files ingest_document may read; local file reading is off when unset",
+          "isRequired": false
+        },
+        {
+          "name": "SEARXNG_BASE_URL",
+          "description": "Base URL of a SearXNG instance with JSON output, used by the searxng provider",
+          "isRequired": false
         }
       ]
     }
