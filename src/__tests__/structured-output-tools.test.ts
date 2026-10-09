@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { WebSearchServer } from "../index.js";
+import { SemanticCache } from "../cache/semantic-cache.js";
+import { InMemoryVectorStore } from "./helpers.js";
+
+type Internals = { cache: SemanticCache; embeddingProvider: { getEmbedding(text: string): Promise<number[]> } };
 
 // The SDK client rejects a call when a tool with outputSchema returns no
 // structuredContent or content that does not match the schema.
@@ -14,6 +18,12 @@ async function connect() {
       { title: "Second", url: "https://b.example/2", snippet: "second result", source: "mock" },
     ],
   }]);
+  // Keep model downloads out of the test: CI has network access, so the real
+  // embedding provider would start downloading and exceed the test timeout.
+  const internals = server as unknown as Internals;
+  internals.cache.close();
+  internals.cache = new SemanticCache({ getEmbedding: async () => [], isAvailable: () => false }, new InMemoryVectorStore());
+  vi.spyOn(internals.embeddingProvider, "getEmbedding").mockResolvedValue([]);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = new Client({ name: "structured-output-test", version: "1.0.0" });
@@ -26,7 +36,7 @@ describe("structured tool output", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
   it("advertises object output schemas for search, index search and status", async () => {
     const client = await connect();
