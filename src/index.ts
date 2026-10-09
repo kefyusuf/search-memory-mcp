@@ -26,6 +26,7 @@ import { EntityGraph } from "./graph/entity-graph.js";
 import { createLocalRequestContext, InvocationError } from "./runtime/request-context.js";
 import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
 import { launchWithAutoInstall } from "./browser-launcher.js";
+import { checkSqliteBinding } from "./runtime/native-check.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { createFetchHandler } from "./tools/fetch.js";
 import { createKnowledgeHandlers } from "./tools/knowledge.js";
@@ -312,6 +313,12 @@ export class WebSearchServer {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // Fail with instructions instead of a stack trace when the native SQLite module is missing.
+  const sqliteHelp = checkSqliteBinding();
+  if (sqliteHelp) {
+    console.error(sqliteHelp);
+    process.exit(1);
+  }
   const server = new WebSearchServer();
   server.run().catch(console.error);
 }
