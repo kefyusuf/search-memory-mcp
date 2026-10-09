@@ -2,8 +2,6 @@ import { pipeline } from "@huggingface/transformers";
 import { IEmbeddingProvider } from "./types.js";
 import { InvocationError } from "../runtime/request-context.js";
 
-const DEFAULT_LOAD_WAIT_MS = 5_000;
-
 export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private extractorLoading: Promise<any> | null = null;
   private extractorFailed = false;
@@ -12,14 +10,16 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private readonly maxQueuedInferences: number;
   private activeInferences = 0;
   private readonly inferenceWaiters: Array<() => void> = [];
-  private readonly loadWaitMs: number;
+  /** How long a query waits for the model; undefined waits until it is loaded. */
+  private readonly loadWaitMs?: number;
   private extractorReady = false;
 
   constructor(modelName: string = "Xenova/paraphrase-multilingual-MiniLM-L12-v2", options: { maxConcurrentInferences?: number; maxQueuedInferences?: number; loadWaitMs?: number } = {}) {
     this.modelName = modelName;
-    // The first model download can take minutes; calls made meanwhile get no vector
-    // (keyword-only search) instead of outlasting the client's request timeout.
-    this.loadWaitMs = options.loadWaitMs ?? DEFAULT_LOAD_WAIT_MS;
+    // Loading takes seconds from disk and minutes on the first download. Queries made
+    // meanwhile get no vector (keyword-only search) instead of waiting for it;
+    // background work passes waitForModel to wait for the model instead.
+    this.loadWaitMs = options.loadWaitMs;
     this.maxConcurrentInferences = options.maxConcurrentInferences ?? 1;
     this.maxQueuedInferences = options.maxQueuedInferences ?? 32;
     if (!Number.isSafeInteger(this.maxConcurrentInferences) || this.maxConcurrentInferences <= 0 ||
@@ -54,6 +54,7 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private async waitForExtractor() {
     const loading = this.getExtractor();
     if (this.extractorReady) return loading;
+    if (!this.loadWaitMs) return null;
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), this.loadWaitMs); });
     try {
@@ -80,15 +81,17 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
     else this.activeInferences--;
   }
 
-  getEmbedding(text: string): Promise<number[]> {
+  getEmbedding(text: string, options: { waitForModel?: boolean } = {}): Promise<number[]> {
     // Retain only the existing bounded model input while waiting for admission.
-    return this.embedTruncated(text.slice(0, 512));
+    return this.embedTruncated(text.slice(0, 512), options.waitForModel ?? false);
   }
 
-  private async embedTruncated(text: string): Promise<number[]> {
+  private async embedTruncated(text: string, waitForModel: boolean): Promise<number[]> {
+    // A query that will not wait for the model returns before taking an inference slot.
+    if (!waitForModel && this.loadWaitMs !== undefined && !(await this.waitForExtractor())) return [];
     await this.acquireInference();
     try {
-      const extractor = await this.waitForExtractor();
+      const extractor = await this.getExtractor();
       if (!extractor || this.extractorFailed) return [];
       const output = await extractor(text, { pooling: "mean", normalize: true });
       return Array.from(output.data);
