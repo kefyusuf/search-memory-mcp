@@ -404,6 +404,8 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 
 The npm package includes only `build/`, `README.md`, `LICENSE`, and `SECURITY.md`. `npm pack` runs `npm run build` through `prepack` so the package contains compiled JavaScript instead of local planning files, tests, caches, or source-only artifacts.
 
+Releases are published by `.github/workflows/release.yml` when a `v*` tag is pushed. The workflow publishes the npm package with provenance and registers the server in the MCP Registry. `docker.yml` publishes the Docker image for the same tag. Before tagging, set the version in `package.json` and `server.json` (both entries), and add an `NPM_TOKEN` repository secret for the first publish.
+
 ## Security
 
 See `SECURITY.md` for reporting instructions and current dependency audit notes.
