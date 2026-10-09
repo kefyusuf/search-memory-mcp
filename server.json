@@ -37,6 +37,12 @@
           "name": "SEARXNG_BASE_URL",
           "description": "Base URL of a SearXNG instance with JSON output, used by the searxng provider",
           "isRequired": false
+        },
+        {
+          "name": "BRAVE_SEARCH_API_KEY",
+          "description": "Optional Brave Search API key; the brave provider then uses the official API instead of scraping",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
