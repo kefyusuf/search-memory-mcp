@@ -9,7 +9,7 @@ import type { SearchProvider } from "../providers/base.js";
 import type { ProviderHealthTracker } from "../providers/health.js";
 import type { TokenBucket } from "../rate-limiter.js";
 import { filterResultsByDate } from "../search/date-filter.js";
-import { executeProviderSearch, executeSearchPlan } from "../search/executor.js";
+import { executeProviderSearch, executeSearchPlan, type ProviderAttempt } from "../search/executor.js";
 import type { IntentDetector } from "../search/intent.js";
 import { fuseQueryResults } from "../search/multi-query.js";
 import { planSearch } from "../search/planner.js";
@@ -50,6 +50,21 @@ export class SearchTraceHistory {
 }
 
 export type FetchedPage = { url: string; title: string; content: string };
+
+function describeAttempt(attempt: ProviderAttempt): string {
+  switch (attempt.status) {
+    case "error": return `${attempt.provider} failed (${attempt.error || "unknown error"})`;
+    case "empty": return `${attempt.provider} returned no results`;
+    case "backoff": return `${attempt.provider} skipped (temporarily disabled after repeated failures)`;
+    default: return `${attempt.provider} returned ${attempt.resultCount} results`;
+  }
+}
+
+/** A short note for text output when some providers did not contribute. */
+function providerNotes(attempts: ProviderAttempt[]): string {
+  const problems = attempts.filter((attempt) => attempt.status !== "ok");
+  return problems.length > 0 ? `\n\nProvider notes: ${problems.map(describeAttempt).join("; ")}.` : "";
+}
 
 /** Getters are read per call so tests and runtime reconfiguration can swap them. */
 export type SearchToolDeps = {
@@ -193,6 +208,8 @@ export function createSearchHandler(deps: SearchToolDeps) {
     trace.setMeta({ cache: "miss" });
 
     const resultSets: SearchResultItem[][] = [];
+    const attempts: ProviderAttempt[] = [];
+    const onAttempt = (attempt: ProviderAttempt) => { attempts.push(attempt); };
     trace.startStage("providers");
     for (const variant of queries) {
       const providerQuery = normalizedDomain ? `${variant} site:${normalizedDomain}` : variant;
@@ -203,6 +220,7 @@ export function createSearchHandler(deps: SearchToolDeps) {
             locale: queryLocale,
             plan: searchPlan,
             healthTracker: deps.healthTracker(),
+            onAttempt,
           })
         : await executeProviderSearch({
             providers,
@@ -210,6 +228,7 @@ export function createSearchHandler(deps: SearchToolDeps) {
             locale: queryLocale,
             strategy: strategy === "aggregate" ? "aggregate" : "fallback",
             healthTracker: deps.healthTracker(),
+            onAttempt,
           }));
     }
     const rawResults = resultSets.length > 1 ? fuseQueryResults(resultSets) : resultSets[0];
@@ -225,7 +244,7 @@ export function createSearchHandler(deps: SearchToolDeps) {
       finalizeTrace(trace, 0);
       return errorResult(normalizedDomain
         ? `No results matched the domain filter "${normalizedDomain}". Try a broader search or fetch_content with a direct URL.`
-        : "Web search is currently unavailable (all providers returned no results). Try using fetch_content with a direct URL instead, or retry the search later.");
+        : `Web search is currently unavailable (all providers returned no results${attempts.length > 0 ? `: ${attempts.map(describeAttempt).join("; ")}` : ""}). Try using fetch_content with a direct URL instead, or retry the search later.`);
     }
 
     trace.endStage("filters", { status: "ok", resultCount: results.length });
@@ -236,10 +255,10 @@ export function createSearchHandler(deps: SearchToolDeps) {
       const ranked = await rankResults(query, results, max_results);
       finalizeTrace(trace, ranked.length);
       const limitedResults = ranked.slice(0, max_results);
-      const payload = buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length });
+      const payload = { ...buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length }), providerAttempts: attempts };
       return textResult(outputFormat === "json"
         ? formatToolResult(payload, "json")
-        : formatSearchResults(query, limitedResults), payload);
+        : formatSearchResults(query, limitedResults) + providerNotes(attempts), payload);
     }
 
     finalizeTrace(trace, results.length);

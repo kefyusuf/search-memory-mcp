@@ -8,6 +8,18 @@ import type { SearchPlan } from "./planner.js";
 export type SearchStrategy = "fallback" | "aggregate";
 export type SearchResultFilter = (results: SearchResultItem[]) => SearchResultItem[];
 
+/** One provider call, reported so responses can explain empty or partial results. */
+export type ProviderAttempt = {
+  provider: string;
+  status: "ok" | "empty" | "error" | "backoff";
+  resultCount: number;
+  durationMs: number;
+  error?: string;
+};
+export type ProviderAttemptListener = (attempt: ProviderAttempt) => void;
+
+const MAX_ATTEMPT_ERROR_LENGTH = 160;
+
 export type ExecuteProviderSearchOptions = {
   providers: SearchProvider[];
   query: string;
@@ -15,6 +27,7 @@ export type ExecuteProviderSearchOptions = {
   strategy: SearchStrategy;
   healthTracker: ProviderHealthTracker;
   resultFilter?: SearchResultFilter;
+  onAttempt?: ProviderAttemptListener;
 };
 
 export type ExecuteSearchPlanOptions = {
@@ -24,6 +37,7 @@ export type ExecuteSearchPlanOptions = {
   plan: SearchPlan;
   healthTracker: ProviderHealthTracker;
   resultFilter?: SearchResultFilter;
+  onAttempt?: ProviderAttemptListener;
 };
 
 function dedupeProviderResults(results: SearchResultItem[]): SearchResultItem[] {
@@ -73,14 +87,32 @@ function inferSiteResultFilter(query: string): SearchResultFilter | undefined {
     : undefined;
 }
 
+function attemptError(error: unknown): string {
+  const message = (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").trim();
+  return message.slice(0, MAX_ATTEMPT_ERROR_LENGTH);
+}
+
 async function runProvider(
   provider: SearchProvider,
   query: string,
   locale: SearchLocale,
-  healthTracker: ProviderHealthTracker
+  healthTracker: ProviderHealthTracker,
+  onAttempt?: ProviderAttemptListener,
 ): Promise<SearchResultItem[]> {
+  const startedAt = Date.now();
+  const report = (status: ProviderAttempt["status"], resultCount: number, error?: string) => {
+    onAttempt?.({
+      provider: provider.name,
+      status,
+      resultCount,
+      durationMs: Date.now() - startedAt,
+      ...(error === undefined ? {} : { error }),
+    });
+  };
+
   if (!healthTracker.isAvailable(provider.name)) {
     console.error(`Skipping provider ${provider.name}: provider is in backoff window`);
+    report("backoff", 0);
     return [];
   }
 
@@ -91,6 +123,7 @@ async function runProvider(
     if (deduped.length === 0) {
       healthTracker.record(provider.name, false);
       console.error(`Provider ${provider.name} returned 0 parsed results`);
+      report("empty", 0);
       return [];
     }
 
@@ -100,6 +133,7 @@ async function runProvider(
 
     healthTracker.record(provider.name, true);
     console.error(`Provider ${provider.name} returned ${deduped.length} results`);
+    report("ok", deduped.length);
     return deduped;
   } catch (error) {
     healthTracker.record(provider.name, false);
@@ -107,6 +141,7 @@ async function runProvider(
       `Provider ${provider.name} error:`,
       error instanceof Error ? error.message : String(error)
     );
+    report("error", 0, attemptError(error));
     return [];
   }
 }
@@ -118,11 +153,12 @@ export async function executeProviderSearch({
   strategy,
   healthTracker,
   resultFilter,
+  onAttempt,
 }: ExecuteProviderSearchOptions): Promise<SearchResultItem[]> {
   if (strategy === "fallback") {
     for (const provider of providers) {
       const results = applyResultFilter(
-        await runProvider(provider, query, locale, healthTracker),
+        await runProvider(provider, query, locale, healthTracker, onAttempt),
         resultFilter,
       );
       if (results.length > 0) return results;
@@ -135,7 +171,7 @@ export async function executeProviderSearch({
     aggregateProviders.map(async (provider) => ({
       provider: provider.name,
       results: applyResultFilter(
-        await runProvider(provider, query, locale, healthTracker),
+        await runProvider(provider, query, locale, healthTracker, onAttempt),
         resultFilter,
       ),
     }))
@@ -153,6 +189,7 @@ export async function executeSearchPlan({
   plan,
   healthTracker,
   resultFilter,
+  onAttempt,
 }: ExecuteSearchPlanOptions): Promise<SearchResultItem[]> {
   const effectiveResultFilter = resultFilter ?? inferSiteResultFilter(query);
   const primaryProviders = providersInPlanOrder(providers, plan.primaryProviderNames);
@@ -163,6 +200,7 @@ export async function executeSearchPlan({
     strategy: plan.strategy,
     healthTracker,
     resultFilter: effectiveResultFilter,
+    onAttempt,
   });
 
   if (
@@ -181,5 +219,6 @@ export async function executeSearchPlan({
     strategy: "fallback",
     healthTracker,
     resultFilter: effectiveResultFilter,
+    onAttempt,
   });
 }
