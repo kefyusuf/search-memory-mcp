@@ -57,6 +57,20 @@ describe("ContentFetcher documents", () => {
     expect(result.kind === "content" && result.text).toBe("# 100%25-%E0%A4%A.docx\n\nEscaped paragraph.");
   });
 
+  it("retries without browser headers when a bot challenge answers the browser request", async () => {
+    const { fetcher } = createFetcher();
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const userAgent = new Headers(init?.headers).get("user-agent") ?? "";
+      return userAgent.includes("Chrome")
+        ? new Response("<!DOCTYPE html><title>Just a moment...</title>", { status: 403, headers: { "content-type": "text/html" } })
+        : new Response(pdf("Dummy PDF file"), { status: 200, headers: { "content-type": "application/pdf; qs=0.001" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await fetcher.fetchContent("https://example.com/dummy.pdf");
+    expect(result.kind === "content" && result.text).toMatch(/Dummy PDF file/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("extracts EPUB responses", async () => {
     const { fetcher } = createFetcher();
     respond(epub([{ id: "ch1", html: "<p>Chapter text.</p>" }], "Book"), "application/epub+zip");
