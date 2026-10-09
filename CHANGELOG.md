@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Optional Brave Search API support: with `BRAVE_SEARCH_API_KEY` set, the `brave` provider uses the official API instead of scraping, and leads the default provider order.
+
 ## 1.0.0 (unreleased)
 
 First published release.
