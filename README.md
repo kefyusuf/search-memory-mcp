@@ -35,6 +35,31 @@ Restart your client and ask: *"Search the web for the latest Node.js release and
 
 > Search and most pages work right away. Pages that need a real browser use Playwright Chromium (about 180 MB). It is downloaded during install, or on first use if your package manager skipped install scripts, so that first request can take a few minutes. To download it ahead of time, run `npx playwright install chromium`. Model-backed features download small local models on first use.
 
+> Requires Node.js 20.9 to 25 (Node 24 recommended). If your Node version is newer, or npm skipped install scripts, the server prints the exact fix when it starts. You can also [run it in Docker](#run-in-docker-no-local-setup) with nothing installed on your machine except Docker.
+
+### Run in Docker (no local setup)
+
+Docker brings its own Node 24, SQLite module and Chromium, so it works whatever Node version you have. Build the image once from a clone of this repository:
+
+```bash
+docker build -t search-memory-mcp .
+```
+
+Then point your MCP client at it:
+
+```json
+{
+  "mcpServers": {
+    "search-memory": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-v", "search-memory-data:/app/data", "-v", "search-memory-models:/root/.cache/huggingface", "search-memory-mcp"]
+    }
+  }
+}
+```
+
+The named volumes keep your cache, memory, knowledge base and downloaded models between runs. To let `ingest_document` read local files, mount the folder and allow it, for example `"-v", "/home/me/notes:/notes:ro", "-e", "INGEST_ALLOWED_DIRS=/notes"`.
+
 ## Features
 
 **Search & fetch**
@@ -342,7 +367,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 ## Troubleshooting
 
 - The server downloads Chromium automatically the first time a page needs a browser. If that download fails or stalls (for example offline or behind a proxy), it stops after `CHROMIUM_INSTALL_TIMEOUT_MS`; run `npx playwright install chromium` manually.
-- If `better-sqlite3` reports `NODE_MODULE_VERSION` mismatch, switch to the Node version in `.nvmrc` and run `npm ci` using that runtime before building again.
+- If the server says it could not load its SQLite module (`better-sqlite3`), follow the steps it prints: use Node 24 (the version in `.nvmrc`); if npm 11 skipped install scripts, run `npm install-scripts approve better-sqlite3`; then `npm rebuild better-sqlite3`. Or [run it in Docker](#run-in-docker-no-local-setup).
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.
 - If search returns no results, change `SEARCH_PROVIDERS` order/set or try a direct `fetch_content` URL.
 - If aggregate mode is too slow or triggers provider blocking, use the default `fallback` strategy.
