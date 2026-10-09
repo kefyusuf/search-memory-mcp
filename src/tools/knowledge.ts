@@ -4,6 +4,7 @@ import type { EntityGraph } from "../graph/entity-graph.js";
 import type { KnowledgeChunkHit, KnowledgeIndex } from "../knowledge/index-store.js";
 import type { TokenBucket } from "../rate-limiter.js";
 import { parseAllowedDirs, readLocalDocument } from "../documents/local-files.js";
+import { wrapUntrusted } from "../security/untrusted.js";
 import { rewriteQuery } from "../search/query-rewrite.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
 import { buildIndexHitJson, formatToolResult } from "../format/structured-output.js";
@@ -124,7 +125,8 @@ export function createKnowledgeHandlers({
         return `${index + 1}. [Source ${index + 1}] "${hit.title}" (${hit.source})\n   match=${hit.matchedBy} score=${hit.score.toFixed(4)} chunk=${hit.chunkIndex}\n   ${excerpt}`;
       });
       const sources = hits.map((hit: KnowledgeChunkHit, index: number) => `Source ${index + 1}: ${hit.source} — ${hit.title}`).join("\n");
-      return textResult(`Knowledge index hits for "${query}":\n\n${lines.join("\n\n")}\n\nSources:\n${sources}`, payload);
+      // Indexed documents often come from the web, so hits are untrusted too.
+      return textResult(`Knowledge index hits for "${query}":\n\n${wrapUntrusted(lines.join("\n\n"))}\n\nSources:\n${sources}`, payload);
     },
 
     async list_index(args: unknown): Promise<ToolResult> {

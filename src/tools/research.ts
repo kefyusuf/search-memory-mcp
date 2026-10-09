@@ -4,6 +4,7 @@ import type { EntityGraph } from "../graph/entity-graph.js";
 import type { KnowledgeIndex } from "../knowledge/index-store.js";
 import type { TokenBucket } from "../rate-limiter.js";
 import type { ContentLoader } from "./fetch.js";
+import { wrapUntrusted } from "../security/untrusted.js";
 import { errorResult, textResult, type ToolResult } from "./types.js";
 
 const ResearchSchema = z.object({
@@ -123,7 +124,7 @@ export function createResearchHandler(deps: ResearchToolDeps) {
     const lines = sources.map((source, position) =>
       `${position + 1}. [${source.origin}] ${source.title} — ${source.url} (${describeSource(source)})`);
     const text = [
-      answer,
+      wrapUntrusted(answer),
       "",
       "Research sources:",
       ...lines,

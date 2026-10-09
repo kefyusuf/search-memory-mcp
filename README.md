@@ -15,6 +15,7 @@ Works with Claude Desktop, Claude Code, Cursor, Windsurf, and any other MCP clie
 - 📚 **Build a private knowledge base.** Index pages and documents, then search them with keyword + semantic search and get answers with citations.
 - 🔁 **Research that remembers.** One `research` call checks what you already indexed, searches the web, reads the top pages, answers with citations, and keeps the pages for next time. Every source shows when it was published (from page or PDF metadata) and when it was fetched or indexed, so you can tell how current an answer is.
 - 🔒 **Local first.** Cache, memory, index, and models all run on your machine.
+- 🛡️ **Safer with untrusted pages.** Hidden text and invisible characters are removed from fetched pages, and web content is marked as data so the assistant is told not to follow instructions inside it. See [SECURITY.md](SECURITY.md).
 
 ## Quick start
 
