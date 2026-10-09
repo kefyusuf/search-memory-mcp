@@ -20,7 +20,7 @@
       "environmentVariables": [
         {
           "name": "SEARCH_PROVIDERS",
-          "description": "Comma-separated search provider order, for example duckduckgo,bing",
+          "description": "Comma-separated search provider order, for example duckduckgo,marginalia,bing",
           "isRequired": false
         },
         {

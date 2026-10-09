@@ -148,7 +148,7 @@ If the package is installed globally or through a package runner, use the binary
 }
 ```
 
-To use the Brave Search API, add `"BRAVE_SEARCH_API_KEY": "<your key>"` to the same `env` object. Leave `SEARCH_PROVIDERS` unset so the default order (`brave,duckduckgo,bing` with a key) applies; an explicit `SEARCH_PROVIDERS` replaces it. On Windows, Claude Desktop reads `%APPDATA%\Claude\claude_desktop_config.json`; restart the app fully after editing it.
+To use the Brave Search API, add `"BRAVE_SEARCH_API_KEY": "<your key>"` to the same `env` object. Leave `SEARCH_PROVIDERS` unset so the default order (`brave,duckduckgo,marginalia,bing` with a key) applies; an explicit `SEARCH_PROVIDERS` replaces it. On Windows, Claude Desktop reads `%APPDATA%\Claude\claude_desktop_config.json`; restart the app fully after editing it.
 
 For package-runner based clients, use the `npx` configuration from [Quick start](#quick-start).
 
@@ -292,7 +292,7 @@ Or explore the entity graph:
 | --- | --- | --- |
 | `RATE_LIMIT_SEARCH_PER_MIN` | `10` | Maximum `web_search` requests per minute. Invalid or non-positive values disable the limiter. |
 | `RATE_LIMIT_FETCH_PER_MIN` | `20` | Maximum `fetch_content` requests per minute. Invalid or non-positive values disable the limiter. |
-| `SEARCH_PROVIDERS` | `duckduckgo,bing` (`brave,duckduckgo,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`. |
+| `SEARCH_PROVIDERS` | `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`. |
 | `BRAVE_SEARCH_API_KEY` | unset | Optional key for the [Brave Search API](https://api-dashboard.search.brave.com/). When set, the `brave` provider calls the official API instead of scraping the website, which avoids the rate limits that block scraping. |
 | `SEARXNG_BASE_URL` | unset | Base URL of a SearXNG instance with the JSON format enabled (for example `https://searx.example.com`). Required for the `searxng` provider; no API key is used. |
 | `ENABLE_CROSSLINGUAL` | `false` | Enables language detection and cross-lingual search support. This can trigger first-run local model downloads. When disabled, query heuristics still infer supported locales such as Turkish. |

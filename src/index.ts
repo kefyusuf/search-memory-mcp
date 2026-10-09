@@ -212,7 +212,7 @@ export class WebSearchServer {
 
   private setupProviders() {
     // With a Brave Search API key, the API is the most reliable source, so it leads by default.
-    const defaultOrder = process.env.BRAVE_SEARCH_API_KEY?.trim() ? "brave,duckduckgo,bing" : "duckduckgo,bing";
+    const defaultOrder = process.env.BRAVE_SEARCH_API_KEY?.trim() ? "brave,duckduckgo,marginalia,bing" : "duckduckgo,marginalia,bing";
     const order = getEnvArray("SEARCH_PROVIDERS", defaultOrder);
     this.providers = buildProviders(order);
   }
