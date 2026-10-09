@@ -94,6 +94,6 @@ describe("web_search cache TTL", () => {
     const store = cache();
     const set = vi.spyOn(store, "set");
     await search(store, "news")({ query: "how tall is mount everest", strategy: "auto" });
-    expect(set).toHaveBeenCalledWith("how tall is mount everest", expect.any(Array), "auto:v1:news:brave", { ttlMs: 15 * MINUTE });
+    expect(set).toHaveBeenCalledWith("how tall is mount everest", expect.any(Array), "auto:v2:news:brave", { ttlMs: 15 * MINUTE });
   });
 });
