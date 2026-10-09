@@ -7,16 +7,27 @@ import { join } from "node:path";
 
 const smokeDir = mkdtempSync(join(tmpdir(), "search-memory-mcp-smoke-"));
 const cacheDbPath = join(smokeDir, "websearch_cache.db");
-const child = spawn(process.execPath, ["build/index.js"], {
-  cwd: process.cwd(),
-  stdio: ["pipe", "pipe", "pipe"],
-  env: {
-    ...process.env,
-    CACHE_DB_PATH: process.env.CACHE_DB_PATH ?? cacheDbPath,
-    SEARCH_PROVIDERS: process.env.SEARCH_PROVIDERS ?? "duckduckgo",
-    ENABLE_CROSSLINGUAL: process.env.ENABLE_CROSSLINGUAL ?? "false",
-  },
-});
+// SMOKE_DOCKER_IMAGE runs the same checks against a container image instead of build/index.js.
+const dockerImage = process.env.SMOKE_DOCKER_IMAGE;
+const serverEnv = {
+  SEARCH_PROVIDERS: process.env.SEARCH_PROVIDERS ?? "duckduckgo",
+  ENABLE_CROSSLINGUAL: process.env.ENABLE_CROSSLINGUAL ?? "false",
+};
+const child = dockerImage
+  ? spawn("docker", [
+      "run", "-i", "--rm",
+      ...Object.entries(serverEnv).flatMap(([key, value]) => ["-e", `${key}=${value}`]),
+      dockerImage,
+    ], { stdio: ["pipe", "pipe", "pipe"] })
+  : spawn(process.execPath, ["build/index.js"], {
+      cwd: process.cwd(),
+      stdio: ["pipe", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        CACHE_DB_PATH: process.env.CACHE_DB_PATH ?? cacheDbPath,
+        ...serverEnv,
+      },
+    });
 
 let nextId = 1;
 let stdout = "";
@@ -26,7 +37,7 @@ const pending = new Map();
 const timeout = setTimeout(() => {
   child.kill();
   fail(`MCP smoke timed out.\n${stderr}`);
-}, 15_000);
+}, dockerImage ? 60_000 : 15_000);
 
 child.stdout.on("data", (chunk) => {
   stdout += chunk.toString("utf8");
