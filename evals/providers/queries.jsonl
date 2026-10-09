@@ -1,0 +1,16 @@
+{"query": "node.js 22 release notes", "intent": "technical"}
+{"query": "postgres connection pooling pgbouncer configuration", "intent": "technical"}
+{"query": "react useEffect cleanup function", "intent": "technical"}
+{"query": "docker compose healthcheck example", "intent": "technical"}
+{"query": "latest AI regulation news", "intent": "news"}
+{"query": "electric vehicle market share 2026", "intent": "research"}
+{"query": "best noise cancelling headphones price", "intent": "shopping"}
+{"query": "MDN fetch API documentation", "intent": "navigational"}
+{"query": "how tall is mount everest", "intent": "general"}
+{"query": "photosynthesis explained simply", "intent": "general"}
+{"query": "laravel queue retry yapılandırması", "intent": "technical", "locale": "tr"}
+{"query": "postgresql yedekleme nasıl yapılır", "intent": "technical", "locale": "tr"}
+{"query": "bugün son dakika ekonomi haberleri", "intent": "news", "locale": "tr"}
+{"query": "istanbul hava durumu", "intent": "local", "locale": "tr"}
+{"query": "türkiye yapay zeka stratejisi", "intent": "research", "locale": "tr"}
+{"query": "en iyi kablosuz kulaklık fiyat", "intent": "shopping", "locale": "tr"}

@@ -61,6 +61,7 @@
     "test:postgres": "node scripts/verify-membership-postgres.mjs",
     "test:postgres:shutdown": "node scripts/verify-membership-shutdown.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
+    "benchmark:providers": "node scripts/benchmark-providers.mjs",
     "prepack": "npm run build",
     "postinstall": "playwright install chromium || node -e \"process.exit(0)\"",
     "docker:build": "docker compose build",
