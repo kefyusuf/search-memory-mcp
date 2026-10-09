@@ -2,6 +2,8 @@ import { pipeline } from "@huggingface/transformers";
 import { IEmbeddingProvider } from "./types.js";
 import { InvocationError } from "../runtime/request-context.js";
 
+const DEFAULT_LOAD_WAIT_MS = 5_000;
+
 export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private extractorLoading: Promise<any> | null = null;
   private extractorFailed = false;
@@ -10,9 +12,14 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private readonly maxQueuedInferences: number;
   private activeInferences = 0;
   private readonly inferenceWaiters: Array<() => void> = [];
+  private readonly loadWaitMs: number;
+  private extractorReady = false;
 
-  constructor(modelName: string = "Xenova/paraphrase-multilingual-MiniLM-L12-v2", options: { maxConcurrentInferences?: number; maxQueuedInferences?: number } = {}) {
+  constructor(modelName: string = "Xenova/paraphrase-multilingual-MiniLM-L12-v2", options: { maxConcurrentInferences?: number; maxQueuedInferences?: number; loadWaitMs?: number } = {}) {
     this.modelName = modelName;
+    // The first model download can take minutes; calls made meanwhile get no vector
+    // (keyword-only search) instead of outlasting the client's request timeout.
+    this.loadWaitMs = options.loadWaitMs ?? DEFAULT_LOAD_WAIT_MS;
     this.maxConcurrentInferences = options.maxConcurrentInferences ?? 1;
     this.maxQueuedInferences = options.maxQueuedInferences ?? 32;
     if (!Number.isSafeInteger(this.maxConcurrentInferences) || this.maxConcurrentInferences <= 0 ||
@@ -28,6 +35,7 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
       // Publish the promise before starting the loader so concurrent callers share it.
       this.extractorLoading = Promise.resolve()
         .then(() => pipeline("feature-extraction", this.modelName))
+        .then((extractor) => { this.extractorReady = true; return extractor; })
         .catch((e) => {
           this.extractorFailed = true;
           console.error("Embedding model permanently failed:", e);
@@ -35,6 +43,24 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
         });
     }
     return this.extractorLoading;
+  }
+
+  /** Starts loading (and on first run, downloading) the model in the background. */
+  warmUp(): void {
+    void this.getExtractor();
+  }
+
+  /** Resolves to the extractor, or null when it is not ready within loadWaitMs. */
+  private async waitForExtractor() {
+    const loading = this.getExtractor();
+    if (this.extractorReady) return loading;
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), this.loadWaitMs); });
+    try {
+      return await Promise.race([loading, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private acquireInference(): Promise<void> {
@@ -62,7 +88,7 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private async embedTruncated(text: string): Promise<number[]> {
     await this.acquireInference();
     try {
-      const extractor = await this.getExtractor();
+      const extractor = await this.waitForExtractor();
       if (!extractor || this.extractorFailed) return [];
       const output = await extractor(text, { pooling: "mean", normalize: true });
       return Array.from(output.data);
