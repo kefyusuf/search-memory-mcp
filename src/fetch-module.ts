@@ -79,6 +79,14 @@ const DOCUMENT_CONTENT_TYPES = /^(application\/pdf|application\/vnd\.openxmlform
 const DOCUMENT_EXTENSIONS = /\.(pdf|docx|epub)$/i;
 
 /** Document responses are recognized by content type, or by extension when served as a generic binary. */
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function isDocumentResponse(contentType: string, url: string): boolean {
   if (DOCUMENT_CONTENT_TYPES.test(contentType)) return true;
   const generic = contentType === "" || /^(application\/octet-stream|binary\/octet-stream)\b/i.test(contentType);
@@ -418,7 +426,7 @@ export class ContentFetcher {
   }
 
   private async parseDocumentToArticle(document: { data: Uint8Array; contentType: string; url: string }): Promise<FetchArticle | null> {
-    const filename = decodeURIComponent(new URL(document.url).pathname.split("/").pop() ?? "");
+    const filename = safeDecode(new URL(document.url).pathname.split("/").pop() ?? "");
     try {
       const extracted = await extractDocument(
         { data: document.data, contentType: document.contentType, filename },
