@@ -1,0 +1,240 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>react useEffect cleanup function - Marginalia Search</title>
+        <link rel="stylesheet" href="/css/style.css" />
+        <link rel="stylesheet" href="/css/fa-all.min.css" />
+        <meta name="robots" content="noindex">
+    <link rel="search" type="application/opensearchdescription+xml" href="/opensearch.xml" title="Marginalia">
+</head>
+<noscript>
+    <h1>Users of text-based browsers</h1>
+    <p>Consider using the old interface at <a href="https://old-search.marginalia.nu/">https://old-search.marginalia.nu/</a>,
+    as it uses fewer modern CSS tricks, and should work better than the new UI.  It's functionally nearly identical, but just renders it using a different layout.</p>
+    <hr>
+</noscript>
+<body class="min-h-screen bg-bgblue dark:bg-gray-900 dark:text-white font-sans " >
+<a class="sr-only" href="skipnav">Skip To Content</a>
+<header class="bg-margeblue text-white">
+    <div class="max-w-[1400px] mx-auto">
+        <nav>
+            <div class="px-4">
+                <div class="flex flex-row text-sm gap-1 xs:gap-2">
+                        <a href="/" class="has-[:checked]:underline py-2 px-2 hover:text-blue-200">
+                                <input type="checkbox" checked readonly class="hidden" tabindex="-1" />
+                            Search
+                        </a>
+                        <a href="/site" class="has-[:checked]:underline py-2 px-2 hover:text-blue-200">
+                            Sites
+                        </a>
+                        <a href="/explore" class="has-[:checked]:underline py-2 px-2 hover:text-blue-200">
+                            Explore
+                        </a>
+                    <div class="grow"></div>
+                        <a href="https://about.marginalia-search.com/" class="has-[:checked]:underline  py-2 px-2 hover:text-blue-200">
+                            About
+                        </a>
+                </div>
+            </div>
+        </nav>
+    </div>
+</header>
+<header class="border-b border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-md">
+    <div class="max-w-[1400px] mx-auto px-4 py-2 sm:py-4">
+        <div class="flex items-center">
+            <div class="hidden sm:block md:w-32 md:mr-16 md:ml-16"><h1 class="text-md sm:text-xl mr-8 font-serif whitespace-nowrap"><a href="/">Marginalia Search</a></h1></div>
+            <div class="w-full p-2 border-none backdrop-blur-sm">
+<form id="search-form" class="flex-1 max-w-2xl" action="/search" method="get">
+    <div class="flex">
+            <input type="text"
+                   class="shadow-inner flex-1 dark:bg-black dark:text-gray-100 bg-gray-50 border dark:border-gray-600 border-gray-300 text-gray-900 text-sm rounded-sm block w-full p-2.5"
+                   value="react useEffect cleanup function"
+                   placeholder="Search the web!"
+                   autocomplete="off"
+                   name="query"
+                   id="searchInput" />
+        <div aria-hidden="true" id="searchSuggestions" class="text-sm absolute top-3 mt-10 w-96 bg-white dark:bg-black border dark:border-gray-600 border-gray-300 rounded-lg shadow-lg hidden"></div>
+        <button class="px-4 py-2 bg-margeblue text-white ml-2 rounded whitespace-nowrap active:text-slate-200">
+            <i class="fas fa-search text-sm sm:mr-3"></i>
+            Search
+        </button>
+    </div>
+     <input type="hidden" name="sst" value="SE-06708b4646379134"> 
+    <input type="hidden" name="profile" value="corpo">
+</form>
+            </div>
+            <div class="grow"></div>
+            <button class="fixed bottom-10 right-5 finepointer:hidden md:hidden text-sm bg-margeblue text-white p-4 rounded-xl active:text-slate-200" id="filter-button">
+                <i class="fas fa-filter mr-3"></i>
+                Filters
+            </button>
+            <button class="fixed bottom-10 left-5 finepointer:hidden md:hidden text-sm bg-margeblue text-white p-4 rounded-xl active:text-slate-200" id="language-button">
+                <i class="fas fa-globe mr-3"></i>
+                Language
+            </button>
+        </div>
+    </div>
+</header>
+<div id="skipnav"></div>
+<div class="max-w-[1400px] mx-auto flex gap-6">
+    <main class="flex-1 py-4 p-2 sm:p-4 space-y-4 mx-auto">
+        <div class="border dark:border-gray-600 rounded flex flex-col space-x-4 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-100 text-sm p-4 items-center">
+            <div class="flex flex-row gap-2 place-items-center">
+                <i class="fas fa-clock text-2xl animate-pulse"></i>
+                <h1 class="font-bold text-2xl">Wait A Moment</h1>
+            </div>
+            <div>
+                The search engine is currently seeing a lot of fairly aggressive bot activity.
+            </div>
+            <div>
+                Please wait for <span class="font-bold" data-tr="1" id="countdown">1</span> seconds before proceeding.
+            </div>
+            <noscript class="my-2">
+                Click <a role="button" href="/search?query=react+useEffect+cleanup+function&amp;sst=SE-06708b4646379134" class="underline">here</a> to proceed manually if javascript is disabled.
+            </noscript>
+            <script>
+                window.setInterval(()=>{
+                    const cd = document.getElementById('countdown');
+                    var tr = cd.getAttribute('data-tr');
+                    tr--;
+                    cd.setAttribute('data-tr', tr);
+                    cd.innerHTML=tr;
+                }, 1000);
+                window.setTimeout(()=> { location.replace('\/search?query=react+useEffect+cleanup+function&sst=SE\-06708b4646379134'); }, 0);
+            </script>
+        </div>
+    </main>
+</div>
+<aside id="mobile-menu" class="fixed inset-0 z-50 flex justify-center bg-white/90 dark:bg-black/90 backdrop-blur-sm hidden">
+    <button id="hide-filter-button" class="fixed bottom-10 right-5 text-sm bg-margeblue text-white p-4 rounded-xl active:text-slate-200">
+        <i class="fas fa-close mr-4"></i> Close
+    </button>
+    <div class="flex mx-auto flex-col my-10 px-4">
+        <div class="text-xl my-4"><i class="fas fa-filter mr-2 text-margeblue dark:text-slate-200"></i>Filters</div>
+        <div class="grid grid-cols-3 gap-4">
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" checked class="hidden" tabindex="-1" aria-checked="true" />
+                            <i class="fas fa-globe text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">All</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=blogosphere&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-blog text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=blogosphere&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Blogs</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=academia&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-university text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=academia&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Academia</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=vintage&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-clock-rotate-left text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=vintage&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Vintage</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=modern&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-minus text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=modern&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Small Web</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=wiki&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-book text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=wiki&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Wikis</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=forum&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-comments text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=forum&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Forums</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=food&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-utensils text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=food&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Recipes</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+                    <label class="flex items-center">
+                        <button onclick="document.location='/search?query=react+useEffect+cleanup+function&profile=custom&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                                <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                            <i class="fas fa-pencil text-xl"></i>
+                            <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&profile=custom&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Custom Filter</a>
+                            <div class="grow"></div>
+                        </button>
+                    </label>
+        </div>
+        <div class="text-xl my-4"><i class="fas fa-cog mr-2 text-margeblue dark:text-slate-200"></i>Advanced Options</div>
+        <div class="grid grid-cols-3 gap-4">
+                <label class="flex items-center">
+                    <button onclick="document.location='/search?query=react+useEffect+cleanup+function&searchTitle=title&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                            <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                        <i class="fas fa-angle-up text-xl"></i>
+                        <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&searchTitle=title&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Search In Title</a>
+                        <div class="grow"></div>
+                    </button>
+                </label>
+                <label class="flex items-center">
+                    <button onclick="document.location='/search?query=react+useEffect+cleanup+function&recent=recent&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                            <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                        <i class="fas fa-baby text-xl"></i>
+                        <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&recent=recent&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Recent Results</a>
+                        <div class="grow"></div>
+                    </button>
+                </label>
+                <label class="flex items-center">
+                    <button onclick="document.location='/search?query=react+useEffect+cleanup+function&js=no-js&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                            <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                        <i class="fas fa-wrench text-xl"></i>
+                        <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&js=no-js&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Remove JS</a>
+                        <div class="grow"></div>
+                    </button>
+                </label>
+                <label class="flex items-center">
+                    <button onclick="document.location='/search?query=react+useEffect+cleanup+function&adtech=reduce&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                            <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                        <i class="fas fa-dumpster-fire text-xl"></i>
+                        <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&adtech=reduce&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Reduce Adtech</a>
+                        <div class="grow"></div>
+                    </button>
+                </label>
+                <label class="flex items-center">
+                    <button onclick="document.location='/search?query=react+useEffect+cleanup+function&nsfw=smut&newfilter=true&sst=SE-06708b4646379134'" class="flex-1 p-2 rounded flex flex-col place-items-center has-[:checked]:bg-gray-100 has-[:checked]:text-slate-900 dark:has-[:checked]:bg-gray-800 dark:has-[:checked]:text-slate-100 hover:bg-gray-50 dark:hover:bg-gray-800 text-margeblue dark:text-slate-200 outline-1 active:outline border border-gray-700">
+                            <input type="checkbox" class="hidden" tabindex="-1" aria-checked="false" />
+                        <i class="fas fa-face-kiss text-xl"></i>
+                        <a tabindex="-1" href="/search?query=react+useEffect+cleanup+function&nsfw=smut&newfilter=true&sst=SE-06708b4646379134" class="text-sm" href="#">Reduce NSFW</a>
+                        <div class="grow"></div>
+                    </button>
+                </label>
+        </div>
+    </div>
+</aside>
+</body>
+<script lang="javascript" src="js/mobile-button.js"></script>
+<script lang="javascript" src="js/language-button.js"></script>
+<script lang="javascript" src="js/typeahead.js"></script>
+</html>

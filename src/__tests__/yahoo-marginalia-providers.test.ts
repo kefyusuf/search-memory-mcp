@@ -56,6 +56,24 @@ describe("yahoo and marginalia providers", () => {
     await expect(searchMarginalia("node lts", locale)).rejects.toThrow("marginalia returned HTTP 429");
   });
 
+  it("follows Marginalia's wait page once, after the requested delay", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      urls.push(String(input));
+      return new Response(fixture(urls.length === 1 ? "marginalia-wait.html" : "marginalia-results.html"));
+    }));
+    const sleep = vi.fn(async () => {});
+    const results = await searchMarginalia("react useEffect cleanup function", locale, { sleep });
+    expect(results.length).toBeGreaterThanOrEqual(5);
+    expect(sleep).toHaveBeenCalledWith(1000);
+    expect(urls[1]).toBe("https://marginalia-search.com/search?query=react+useEffect+cleanup+function&sst=SE-06708b4646379134");
+  });
+
+  it("reports a bot check when the wait page comes back again", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(fixture("marginalia-wait.html"))));
+    await expect(searchMarginalia("q", locale, { sleep: async () => {} })).rejects.toThrow("marginalia served a bot-check page");
+  });
+
   it("are registered by name", () => {
     expect(buildProviders(["yahoo", "marginalia"]).map((provider) => provider.name)).toEqual(["yahoo", "marginalia"]);
   });
