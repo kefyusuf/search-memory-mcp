@@ -1,4 +1,5 @@
 import { normalizePublishedDate } from "./documents/dates.js";
+import { removeHiddenElements, removeInvisibleCharacters } from "./security/untrusted.js";
 import { extractDocument } from "./documents/extract.js";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
@@ -43,6 +44,13 @@ type TextFetchResult =
   | { kind: "text"; url: string; text: string; contentType: string }
   | { kind: "blocked" }
   | null;
+
+/** Strips invisible characters from everything an article hands to the model. */
+function sanitizeArticle(article: FetchArticle): void {
+  article.title = removeInvisibleCharacters(article.title);
+  article.content = removeInvisibleCharacters(article.content);
+  article.fullText = removeInvisibleCharacters(article.fullText);
+}
 
 export type FetchContentResult =
   | {
@@ -147,7 +155,8 @@ export class ContentFetcher {
       if (cached) {
         return {
           kind: "content",
-          text: cached.content,
+          // Entries cached before sanitizing existed may still carry invisible characters.
+          text: removeInvisibleCharacters(cached.content),
           source: "content-cache",
           fetchedAt: new Date(cached.fetchedAt).toISOString(),
           ...(cached.publishedAt ? { publishedAt: cached.publishedAt } : {}),
@@ -326,6 +335,7 @@ export class ContentFetcher {
       persistContentCache: boolean;
     }
   ): Promise<void> {
+    sanitizeArticle(article);
     if (options.allowPageCache) {
       this.pageCache.set(article.url, article);
     }
@@ -429,6 +439,8 @@ export class ContentFetcher {
 
   private parseHtmlToArticle(html: string, url: string): FetchArticle | null {
     const dom = new JSDOM(html, { url });
+    // Hidden text is a common carrier for injected instructions; readers never see it.
+    removeHiddenElements(dom.window.document);
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
     if (!article?.content || article.content.length <= 200) {

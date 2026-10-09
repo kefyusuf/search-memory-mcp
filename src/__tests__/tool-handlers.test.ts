@@ -7,6 +7,7 @@ import { createMemoryHandlers } from "../tools/memory.js";
 import { createKnowledgeHandlers } from "../tools/knowledge.js";
 import { createFetchHandler } from "../tools/fetch.js";
 import { TOOL_DEFINITIONS } from "../tools/definitions.js";
+import { wrapUntrusted } from "../security/untrusted.js";
 import { WebSearchServer } from "../index.js";
 import { createLocalRequestContext } from "../runtime/request-context.js";
 
@@ -92,7 +93,7 @@ describe("knowledge tool handlers", () => {
 describe("fetch_content handler", () => {
   it("returns content and maps failures", async () => {
     const ok = createFetchHandler({ fetchLimiter: open(), validateUrl: publicUrl, fetchContent: async () => ({ kind: "content", text: "Hello", source: "http" }) });
-    expect(await ok({ url: "https://example.com" })).toEqual({ content: [{ type: "text", text: "Hello" }] });
+    expect(await ok({ url: "https://example.com" })).toEqual({ content: [{ type: "text", text: wrapUntrusted("Hello", "https://example.com") }] });
 
     const parse = createFetchHandler({ fetchLimiter: open(), validateUrl: publicUrl, fetchContent: async () => ({ kind: "error", reason: "parse_failed" }) });
     expect(text(await parse({ url: "https://example.com" }))).toBe("Could not parse article content from the page.");

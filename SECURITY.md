@@ -14,6 +14,8 @@ Do not include secrets, private tokens, or credentials in reports.
 
 The server includes SSRF protection for `fetch_content`, rate limiting for public MCP tools, and no requirement for external API keys.
 
+Fetched web content is treated as untrusted. Before a page is cached or returned, the server removes text a reader cannot see (the `hidden` attribute, `aria-hidden="true"`, `<template>`, and inline `display:none`, `visibility:hidden`, `opacity:0` or `font-size:0`; styles from stylesheets are not evaluated) and strips zero-width, bidi-control and Unicode tag characters, which are common carriers for hidden instructions. Text output from `web_search`, `fetch_content`, `research` and `search_index` is wrapped in an `<untrusted_web_content>` marker with a note that it is data, not instructions, and the content cannot close that marker. Tool descriptions repeat the warning. These measures reduce indirect prompt injection; they do not prevent it, so clients should still confirm sensitive actions.
+
 Local file reading in `ingest_document` is disabled by default. It reads only files whose real path (after resolving symlinks) is inside a directory listed in `INGEST_ALLOWED_DIRS`, never hidden files or files inside hidden folders, and nothing above 25 MB. Only list directories whose contents you are willing to put into the knowledge base, because an agent can be instructed by untrusted web content to call this tool.
 
 Dependency security is enforced in CI with `npm audit --audit-level=moderate`; moderate-or-higher findings fail the CI job.

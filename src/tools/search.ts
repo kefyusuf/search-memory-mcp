@@ -18,6 +18,7 @@ import { planSearch } from "../search/planner.js";
 import { expandQuery } from "../search/query-rewrite.js";
 import { rerankResults, type CrossEncoderReranker } from "../search/rerank.js";
 import { filterSearchResultsByDomain, normalizeDomainFilter, resolveSearchLocale } from "../search-utils.js";
+import { wrapUntrusted } from "../security/untrusted.js";
 import { errorResult, rateLimitError, textResult, type ToolResult } from "./types.js";
 
 export const SearchSchema = z.object({
@@ -113,14 +114,14 @@ export function createSearchHandler(deps: SearchToolDeps) {
         validPages.map((page) => ({ title: page.title, url: page.url, content: page.content })),
       );
       const payload = buildAnswerJson(query, answer, validPages.map((page) => ({ url: page.url, title: page.title })));
-      return textResult(format === "json" ? formatToolResult(payload, "json") : answer, payload);
+      return textResult(format === "json" ? formatToolResult(payload, "json") : wrapUntrusted(answer), payload);
     }
 
     const rankedResults = await deps.cache().reRankResults(query, results, results.length);
     const payload = buildSearchJson(query, rankedResults, { deep: true, pagesFetched: 0 });
     return textResult(format === "json"
       ? formatToolResult(payload, "json")
-      : formatSearchResults(query, rankedResults), payload);
+      : wrapUntrusted(formatSearchResults(query, rankedResults)), payload);
   };
 
   return async (args: unknown): Promise<ToolResult> => {
@@ -203,7 +204,7 @@ export function createSearchHandler(deps: SearchToolDeps) {
       const payload = buildSearchJson(query, limitedResults, { strategy, cache: "hit" });
       return textResult(outputFormat === "json"
         ? formatToolResult(payload, "json")
-        : formatSearchResults(query, limitedResults), payload);
+        : wrapUntrusted(formatSearchResults(query, limitedResults)), payload);
     }
 
     trace.endStage("cache.lookup", { status: "empty", error: "miss" });
@@ -261,7 +262,7 @@ export function createSearchHandler(deps: SearchToolDeps) {
       const payload = { ...buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length }), providerAttempts: attempts };
       return textResult(outputFormat === "json"
         ? formatToolResult(payload, "json")
-        : formatSearchResults(query, limitedResults) + providerNotes(attempts), payload);
+        : wrapUntrusted(formatSearchResults(query, limitedResults)) + providerNotes(attempts), payload);
     }
 
     finalizeTrace(trace, results.length);

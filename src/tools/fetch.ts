@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { FetchContentResult } from "../fetch-module.js";
 import type { TokenBucket } from "../rate-limiter.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
+import { wrapUntrusted } from "../security/untrusted.js";
 import { blockedUrlError, errorResult, rateLimitError, textResult, type ToolResult } from "./types.js";
 
 const FetchSchema = z.object({
@@ -41,6 +42,6 @@ export function createFetchHandler({
             : "Could not fetch page content.",
       );
     }
-    return textResult(result.text);
+    return textResult(wrapUntrusted(result.text, url));
   };
 }
