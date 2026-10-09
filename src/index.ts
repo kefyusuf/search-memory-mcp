@@ -27,6 +27,7 @@ import { createLocalRequestContext, InvocationError } from "./runtime/request-co
 import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
 import { launchWithAutoInstall } from "./browser-launcher.js";
 import { checkSqliteBinding } from "./runtime/native-check.js";
+import { resolveCacheDbPath } from "./runtime/db-path.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { createFetchHandler } from "./tools/fetch.js";
 import { createKnowledgeHandlers } from "./tools/knowledge.js";
@@ -101,7 +102,7 @@ export class WebSearchServer {
 
     this.enableCrosslingual = getEnvBool("ENABLE_CROSSLINGUAL", false);
     this.fetchWaitUntil = getEnv("FETCH_WAIT_UNTIL", "networkidle") === "domcontentloaded" ? "domcontentloaded" : "networkidle";
-    this.cacheDbPath = getEnv("CACHE_DB_PATH", "websearch_cache.db");
+    this.cacheDbPath = resolveCacheDbPath({ envPath: process.env.CACHE_DB_PATH });
     this.intentDetector = intentDetector;
 
     // Initialize Semantic Cache with SQLite for persistence. The router and content
