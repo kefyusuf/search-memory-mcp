@@ -9,7 +9,6 @@ import { pathToFileURL } from "node:url";
 import { chromium, Browser, BrowserContext } from "playwright";
 import { z } from "zod";
 import { extractAnswerFromDocuments, formatSearchResults } from "./answer-extraction.js";
-import { validatePublicHttpUrl } from "./ssrf.js";
 import { TransformersEmbeddingProvider } from "./cache/embedding.js";
 import { SQLiteVectorStore } from "./cache/sqlite-store.js";
 import { SemanticCache } from "./cache/semantic-cache.js";
@@ -36,14 +35,13 @@ import {
 import { filterResultsByDate } from "./search/date-filter.js";
 import { CrossEncoderReranker, rerankResults } from "./search/rerank.js";
 import { ContentFetcher } from "./fetch-module.js";
-import { KnowledgeIndex, type KnowledgeChunkHit } from "./knowledge/index-store.js";
+import { KnowledgeIndex } from "./knowledge/index-store.js";
 import { SessionMemory } from "./memory/session-memory.js";
 import { SearchTrace, formatTraceSummary } from "./observability/search-trace.js";
-import { expandQuery, rewriteQuery } from "./search/query-rewrite.js";
+import { expandQuery } from "./search/query-rewrite.js";
 import { fuseQueryResults } from "./search/multi-query.js";
 import {
   buildAnswerJson,
-  buildIndexHitJson,
   buildSearchJson,
   formatToolResult,
   type OutputFormat,
@@ -52,6 +50,10 @@ import { EntityGraph } from "./graph/entity-graph.js";
 import { createLocalRequestContext, InvocationError } from "./runtime/request-context.js";
 import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
 import { launchWithAutoInstall } from "./browser-launcher.js";
+import { TOOL_DEFINITIONS } from "./tools/definitions.js";
+import { createFetchHandler } from "./tools/fetch.js";
+import { createKnowledgeHandlers } from "./tools/knowledge.js";
+import { createMemoryHandlers } from "./tools/memory.js";
 
 // --- Types & Schemas ---
 
@@ -65,49 +67,6 @@ export const SearchSchema = z.object({
   to_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Optional inclusive upper date bound (YYYY-MM-DD). Results without a detectable date are kept."),
   format: z.enum(["text", "json"]).optional().describe("Response format. text (default) for readable Markdown-like output, json for machine-readable structured results."),
   strategy: z.enum(["fallback", "aggregate", "auto"]).optional().describe("Search execution strategy. fallback tries providers in order and stops at the first success. aggregate queries all available providers and fuses results with Reciprocal Rank Fusion. auto detects search intent and selects a configured-provider plan before using the existing fallback or aggregate execution path."),
-});
-
-const FetchSchema = z.object({
-  url: z.string().url().describe("The URL of the webpage to fetch and convert to markdown"),
-  force_refresh: z.boolean().optional().describe("If true, bypass cache and fetch fresh content from the web"),
-});
-
-const IngestDocumentSchema = z.object({
-  content: z.string().min(1).describe("Document text to index (Markdown or plain text)."),
-  title: z.string().optional().describe("Optional document title."),
-  source: z.string().optional().describe("Optional source identifier, usually a URL or file path."),
-  category: z.string().optional().describe("Optional category label, e.g. docs, notes, research."),
-});
-
-const IndexUrlSchema = z.object({
-  url: z.string().url().describe("URL to fetch and index into the local knowledge base."),
-  title: z.string().optional().describe("Optional title override for the indexed document."),
-  force_refresh: z.boolean().optional().describe("If true, bypass content cache when fetching."),
-});
-
-const SearchIndexSchema = z.object({
-  query: z.string().min(1).describe("Hybrid search query over the local knowledge index."),
-  max_results: z.number().int().min(1).max(20).optional().describe("Maximum chunks to return (1-20, default 5)."),
-  source: z.string().optional().describe("Optional source filter, usually a URL or file path."),
-  format: z.enum(["text", "json"]).optional().describe("Response format: text (default) or json."),
-});
-
-const RememberSchema = z.object({
-  text: z.string().min(1).describe("Short fact or note to remember for later turns."),
-  topic: z.string().optional().describe("Optional topic label for grouping."),
-  tags: z.array(z.string()).optional().describe("Optional tags for search."),
-  session: z.string().optional().describe("Optional session id to scope the note."),
-});
-
-const RecallSchema = z.object({
-  query: z.string().optional().describe("Optional search text. Omit to list recent notes."),
-  topic: z.string().optional().describe("Optional topic filter."),
-  session: z.string().optional().describe("Optional session filter."),
-  limit: z.number().int().min(1).max(50).optional().describe("Maximum notes to return (default 10)."),
-});
-
-const ForgetSchema = z.object({
-  id: z.string().min(1).describe("Note id to delete."),
 });
 
 // --- Env Configuration ---
@@ -212,20 +171,30 @@ export class WebSearchServer {
     });
 
     this.setupProviders();
+    const loadContent = (url: string, forceRefresh: boolean) => this.contentFetcher.fetchContent(url, forceRefresh);
+    const fetchContent = createFetchHandler({ fetchLimiter: this.fetchLimiter, fetchContent: loadContent });
+    const knowledge = createKnowledgeHandlers({
+      knowledgeIndex: this.knowledgeIndex,
+      entityGraph: this.entityGraph,
+      embed: (text) => this.embeddingProvider.getEmbedding(text),
+      fetchContent: loadContent,
+      fetchLimiter: this.fetchLimiter,
+    });
+    const memory = createMemoryHandlers({ sessionMemory: this.sessionMemory });
     // These stores and resource limits are process-local. Hosted execution stays
     // closed until each handler has tenant-scoped dependencies.
     this.dispatcher = new ToolDispatcher({
       web_search: { permission: "search:read", modes: ["local"], handler: (args) => this.handleSearch(args) },
-      fetch_content: { permission: "content:read", modes: ["local"], handler: (args) => this.handleFetch(args) },
+      fetch_content: { permission: "content:read", modes: ["local"], handler: (args) => fetchContent(args) },
       server_status: { permission: "status:read", modes: ["local"], handler: () => this.handleStatus() },
-      ingest_document: { permission: "knowledge:write", modes: ["local"], handler: (args) => this.handleIngestDocument(args) },
-      index_url: { permission: "knowledge:write", modes: ["local"], handler: (args) => this.handleIndexUrl(args) },
-      search_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => this.handleSearchIndex(args) },
-      list_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => this.handleListIndex(args) },
-      remember: { permission: "memory:write", modes: ["local"], handler: (args) => this.handleRemember(args) },
-      recall: { permission: "memory:read", modes: ["local"], handler: (args) => this.handleRecall(args) },
-      forget: { permission: "memory:write", modes: ["local"], handler: (args) => this.handleForget(args) },
-      find_related: { permission: "knowledge:read", modes: ["local"], handler: (args) => this.handleFindRelated(args) },
+      ingest_document: { permission: "knowledge:write", modes: ["local"], handler: (args) => knowledge.ingest_document(args) },
+      index_url: { permission: "knowledge:write", modes: ["local"], handler: (args) => knowledge.index_url(args) },
+      search_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => knowledge.search_index(args) },
+      list_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => knowledge.list_index(args) },
+      remember: { permission: "memory:write", modes: ["local"], handler: (args) => memory.remember(args) },
+      recall: { permission: "memory:read", modes: ["local"], handler: (args) => memory.recall(args) },
+      forget: { permission: "memory:write", modes: ["local"], handler: (args) => memory.forget(args) },
+      find_related: { permission: "knowledge:read", modes: ["local"], handler: (args) => knowledge.find_related(args) },
     });
     this.setupTools();
     this.setupShutdownHandlers();
@@ -282,155 +251,7 @@ export class WebSearchServer {
 
   private setupTools() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
-        {
-          name: "web_search",
-          description: "Search the web and return results. Use domain to restrict results to a site. Use strategy=aggregate for all configured providers, or strategy=auto for intent-aware provider planning. Use deep=true to fetch pages and extract a direct answer (slower). Use deep=false (default) for a quick ranked list of URLs and snippets.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "The search query" },
-              expand_query: { type: "boolean", description: "Search up to two extra query variants and fuse results (default: false; increases provider requests)" },
-              deep: { type: "boolean", description: "Fetch pages and extract answer (default: false)" },
-              max_results: { type: "number", description: "Number of results to return, 1-10 (default: 5)" },
-              domain: { type: "string", description: "Optional domain filter, for example react.dev or github.com" },
-              from_date: { type: "string", description: "Optional inclusive lower date bound YYYY-MM-DD" },
-              to_date: { type: "string", description: "Optional inclusive upper date bound YYYY-MM-DD" },
-              format: { type: "string", enum: ["text", "json"], description: "Response format (default: text)" },
-              strategy: {
-                type: "string",
-                enum: ["fallback", "aggregate", "auto"],
-                description: "fallback tries providers in order; aggregate queries all configured providers; auto detects intent and selects a configured-provider plan (default: fallback)",
-              },
-            },
-            required: ["query"],
-          },
-        },
-        {
-          name: "fetch_content",
-          description: "Fetch a webpage and return its content as clean Markdown. Uses smart caching based on content type.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              url: { type: "string" },
-              force_refresh: { type: "boolean" },
-            },
-            required: ["url"],
-          },
-        },
-        {
-          name: "server_status",
-          description: "Returns the current status of the MCP server: active search providers, cache statistics, model load state, and uptime. Use this to check if the server is healthy before issuing search requests.",
-          inputSchema: {
-            type: "object",
-            properties: {},
-            required: [],
-          },
-        },
-        {
-          name: "ingest_document",
-          description: "Index a document into the local knowledge base for later hybrid search (FTS + vectors). Use this to remember reference material the agent will cite later.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              content: { type: "string", description: "Document text (Markdown or plain text)" },
-              title: { type: "string", description: "Optional title" },
-              source: { type: "string", description: "Optional source URL or path" },
-              category: { type: "string", description: "Optional category label" },
-            },
-            required: ["content"],
-          },
-        },
-        {
-          name: "index_url",
-          description: "Fetch a URL and index its clean Markdown into the local knowledge base for later hybrid search.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              url: { type: "string", description: "URL to fetch and index" },
-              title: { type: "string", description: "Optional title override" },
-              force_refresh: { type: "boolean", description: "Bypass content cache when fetching" },
-            },
-            required: ["url"],
-          },
-        },
-        {
-          name: "search_index",
-          description: "Hybrid search (keyword + semantic) over the local knowledge base. Returns matching chunks with source citations.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "Search query" },
-              max_results: { type: "number", description: "Maximum chunks to return, 1-20 (default 5)" },
-              source: { type: "string", description: "Optional source filter (URL or path)" },
-              format: { type: "string", enum: ["text", "json"], description: "Response format (default: text)" },
-            },
-            required: ["query"],
-          },
-        },
-        {
-          name: "list_index",
-          description: "List documents currently stored in the local knowledge base.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              limit: { type: "number", description: "Maximum documents to return (default 50)" },
-            },
-            required: [],
-          },
-        },
-        {
-          name: "remember",
-          description: "Store a short fact or note in session memory for later turns. Keep notes concise and specific.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              text: { type: "string", description: "Fact or note to remember" },
-              topic: { type: "string", description: "Optional topic label" },
-              tags: { type: "array", items: { type: "string" }, description: "Optional tags" },
-              session: { type: "string", description: "Optional session id" },
-            },
-            required: ["text"],
-          },
-        },
-        {
-          name: "recall",
-          description: "Recall notes from session memory. Pass a query to search, or omit it to list recent notes.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "Optional search text" },
-              topic: { type: "string", description: "Optional topic filter" },
-              session: { type: "string", description: "Optional session filter" },
-              limit: { type: "number", description: "Maximum notes to return, 1-50 (default 10)" },
-            },
-            required: [],
-          },
-        },
-        {
-          name: "forget",
-          description: "Delete a note from session memory by id.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              id: { type: "string", description: "Note id returned by remember" },
-            },
-            required: ["id"],
-          },
-        },
-        {
-          name: "find_related",
-          description: "Explore the entity graph built from indexed documents. Returns documents and co-occurring entities for a given entity name.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              entity: { type: "string", description: "Entity name, e.g. Kubernetes" },
-              limit: { type: "number", description: "Maximum related items, 1-20 (default 10)" },
-            },
-            required: ["entity"],
-          },
-        },
-      ],
+      tools: TOOL_DEFINITIONS,
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
@@ -703,282 +524,6 @@ export class WebSearchServer {
       strategy,
       healthTracker: this.healthTracker,
     });
-  }
-
-  private async handleFetch(args: unknown) {
-    const { allowed, retryAfterMs } = this.fetchLimiter.tryConsume();
-    if (!allowed) {
-      const seconds = Math.ceil(retryAfterMs / 1000);
-      return {
-        content: [{ type: "text", text: `Rate limit exceeded: fetch_content allows ${process.env.RATE_LIMIT_FETCH_PER_MIN || "20"} requests per minute. Retry in ${seconds} seconds.` }],
-        isError: true,
-      };
-    }
-
-    const { url, force_refresh } = FetchSchema.parse(args);
-
-    // SSRF Protection: Block local/private resources via DNS resolution
-    const validation = await validatePublicHttpUrl(url);
-
-    if (!validation.ok) {
-      return {
-        content: [{ type: "text", text: `Access to unsupported or local/private resource is blocked for security reasons: ${validation.hostname ?? url}` }],
-        isError: true,
-      };
-    }
-
-    const result = await this.contentFetcher.fetchContent(url, force_refresh ?? false);
-    if (result.kind === "error") {
-      return {
-        content: [{
-          type: "text",
-          text: result.reason === "parse_failed"
-            ? "Could not parse article content from the page."
-            : result.reason === "blocked_url"
-              ? "Access to unsupported or local/private resource is blocked for security reasons."
-              : "Could not fetch page content.",
-        }],
-        isError: true,
-      };
-    }
-    return {
-      content: [{ type: "text", text: result.text }],
-    };
-  }
-
-  private async handleIngestDocument(args: unknown) {
-    try {
-      const { content, title, source, category } = IngestDocumentSchema.parse(args);
-      const doc = this.knowledgeIndex.ingest({ content, title, source, category });
-      const entityCount = this.entityGraph.indexDocument({
-        docId: doc.id,
-        source: doc.source,
-        title: doc.title,
-        content: doc.content,
-      });
-      return {
-        content: [{
-          type: "text",
-          text: `Indexed document "${doc.title}" (${doc.id.slice(0, 12)}…)\nSource: ${doc.source}\nChunks: ${doc.chunkCount}\nEntities: ${entityCount}\nCategory: ${doc.category}`,
-        }],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: `Failed to ingest document: ${error instanceof Error ? error.message : String(error)}` }],
-        isError: true,
-      };
-    }
-  }
-
-  private async handleIndexUrl(args: unknown) {
-    const { allowed, retryAfterMs } = this.fetchLimiter.tryConsume();
-    if (!allowed) {
-      const seconds = Math.ceil(retryAfterMs / 1000);
-      return {
-        content: [{ type: "text", text: `Rate limit exceeded: index_url allows ${process.env.RATE_LIMIT_FETCH_PER_MIN || "20"} requests per minute. Retry in ${seconds} seconds.` }],
-        isError: true,
-      };
-    }
-
-    const { url, title, force_refresh } = IndexUrlSchema.parse(args);
-    const validation = await validatePublicHttpUrl(url);
-    if (!validation.ok) {
-      return {
-        content: [{ type: "text", text: `Access to unsupported or local/private resource is blocked for security reasons: ${validation.hostname ?? url}` }],
-        isError: true,
-      };
-    }
-
-    const result = await this.contentFetcher.fetchContent(url, force_refresh ?? false);
-    if (result.kind === "error") {
-      return {
-        content: [{ type: "text", text: `Could not fetch page for indexing: ${result.reason}` }],
-        isError: true,
-      };
-    }
-
-    try {
-      const doc = this.knowledgeIndex.ingest({
-        content: result.text,
-        title: title || url,
-        source: url,
-        category: "web",
-      });
-      const entityCount = this.entityGraph.indexDocument({
-        docId: doc.id,
-        source: doc.source,
-        title: doc.title,
-        content: doc.content,
-      });
-      return {
-        content: [{
-          type: "text",
-          text: `Indexed ${url}\nTitle: ${doc.title}\nChunks: ${doc.chunkCount}\nEntities: ${entityCount}\nDoc ID: ${doc.id.slice(0, 12)}…`,
-        }],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: `Failed to index page: ${error instanceof Error ? error.message : String(error)}` }],
-        isError: true,
-      };
-    }
-  }
-
-  private async handleFindRelated(args: unknown) {
-    const schema = z.object({
-      entity: z.string().min(1).describe("Entity name, e.g. Kubernetes or PgBouncer"),
-      limit: z.number().int().min(1).max(20).optional().describe("Maximum related items (default 10)"),
-    });
-    const { entity, limit = 10 } = schema.parse(args);
-
-    const docs = this.entityGraph.docsForEntity(entity, limit);
-    const neighbors = this.entityGraph.relatedEntities(entity, limit);
-
-    if (docs.length === 0 && neighbors.length === 0) {
-      return {
-        content: [{ type: "text", text: `No graph links found for entity "${entity}". Ingest documents first with ingest_document or index_url.` }],
-      };
-    }
-
-    const lines: string[] = [`Entity graph for "${entity}":`];
-    if (docs.length > 0) {
-      lines.push("", "Documents:");
-      docs.forEach((doc, index) => {
-        lines.push(`  ${index + 1}. ${doc.title} (${doc.source}) — mentions=${doc.count}`);
-      });
-    }
-    if (neighbors.length > 0) {
-      lines.push("", "Related entities:");
-      neighbors.forEach((neighbor, index) => {
-        lines.push(`  ${index + 1}. ${neighbor.name} — cooccurrence=${neighbor.cooccurrence}`);
-      });
-    }
-
-    return {
-      content: [{ type: "text", text: lines.join("\n") }],
-    };
-  }
-
-  private async handleSearchIndex(args: unknown) {
-    const { query, max_results = 5, source, format = "text" } = SearchIndexSchema.parse(args);
-    const effectiveQuery = rewriteQuery(query) || query;
-
-    const hits = await this.knowledgeIndex.search(effectiveQuery, max_results, {
-      source,
-      embed: (text) => this.embeddingProvider.getEmbedding(text),
-    });
-
-    if (format === "json") {
-      return {
-        content: [{
-          type: "text",
-          text: formatToolResult(buildIndexHitJson(query, hits), "json"),
-        }],
-      };
-    }
-
-    if (hits.length === 0) {
-      return {
-        content: [{ type: "text", text: `No knowledge-index chunks matched "${query}". Use ingest_document or index_url to add content first.` }],
-      };
-    }
-
-    const lines = hits.map((hit: KnowledgeChunkHit, index: number) => {
-      const excerpt = hit.text.length > 400 ? `${hit.text.slice(0, 400)}…` : hit.text;
-      return `${index + 1}. [Source ${index + 1}] "${hit.title}" (${hit.source})\n   match=${hit.matchedBy} score=${hit.score.toFixed(4)} chunk=${hit.chunkIndex}\n   ${excerpt}`;
-    });
-
-    const sources = hits.map((hit: KnowledgeChunkHit, index: number) => `Source ${index + 1}: ${hit.source} — ${hit.title}`).join("\n");
-
-    return {
-      content: [{
-        type: "text",
-        text: `Knowledge index hits for "${query}":\n\n${lines.join("\n\n")}\n\nSources:\n${sources}`,
-      }],
-    };
-  }
-
-  private async handleListIndex(args: unknown) {
-    const limit = typeof args === "object" && args !== null && "limit" in args
-      ? Number((args as { limit?: unknown }).limit) || 50
-      : 50;
-
-    const docs = this.knowledgeIndex.listDocs(limit);
-    const stats = this.knowledgeIndex.getStats();
-
-    if (docs.length === 0) {
-      return {
-        content: [{ type: "text", text: "Knowledge index is empty. Use ingest_document or index_url to add content." }],
-      };
-    }
-
-    const lines = docs.map((doc, index) =>
-      `${index + 1}. ${doc.title} (${doc.source}) — ${doc.chunkCount} chunks, ${doc.category}, id=${doc.id.slice(0, 12)}…`
-    );
-
-    return {
-      content: [{
-        type: "text",
-        text: `Knowledge index: ${stats.docCount} docs, ${stats.chunkCount} chunks, ${stats.vectorCount} vectors\n\n${lines.join("\n")}`,
-      }],
-    };
-  }
-
-  private async handleRemember(args: unknown) {
-    try {
-      const { text, topic, tags, session } = RememberSchema.parse(args);
-      const note = this.sessionMemory.remember(text, { topic, tags, session });
-      return {
-        content: [{
-          type: "text",
-          text: `Remembered (id=${note.id}, topic=${note.topic}, session=${note.session}): ${note.text}`,
-        }],
-      };
-    } catch (error) {
-      return {
-        content: [{ type: "text", text: `Failed to remember: ${error instanceof Error ? error.message : String(error)}` }],
-        isError: true,
-      };
-    }
-  }
-
-  private async handleRecall(args: unknown) {
-    const { query, topic, session, limit = 10 } = RecallSchema.parse(args ?? {});
-    const filter = { topic, session, limit };
-
-    const notes = query && query.trim()
-      ? this.sessionMemory.search(query, filter)
-      : this.sessionMemory.list(filter);
-
-    const stats = this.sessionMemory.getStats();
-    if (notes.length === 0) {
-      return {
-        content: [{ type: "text", text: `No memory notes matched. (${stats.count} notes stored across ${stats.sessions} sessions)` }],
-      };
-    }
-
-    const lines = notes.map((note, index) =>
-      `${index + 1}. [${note.id}] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`
-    );
-
-    return {
-      content: [{
-        type: "text",
-        text: `Session memory (${stats.count} notes total):\n\n${lines.join("\n")}`,
-      }],
-    };
-  }
-
-  private async handleForget(args: unknown) {
-    const { id } = ForgetSchema.parse(args);
-    const deleted = this.sessionMemory.delete(id);
-    return {
-      content: [{
-        type: "text",
-        text: deleted ? `Deleted note ${id}` : `No note found with id ${id}`,
-      }],
-      isError: deleted ? undefined : true,
-    };
   }
 
   private async handleStatus() {
