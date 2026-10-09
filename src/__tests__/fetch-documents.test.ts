@@ -50,6 +50,13 @@ describe("ContentFetcher documents", () => {
     expect(result.kind === "content" && result.text).toBe("# pooling-notes.docx\n\nPooling paragraph.");
   });
 
+  it("keeps a malformed percent-escape in the document filename", async () => {
+    const { fetcher } = createFetcher();
+    respond(docx(["Escaped paragraph."]), "application/octet-stream");
+    const result = await fetcher.fetchContent("https://example.com/files/100%25-%E0%A4%A.docx");
+    expect(result.kind === "content" && result.text).toBe("# 100%25-%E0%A4%A.docx\n\nEscaped paragraph.");
+  });
+
   it("extracts EPUB responses", async () => {
     const { fetcher } = createFetcher();
     respond(epub([{ id: "ch1", html: "<p>Chapter text.</p>" }], "Book"), "application/epub+zip");
