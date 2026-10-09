@@ -125,8 +125,7 @@ The package, command and MCP server identity are `search-memory-mcp`. Use your a
       "env": {
         "RATE_LIMIT_SEARCH_PER_MIN": "10",
         "RATE_LIMIT_FETCH_PER_MIN": "20",
-        "ENABLE_CROSSLINGUAL": "false",
-        "CACHE_DB_PATH": "websearch_cache.db"
+        "ENABLE_CROSSLINGUAL": "false"
       }
     }
   }
@@ -303,7 +302,7 @@ Or explore the entity graph:
 | `FETCH_WAIT_UNTIL` | `networkidle` | Playwright wait strategy. Use `domcontentloaded` for faster rendered-page fallback. |
 | `CHROMIUM_INSTALL_TIMEOUT_MS` | `600000` | Maximum time for the automatic first-use Chromium download. A stalled download is stopped after this time and the next browser request tries again. |
 | `FORCE_PLAYWRIGHT` | unset | Set to `true` to skip HTTP-first fetch and always use Playwright. |
-| `CACHE_DB_PATH` | `websearch_cache.db` | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph. |
+| `CACHE_DB_PATH` | `~/.search-memory-mcp/websearch_cache.db` (a `websearch_cache.db` already in the working directory is kept) | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph. |
 | `INGEST_ALLOWED_DIRS` | _(empty: disabled)_ | Comma-separated directories `ingest_document` may read files from, for example `~/Documents/notes,~/Papers`. Symlinks are resolved first, so a link cannot point outside these directories. Hidden files and anything inside hidden folders (such as `.ssh` or `.env`) are never read. Files above 25 MB are refused. |
 | `CACHE_CLEANUP_INTERVAL_HOURS` | `24` | Interval for expired content cache cleanup. |
 
