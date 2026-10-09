@@ -30,6 +30,7 @@ import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { createFetchHandler } from "./tools/fetch.js";
 import { createKnowledgeHandlers } from "./tools/knowledge.js";
 import { createMemoryHandlers } from "./tools/memory.js";
+import { createResearchHandler } from "./tools/research.js";
 import { createSearchHandler, SearchTraceHistory } from "./tools/search.js";
 import { createStatusHandler } from "./tools/status.js";
 import type { ToolResult } from "./tools/types.js";
@@ -162,6 +163,14 @@ export class WebSearchServer {
       fetchPage: (url) => this.contentFetcher.fetchPage(url),
       traces: this.traces,
     });
+    const research = createResearchHandler({
+      search: (args) => this.searchTool(args),
+      fetchContent: loadContent,
+      fetchLimiter: this.fetchLimiter,
+      knowledgeIndex: this.knowledgeIndex,
+      entityGraph: this.entityGraph,
+      embed: (text) => this.embeddingProvider.getEmbedding(text),
+    });
     this.statusTool = createStatusHandler({
       providers: () => this.providers,
       healthTracker: () => this.healthTracker,
@@ -182,6 +191,7 @@ export class WebSearchServer {
     this.dispatcher = new ToolDispatcher({
       web_search: { permission: "search:read", modes: ["local"], handler: (args) => this.handleSearch(args) },
       fetch_content: { permission: "content:read", modes: ["local"], handler: (args) => fetchContent(args) },
+      research: { permission: "knowledge:write", modes: ["local"], handler: (args) => research(args) },
       server_status: { permission: "status:read", modes: ["local"], handler: () => this.handleStatus() },
       ingest_document: { permission: "knowledge:write", modes: ["local"], handler: (args) => knowledge.ingest_document(args) },
       index_url: { permission: "knowledge:write", modes: ["local"], handler: (args) => knowledge.index_url(args) },

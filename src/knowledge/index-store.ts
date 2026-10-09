@@ -381,6 +381,19 @@ export class KnowledgeIndex {
     return row ?? null;
   }
 
+  /** Newest document stored for a source, so callers can skip re-indexing it. */
+  findDocBySource(source: string): Omit<KnowledgeDoc, "content"> | null {
+    this.authorize("knowledge:read");
+    const row = this.db.prepare(`
+      SELECT id, source, title, category, chunk_count AS chunkCount, timestamp
+      FROM knowledge_docs
+      WHERE ${this.scopeWhere} AND source = ?
+      ORDER BY timestamp DESC, rowid DESC
+      LIMIT 1
+    `).get(...this.scope, source.trim()) as Omit<KnowledgeDoc, "content"> | undefined;
+    return row ?? null;
+  }
+
   listDocs(limit: number = 50): Array<Omit<KnowledgeDoc, "content">> {
     this.authorize("knowledge:read");
     return this.db.prepare(`

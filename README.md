@@ -13,6 +13,7 @@ Works with Claude Desktop, Claude Code, Cursor, Windsurf, and any other MCP clie
 - 📄 **Read any page as clean Markdown.** Fast paths for GitHub, RSS, and static pages. PDF, DOCX and EPUB links are converted to text. A real browser only when a page needs it.
 - 🧠 **Remember across sessions.** Your assistant can save notes and recall them later.
 - 📚 **Build a private knowledge base.** Index pages and documents, then search them with keyword + semantic search and get answers with citations.
+- 🔁 **Research that remembers.** One `research` call checks what you already indexed, searches the web, reads the top pages, answers with citations, and keeps the pages for next time.
 - 🔒 **Local first.** Cache, memory, index, and models all run on your machine.
 
 ## Quick start
@@ -136,6 +137,7 @@ For package-runner based clients, use the `npx` configuration from [Quick start]
 | --- | --- |
 | `web_search` | Searches the web and returns ranked results. Supports `strategy` (`fallback`/`aggregate`/`auto`), `domain`, `from_date`/`to_date`, `format` (`text`/`json`), and `deep=true` for source-backed answers. |
 | `fetch_content` | Fetches a URL and returns clean Markdown with content caching, charset handling, GitHub Raw fast paths, RSS feed extraction, and Playwright fallback. |
+| `research` | Researches a question in one call: checks the local knowledge base, searches the web, reads the top pages (`max_sources`, default 3), answers with citations from both, and adds the pages it read to the knowledge base (`index=false` to skip; sources already indexed are not added again). |
 | `server_status` | Returns provider availability, cache stats, knowledge index stats, memory stats, entity graph stats, recent search traces, browser state, routing profile metadata, feature flags, and uptime. |
 | `ingest_document` | Chunks a document and indexes it into the local knowledge base (FTS + vectors) and entity graph. |
 | `index_url` | Fetches a URL and indexes its Markdown into the local knowledge base and entity graph. |

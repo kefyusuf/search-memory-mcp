@@ -86,6 +86,7 @@ try {
   assertIncludes(toolNames, "web_search", "tools/list");
   assertIncludes(toolNames, "fetch_content", "tools/list");
   assertIncludes(toolNames, "server_status", "tools/list");
+  assertIncludes(toolNames, "research", "tools/list");
 
   const webSearchTool = tools.result.tools.find((tool) => tool.name === "web_search");
   if (webSearchTool?.inputSchema?.properties?.expand_query?.type !== "boolean") {

@@ -49,6 +49,29 @@ export const WEB_SEARCH_OUTPUT_SCHEMA = {
   required: ["query"],
 };
 
+export const RESEARCH_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    query: { type: "string" },
+    answer: { type: "string" },
+    indexedCount: { type: "number" },
+    sources: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          origin: { type: "string", enum: ["web", "local"] },
+          url: { type: "string" },
+          title: { type: "string" },
+          status: { type: "string", enum: ["indexed", "already_indexed", "not_indexed", "fetch_failed", "rate_limited"] },
+        },
+        required: ["origin", "url", "title", "status"],
+      },
+    },
+  },
+  required: ["query", "answer", "indexedCount", "sources"],
+};
+
 export const SEARCH_INDEX_OUTPUT_SCHEMA = {
   type: "object",
   properties: {

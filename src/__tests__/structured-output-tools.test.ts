@@ -38,11 +38,11 @@ describe("structured tool output", () => {
   });
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
-  it("advertises object output schemas for search, index search and status", async () => {
+  it("advertises object output schemas for search, research, index search and status", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
     const withSchema = tools.filter((tool) => tool.outputSchema).map((tool) => tool.name).sort();
-    expect(withSchema).toEqual(["search_index", "server_status", "web_search"]);
+    expect(withSchema).toEqual(["research", "search_index", "server_status", "web_search"]);
     for (const tool of tools.filter((entry) => entry.outputSchema)) {
       expect(tool.outputSchema?.type).toBe("object");
     }
