@@ -125,7 +125,6 @@ The package, command and MCP server identity are `search-memory-mcp`. Use your a
       "env": {
         "RATE_LIMIT_SEARCH_PER_MIN": "10",
         "RATE_LIMIT_FETCH_PER_MIN": "20",
-        "SEARCH_PROVIDERS": "duckduckgo,bing",
         "ENABLE_CROSSLINGUAL": "false",
         "CACHE_DB_PATH": "websearch_cache.db"
       }
@@ -143,13 +142,14 @@ If the package is installed globally or through a package runner, use the binary
       "command": "search-memory-mcp",
       "args": [],
       "env": {
-        "SEARCH_PROVIDERS": "duckduckgo,bing",
         "ENABLE_CROSSLINGUAL": "false"
       }
     }
   }
 }
 ```
+
+To use the Brave Search API, add `"BRAVE_SEARCH_API_KEY": "<your key>"` to the same `env` object. Leave `SEARCH_PROVIDERS` unset so the default order (`brave,duckduckgo,bing` with a key) applies; an explicit `SEARCH_PROVIDERS` replaces it. On Windows, Claude Desktop reads `%APPDATA%\Claude\claude_desktop_config.json`; restart the app fully after editing it.
 
 For package-runner based clients, use the `npx` configuration from [Quick start](#quick-start).
 
