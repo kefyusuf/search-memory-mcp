@@ -1,0 +1,16 @@
+# Minimal SearXNG settings for search-memory-mcp (docker compose --profile searxng).
+# Everything not set here uses SearXNG's defaults.
+use_default_settings: true
+
+server:
+  # Override with SEARXNG_SECRET in the environment.
+  secret_key: "change-me-in-SEARXNG_SECRET"
+  # Only reachable inside the compose network; no public rate limiter needed.
+  limiter: false
+  image_proxy: false
+
+search:
+  # search-memory-mcp reads the JSON API, which SearXNG disables by default.
+  formats:
+    - html
+    - json

@@ -316,6 +316,19 @@ npm run docker:build
 npm run docker:up
 ```
 
+### Optional SearXNG
+
+Measured provider reliability varies (see Troubleshooting), so the compose file includes an optional self-hosted [SearXNG](https://docs.searxng.org/) service as a second reliable source. It starts only with the `searxng` profile and is reachable only inside the compose network:
+
+```bash
+SEARXNG_SECRET=$(openssl rand -hex 32) \
+SEARCH_PROVIDERS=searxng,duckduckgo \
+SEARXNG_BASE_URL=http://searxng:8080 \
+docker compose --profile searxng up
+```
+
+`docker/searxng/settings.yml` enables the JSON API that this server reads and turns off SearXNG's public rate limiter. The Docker image workflow starts this service in CI and checks that it answers a JSON search.
+
 Docker Compose stores the SQLite cache in a named volume mounted at `/app/data` and stores Hugging Face models in a separate named volume. The container sets `CACHE_DB_PATH=/app/data/websearch_cache.db`.
 
 Both Docker stages use Node 24, matching `.nvmrc` and CI. The runtime explicitly initializes the native SQLite binding after installing dependencies with lifecycle scripts disabled. To check the compiled stdio interface with a disposable database, run from the repository root:
