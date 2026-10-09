@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { extractAnswerFromDocuments, formatSearchResults } from "../answer-extraction.js";
 import type { CrossLingualEngine } from "../cache/crosslingual.js";
+import { searchCacheTtlMs } from "../cache/search-ttl.js";
 import type { SemanticCache } from "../cache/semantic-cache.js";
 import type { SearchResultItem } from "../cache/types.js";
 import { buildAnswerJson, buildSearchJson, formatToolResult, type OutputFormat } from "../format/structured-output.js";
@@ -10,6 +11,7 @@ import type { ProviderHealthTracker } from "../providers/health.js";
 import type { TokenBucket } from "../rate-limiter.js";
 import { filterResultsByDate } from "../search/date-filter.js";
 import { executeProviderSearch, executeSearchPlan, type ProviderAttempt } from "../search/executor.js";
+import { detectHeuristicIntent } from "../search/heuristics.js";
 import type { IntentDetector } from "../search/intent.js";
 import { fuseQueryResults } from "../search/multi-query.js";
 import { planSearch } from "../search/planner.js";
@@ -249,7 +251,8 @@ export function createSearchHandler(deps: SearchToolDeps) {
 
     trace.endStage("filters", { status: "ok", resultCount: results.length });
     // Preserve provider candidates; reapply filters on every hit before output/fetch.
-    await cache.set(cacheKey, rawResults, cacheNamespace);
+    const cacheIntent = searchPlan?.intent ?? detectHeuristicIntent(query) ?? "general";
+    await cache.set(cacheKey, rawResults, cacheNamespace, { ttlMs: searchCacheTtlMs(cacheIntent) });
 
     if (!deep) {
       const ranked = await rankResults(query, results, max_results);

@@ -26,6 +26,8 @@ export interface CacheMetadata {
   timestamp: number;
   /** Execution namespace (strategy + plan fingerprint) so different strategies do not share hits. */
   namespace?: string;
+  /** How long the entry stays valid; older entries without it use DEFAULT_SEARCH_CACHE_TTL_MS. */
+  ttlMs?: number;
 }
 
 export interface IEmbeddingProvider {

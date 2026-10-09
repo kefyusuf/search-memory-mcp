@@ -2,6 +2,7 @@ import { IEmbeddingProvider, IVectorStore, SearchResultItem, CacheMetadata } fro
 import { SearchIntentDetector, type IntentDetector, type SearchIntent } from "../search/intent.js";
 import { cosineSimilarity } from "./utils.js";
 import { InvocationError } from "../runtime/request-context.js";
+import { DEFAULT_SEARCH_CACHE_TTL_MS } from "./search-ttl.js";
 
 const TTL_MAP: Record<string, number> = {
   price: 15 * 60 * 1000,              // 15 minutes
@@ -65,9 +66,8 @@ export class SemanticCache {
         const matchNamespace = match.metadata.namespace ?? "fallback";
         if (namespace && matchNamespace !== namespace) continue;
 
-        // Check TTL: cached search results expire after 1 hour
         const age = Date.now() - match.metadata.timestamp;
-        if (age > 60 * 60 * 1000) {
+        if (age > (match.metadata.ttlMs ?? DEFAULT_SEARCH_CACHE_TTL_MS)) {
           console.error(`Cache expired (age: ${Math.round(age / 1000 / 60)}m)`);
           continue;
         }
@@ -82,7 +82,7 @@ export class SemanticCache {
     return null;
   }
 
-  async set(query: string, results: SearchResultItem[], namespace?: string): Promise<void> {
+  async set(query: string, results: SearchResultItem[], namespace?: string, options: { ttlMs?: number } = {}): Promise<void> {
     try {
       const vector = await this.getQueryVector(query);
       if (!vector) return;
@@ -95,6 +95,7 @@ export class SemanticCache {
         results,
         timestamp: Date.now(),
         namespace: ns,
+        ...(options.ttlMs === undefined ? {} : { ttlMs: options.ttlMs }),
       };
       await this.vectorStore.add(id, vector, metadata);
     } catch (error) {

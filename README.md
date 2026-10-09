@@ -41,6 +41,7 @@ Restart your client and ask: *"Search the web for the latest Node.js release and
 - Browser context pooling with a persistent Playwright browser instance.
 - Web search through configurable providers with health tracking and ordered fallback. Supported scrapers: DuckDuckGo, Bing, Brave, Google. Optional SearXNG meta-search provider (self-hosted or trusted public instance) via `SEARXNG_BASE_URL`.
 - Search responses report which providers were tried and why any failed, were empty, or were skipped (`providerAttempts` in structured output, a short "Provider notes" line in text output).
+- Search-result cache lifetime follows the query type: news 15 minutes; shopping, local and general 1 hour; technical, research and navigational 24 hours.
 - Federated search across providers with URL normalization, cross-provider deduplication, and Reciprocal Rank Fusion (RRF).
 - Opt-in intent-aware search routing (`strategy=auto`) with heuristics, local classifier fallback, and versioned provider profiles.
 - Domain filter (`domain`) and date-range filter (`from_date` / `to_date`).

@@ -171,6 +171,7 @@ describe("WebSearchServer auto routing", () => {
       "react server components domain:react.dev",
       expect.any(Array),
       expect.stringContaining("auto:v1:technical:"),
+      { ttlMs: 24 * 60 * 60 * 1000 },
     );
 
     expect(brave.execute).toHaveBeenCalledWith("react server components site:react.dev", expect.any(Object));
