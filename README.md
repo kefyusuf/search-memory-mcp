@@ -39,24 +39,20 @@ Restart your client and ask: *"Search the web for the latest Node.js release and
 
 ### Run in Docker (no local setup)
 
-Docker brings its own Node 24, SQLite module and Chromium, so it works whatever Node version you have. Build the image once from a clone of this repository:
-
-```bash
-docker build -t search-memory-mcp .
-```
-
-Then point your MCP client at it:
+Docker brings its own Node 24, SQLite module and Chromium, so it works whatever Node version you have. Point your MCP client at the published image (linux/amd64 and linux/arm64):
 
 ```json
 {
   "mcpServers": {
     "search-memory": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "search-memory-data:/app/data", "-v", "search-memory-models:/root/.cache/huggingface", "search-memory-mcp"]
+      "args": ["run", "-i", "--rm", "-v", "search-memory-data:/app/data", "-v", "search-memory-models:/root/.cache/huggingface", "ghcr.io/kefyusuf/search-memory-mcp:latest"]
     }
   }
 }
 ```
+
+Docker downloads the image on first start. Run `docker pull ghcr.io/kefyusuf/search-memory-mcp:latest` to update, or use a version tag such as `:1.0` to stay on one release. To build the image yourself instead, run `docker build -t search-memory-mcp .` in a clone and use `search-memory-mcp` as the image name.
 
 The named volumes keep your cache, memory, knowledge base and downloaded models between runs. To let `ingest_document` read local files, mount the folder and allow it, for example `"-v", "/home/me/notes:/notes:ro", "-e", "INGEST_ALLOWED_DIRS=/notes"`.
 
@@ -312,6 +308,8 @@ Or explore the entity graph:
 File-backed SQLite stores use WAL journaling with `synchronous=FULL`; `:memory:` databases remain in memory. Use a writable local data directory: WAL requires shared memory on the same host and is unsuitable for a database shared over a network filesystem. While the server is running, the `-wal` and `-shm` files belong to the database; copying only the `.db` file does not provide a consistent live backup. See [SQLite WAL documentation](https://www.sqlite.org/wal.html) and the [disposable backup/restore rehearsal](docs/sqlite-backup-restore.md). Production backup operations remain separate from these local regressions.
 
 ## Docker
+
+A GitHub Actions workflow (`.github/workflows/docker.yml`) builds the image, runs the MCP smoke test against it over stdio, and publishes `ghcr.io/kefyusuf/search-memory-mcp` for linux/amd64 and linux/arm64: `:latest` and `:sha-<commit>` from `main`, semver tags from `v*` tags. To run the smoke test against any image locally: `SMOKE_DOCKER_IMAGE=<image> npm run smoke:mcp`.
 
 ```bash
 npm run docker:build

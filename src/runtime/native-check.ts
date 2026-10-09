@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 
 const MIN_MAJOR = 20;
 const MAX_MAJOR = 25;
-const DOCKER_IMAGE = "search-memory-mcp";
+const DOCKER_IMAGE = "ghcr.io/kefyusuf/search-memory-mcp:latest";
 
 /** Node versions that have better-sqlite3 prebuilt binaries: 20.9 through 25. */
 export function isSupportedNodeVersion(version: string): boolean {
@@ -39,7 +39,7 @@ export function checkSqliteBinding({
       "  3. Rebuild the native module: npm rebuild better-sqlite3",
       "",
       "Or run it in Docker with nothing to install on the host:",
-      `  docker build -t ${DOCKER_IMAGE} . && docker run -i --rm -v search-memory-data:/app/data ${DOCKER_IMAGE}`,
+      `  docker run -i --rm -v search-memory-data:/app/data ${DOCKER_IMAGE}`,
     );
     return lines.join("\n");
   }
