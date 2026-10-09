@@ -62,7 +62,7 @@ The named volumes keep your cache, memory, knowledge base and downloaded models 
 **Search & fetch**
 
 - Browser context pooling with a persistent Playwright browser instance.
-- Web search through configurable providers with health tracking and ordered fallback. Supported scrapers: DuckDuckGo, Bing, Brave, Google. Optional SearXNG meta-search provider (self-hosted or trusted public instance) via `SEARXNG_BASE_URL`, and optional Brave Search API via `BRAVE_SEARCH_API_KEY`.
+- Web search through configurable providers with health tracking and ordered fallback. Supported scrapers: DuckDuckGo, Bing, Brave, Google, Yahoo, Marginalia. Optional SearXNG meta-search provider (self-hosted or trusted public instance) via `SEARXNG_BASE_URL`, and optional Brave Search API via `BRAVE_SEARCH_API_KEY`.
 - Search responses report which providers were tried and why any failed, were empty, or were skipped (`providerAttempts` in structured output, a short "Provider notes" line in text output).
 - Search-result cache lifetime follows the query type: news 15 minutes; shopping, local and general 1 hour; technical, research and navigational 24 hours.
 - `fetch_content` and `index_url` extract text from PDF, DOCX and EPUB responses (detected by content type, or by extension for generic binary responses), up to 25 MB per document, without opening a browser.
@@ -292,7 +292,7 @@ Or explore the entity graph:
 | --- | --- | --- |
 | `RATE_LIMIT_SEARCH_PER_MIN` | `10` | Maximum `web_search` requests per minute. Invalid or non-positive values disable the limiter. |
 | `RATE_LIMIT_FETCH_PER_MIN` | `20` | Maximum `fetch_content` requests per minute. Invalid or non-positive values disable the limiter. |
-| `SEARCH_PROVIDERS` | `duckduckgo,bing` (`brave,duckduckgo,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `searxng`. |
+| `SEARCH_PROVIDERS` | `duckduckgo,bing` (`brave,duckduckgo,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`. |
 | `BRAVE_SEARCH_API_KEY` | unset | Optional key for the [Brave Search API](https://api-dashboard.search.brave.com/). When set, the `brave` provider calls the official API instead of scraping the website, which avoids the rate limits that block scraping. |
 | `SEARXNG_BASE_URL` | unset | Base URL of a SearXNG instance with the JSON format enabled (for example `https://searx.example.com`). Required for the `searxng` provider; no API key is used. |
 | `ENABLE_CROSSLINGUAL` | `false` | Enables language detection and cross-lingual search support. This can trigger first-run local model downloads. When disabled, query heuristics still infer supported locales such as Turkish. |
