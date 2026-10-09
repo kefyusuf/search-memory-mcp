@@ -44,15 +44,20 @@ export class SQLiteVectorStore implements IVectorStore {
       CREATE TABLE IF NOT EXISTS content_cache (
         execution_mode TEXT NOT NULL, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
         url TEXT NOT NULL, content TEXT NOT NULL, category TEXT NOT NULL, timestamp INTEGER NOT NULL,
+        published_at TEXT,
         PRIMARY KEY (execution_mode, tenant_id, workspace_id, url)
       );
       CREATE TABLE IF NOT EXISTS semantic_cache_metadata (id TEXT PRIMARY KEY, metadata TEXT NOT NULL, timestamp INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS vector_cache_fallback (id TEXT PRIMARY KEY, vector TEXT NOT NULL, metadata TEXT NOT NULL, timestamp INTEGER NOT NULL);
     `);
     if (legacy) {
-      this.db.exec(`INSERT INTO content_cache SELECT 'local', 'local', 'local', url, content, category, timestamp FROM content_cache_legacy;
+      this.db.exec(`INSERT INTO content_cache (execution_mode, tenant_id, workspace_id, url, content, category, timestamp)
+        SELECT 'local', 'local', 'local', url, content, category, timestamp FROM content_cache_legacy;
         DROP TABLE content_cache_legacy;`);
     }
+    // Additive: caches created before publication dates were stored keep their rows.
+    const contentColumns = new Set((this.db.pragma("table_info(content_cache)") as Array<{ name: string }>).map(column => column.name));
+    if (!contentColumns.has("published_at")) this.db.exec("ALTER TABLE content_cache ADD COLUMN published_at TEXT");
     for (const table of ["semantic_cache_metadata", "vector_cache_fallback"]) {
       const names = new Set((this.db.pragma(`table_info(${table})`) as Array<{ name: string }>).map(column => column.name));
       for (const name of ["execution_mode", "tenant_id", "workspace_id"]) {
@@ -150,13 +155,13 @@ export class SQLiteVectorStore implements IVectorStore {
 
   async getContent(url: string): Promise<ContentEntry | null> {
     this.assertAccess("content:read");
-    return (this.db.prepare(`SELECT url, content, category, timestamp FROM content_cache WHERE ${this.scopeWhere} AND url = ?`).get(...this.scope, url) as ContentEntry | undefined) ?? null;
+    return (this.db.prepare(`SELECT url, content, category, timestamp, published_at AS publishedAt FROM content_cache WHERE ${this.scopeWhere} AND url = ?`).get(...this.scope, url) as ContentEntry | undefined) ?? null;
   }
 
-  async setContent(url: string, content: string, category: string): Promise<void> {
+  async setContent(url: string, content: string, category: string, publishedAt?: string): Promise<void> {
     this.assertAccess("content:read");
-    this.db.prepare("INSERT OR REPLACE INTO content_cache(execution_mode, tenant_id, workspace_id, url, content, category, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(...this.scope, url, content, category, Date.now());
+    this.db.prepare("INSERT OR REPLACE INTO content_cache(execution_mode, tenant_id, workspace_id, url, content, category, timestamp, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(...this.scope, url, content, category, Date.now(), publishedAt ?? null);
   }
 
   deleteExpiredContent(maxAgeMs: number): number {

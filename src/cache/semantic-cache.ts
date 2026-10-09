@@ -136,6 +136,11 @@ export class SemanticCache {
   }
 
   async getCachedContent(url: string): Promise<string | null> {
+    return (await this.getCachedContentEntry(url))?.content ?? null;
+  }
+
+  /** Cached page with when it was fetched and, when known, when it was published. */
+  async getCachedContentEntry(url: string): Promise<{ content: string; fetchedAt: number; publishedAt?: string } | null> {
     this.vectorStore.assertAccess?.("content:read");
     const entry = await this.vectorStore.getContent(url);
     this.vectorStore.assertAccess?.("content:read");
@@ -150,14 +155,18 @@ export class SemanticCache {
     }
 
     console.error(`Content Cache Hit for ${url}`);
-    return entry.content;
+    return {
+      content: entry.content,
+      fetchedAt: entry.timestamp,
+      ...(entry.publishedAt ? { publishedAt: entry.publishedAt } : {}),
+    };
   }
 
-  async setCachedContent(url: string, content: string, title: string, intent?: SearchIntent): Promise<void> {
+  async setCachedContent(url: string, content: string, title: string, intent?: SearchIntent, publishedAt?: string): Promise<void> {
     const category = intent
       ? this.intentToContentCategory(intent)
       : this.detectCategory(url, title);
-    await this.vectorStore.setContent(url, content, category);
+    await this.vectorStore.setContent(url, content, category, publishedAt);
   }
 
   private detectCategory(url: string, title: string): string {

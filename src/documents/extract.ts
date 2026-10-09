@@ -2,12 +2,15 @@ import { strFromU8, unzipSync } from "fflate";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { extractText, getDocumentProxy, getMeta } from "unpdf";
+import { normalizePublishedDate } from "./dates.js";
 
 export type DocumentFormat = "pdf" | "docx" | "epub" | "html" | "text";
 
 export type ExtractedDocument = {
   format: DocumentFormat;
   title?: string;
+  /** Publication date (YYYY-MM-DD) from the document metadata, when present. */
+  publishedAt?: string;
   text: string;
 };
 
@@ -53,7 +56,12 @@ export async function extractDocument(input: DocumentInput, limits: ExtractionLi
 
   const result = await extractByFormat(input, maxExpandedBytes);
   const text = normalizeText(result.text).slice(0, maxChars);
-  return result.title ? { format: result.format, title: result.title, text } : { format: result.format, text };
+  return {
+    format: result.format,
+    ...(result.title ? { title: result.title } : {}),
+    ...(result.publishedAt ? { publishedAt: result.publishedAt } : {}),
+    text,
+  };
 }
 
 async function extractByFormat(input: DocumentInput, maxExpandedBytes: number): Promise<ExtractedDocument> {
@@ -88,7 +96,8 @@ async function extractPdf(data: Uint8Array): Promise<ExtractedDocument> {
       getMeta(pdf).catch(() => ({ info: {} as Record<string, unknown> })),
     ]);
     const title = typeof meta.info?.Title === "string" && meta.info.Title.trim() ? meta.info.Title.trim() : undefined;
-    return { format: "pdf", title, text: (text as string[]).join("\n\n") };
+    const publishedAt = typeof meta.info?.CreationDate === "string" ? normalizePublishedDate(meta.info.CreationDate) : undefined;
+    return { format: "pdf", title, publishedAt, text: (text as string[]).join("\n\n") };
   } catch (error) {
     throw new DocumentExtractionError("invalid_document", `Could not read PDF: ${error instanceof Error ? error.message : String(error)}`);
   }
