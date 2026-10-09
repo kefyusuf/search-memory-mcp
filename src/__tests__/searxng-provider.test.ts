@@ -73,11 +73,11 @@ describe("searchSearXng", () => {
     });
   });
 
-  it("returns [] on non-OK HTTP status", async () => {
+  it("rejects on non-OK HTTP status so the executor reports an error", async () => {
     process.env.SEARXNG_BASE_URL = "https://searxng.example.com";
     vi.stubGlobal("fetch", vi.fn(async () => new Response("busy", { status: 429 })));
 
-    await expect(searchSearXng("q", locale)).resolves.toEqual([]);
+    await expect(searchSearXng("q", locale)).rejects.toThrow("searxng returned HTTP 429");
   });
 
   it("returns [] on invalid JSON body", async () => {

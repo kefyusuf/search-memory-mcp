@@ -13,7 +13,8 @@ export async function searchBing(query: string, locale: SearchLocale): Promise<S
   });
 
   if (!response.ok) {
-    return [];
+    // A block (403/429) or outage must surface as an error, not as "no results".
+    throw new Error(`bing returned HTTP ${response.status}`);
   }
 
   const html = await response.text();
