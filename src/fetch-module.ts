@@ -87,6 +87,18 @@ function safeDecode(value: string): string {
   }
 }
 
+const BROWSER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+};
+const PLAIN_HEADERS = { "Accept": "*/*" };
+const CHALLENGE_STATUSES = new Set([403, 503]);
+
+function httpGet(url: string, headers: Record<string, string>): Promise<Response> {
+  return fetch(url, { headers, redirect: "manual", signal: AbortSignal.timeout(10000) });
+}
+
 function isDocumentResponse(contentType: string, url: string): boolean {
   if (DOCUMENT_CONTENT_TYPES.test(contentType)) return true;
   const generic = contentType === "" || /^(application\/octet-stream|binary\/octet-stream)\b/i.test(contentType);
@@ -477,15 +489,13 @@ export class ContentFetcher {
           return { kind: "blocked" };
         }
 
-        const response = await fetch(currentUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-          },
-          redirect: "manual",
-          signal: AbortSignal.timeout(10000),
-        });
+        let response = await httpGet(currentUrl, BROWSER_HEADERS);
+        if (CHALLENGE_STATUSES.has(response.status)) {
+          // Bot challenges (e.g. Cloudflare) often target a browser User-Agent that lacks
+          // the rest of a real browser's fingerprint; a plain client may be let through.
+          const plain = await httpGet(currentUrl, PLAIN_HEADERS);
+          if (!CHALLENGE_STATUSES.has(plain.status)) response = plain;
+        }
 
         if (isRedirectStatus(response.status)) {
           const location = response.headers.get("location");
