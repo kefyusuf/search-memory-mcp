@@ -238,3 +238,44 @@ export function parseGoogleResults(html: string): SearchResultItem[] {
     }))
     .filter((result) => result.title && isLikelyUrl(result.url));
 }
+
+function decodeYahooUrl(href: string): string {
+  // Yahoo wraps result links as https://r.search.yahoo.com/.../RU=<encoded url>/RK=...
+  const match = /\/RU=([^/]+)\//.exec(href);
+  if (!match) return href;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return href;
+  }
+}
+
+export function parseYahooResults(html: string): SearchResultItem[] {
+  const doc = new JSDOM(html, { url: "https://search.yahoo.com" }).window.document;
+
+  return Array.from(doc.querySelectorAll(".algo"))
+    .map((element) => {
+      const anchor = element.querySelector(".compTitle a[href]");
+      const url = decodeYahooUrl(anchor?.getAttribute("href") || "");
+      const title = cleanText(element.querySelector(".compTitle h3")?.textContent);
+      const snippet = cleanText(element.querySelector(".compText")?.textContent);
+      return { title, url, snippet, source: "yahoo" };
+    })
+    .filter((result) => result.title && isLikelyUrl(result.url) && !new URL(result.url).hostname.endsWith("yahoo.com"))
+    .slice(0, 10);
+}
+
+export function parseMarginaliaResults(html: string): SearchResultItem[] {
+  const doc = new JSDOM(html, { url: "https://marginalia-search.com" }).window.document;
+
+  return Array.from(doc.querySelectorAll("main h2 a[href]"))
+    .map((anchor) => {
+      const url = anchor.getAttribute("href") || "";
+      const title = cleanText(anchor.textContent);
+      const card = anchor.closest("div.border");
+      const snippet = cleanText(card?.querySelector("p.mt-2")?.textContent);
+      return { title, url, snippet, source: "marginalia" };
+    })
+    .filter((result) => result.title && isLikelyUrl(result.url) && !new URL(result.url).hostname.endsWith("marginalia-search.com"))
+    .slice(0, 10);
+}
