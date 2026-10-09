@@ -368,6 +368,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 - If the server says it could not load its SQLite module (`better-sqlite3`), follow the steps it prints: use Node 24 (the version in `.nvmrc`); if npm 11 skipped install scripts, run `npm install-scripts approve better-sqlite3`; then `npm rebuild better-sqlite3`. Or [run it in Docker](#run-in-docker-no-local-setup).
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.
 - If search returns no results, change `SEARCH_PROVIDERS` order/set or try a direct `fetch_content` URL.
+- Provider reliability varies by network. In a live run in October 2026 (`npm run benchmark:providers`), DuckDuckGo answered every query; Bing sometimes returned a "no results" page for ordinary queries, which looks like a soft block; Brave answered HTTP 429; and Google returned a JavaScript-required page to every request, which is now reported as an error. Keep `duckduckgo` first, and add a self-hosted SearXNG (`SEARXNG_BASE_URL`) if you need a second reliable source. Measure your own network with `npm run benchmark:providers`.
 - If aggregate mode is too slow or triggers provider blocking, use the default `fallback` strategy.
 - If `auto` chooses too broad a search plan for your use case, use explicit `fallback` or `aggregate`; explicit strategies bypass the auto planner.
 - If Docker cannot find Chromium, rebuild the image with `npm run docker:build`.

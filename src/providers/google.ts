@@ -18,6 +18,11 @@ export async function searchGoogle(query: string, locale: SearchLocale): Promise
   }
 
   const html = await response.text();
+  // Google now answers non-JavaScript clients with a redirect to an "enable JS"
+  // page (HTTP 200). That is a block, not an empty result.
+  if (html.includes("/httpservice/retry/enablejs")) {
+    throw new Error("google returned a JavaScript-required page");
+  }
   const results = parseGoogleResults(html);
   if (results.length === 0) {
     console.error("Warning: Google returned 0 parsed results; possible CAPTCHA or DOM change.");
