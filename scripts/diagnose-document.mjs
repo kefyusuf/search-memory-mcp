@@ -41,5 +41,5 @@ async function diagnose(headers) {
     console.log(JSON.stringify(result.text.slice(0, 200)));
   } catch (error) {
     console.log(`extraction failed: ${error instanceof Error ? error.stack : String(error)}`);
-}
+  }
 }
