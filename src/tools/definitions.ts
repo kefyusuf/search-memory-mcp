@@ -1,7 +1,12 @@
-/** MCP tool advertisements. Names must match the handlers registered in WebSearchServer. */
+/**
+ * MCP tool advertisements. Names must match the handlers registered in WebSearchServer.
+ * Annotations are client hints only: openWorldHint marks tools that contact external sites,
+ * and internal cache writes do not make a tool non-read-only.
+ */
 export const TOOL_DEFINITIONS = [
   {
     name: "web_search",
+    annotations: { title: "Web search", readOnlyHint: true, openWorldHint: true },
     description: "Search the web and return results. Use domain to restrict results to a site. Use strategy=aggregate for all configured providers, or strategy=auto for intent-aware provider planning. Use deep=true to fetch pages and extract a direct answer (slower). Use deep=false (default) for a quick ranked list of URLs and snippets.",
     inputSchema: {
       type: "object",
@@ -25,6 +30,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "fetch_content",
+    annotations: { title: "Fetch page as Markdown", readOnlyHint: true, openWorldHint: true },
     description: "Fetch a webpage and return its content as clean Markdown. Uses smart caching based on content type.",
     inputSchema: {
       type: "object",
@@ -37,6 +43,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "server_status",
+    annotations: { title: "Server status", readOnlyHint: true, openWorldHint: false },
     description: "Returns the current status of the MCP server: active search providers, cache statistics, model load state, and uptime. Use this to check if the server is healthy before issuing search requests.",
     inputSchema: {
       type: "object",
@@ -46,6 +53,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "ingest_document",
+    annotations: { title: "Add document to knowledge base", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     description: "Index a document into the local knowledge base for later hybrid search (FTS + vectors). Use this to remember reference material the agent will cite later.",
     inputSchema: {
       type: "object",
@@ -60,6 +68,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "index_url",
+    annotations: { title: "Index web page into knowledge base", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     description: "Fetch a URL and index its clean Markdown into the local knowledge base for later hybrid search.",
     inputSchema: {
       type: "object",
@@ -73,6 +82,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "search_index",
+    annotations: { title: "Search knowledge base", readOnlyHint: true, openWorldHint: false },
     description: "Hybrid search (keyword + semantic) over the local knowledge base. Returns matching chunks with source citations.",
     inputSchema: {
       type: "object",
@@ -87,6 +97,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "list_index",
+    annotations: { title: "List knowledge base documents", readOnlyHint: true, openWorldHint: false },
     description: "List documents currently stored in the local knowledge base.",
     inputSchema: {
       type: "object",
@@ -98,6 +109,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "remember",
+    annotations: { title: "Remember note", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     description: "Store a short fact or note in session memory for later turns. Keep notes concise and specific.",
     inputSchema: {
       type: "object",
@@ -112,6 +124,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "recall",
+    annotations: { title: "Recall notes", readOnlyHint: true, openWorldHint: false },
     description: "Recall notes from session memory. Pass a query to search, or omit it to list recent notes.",
     inputSchema: {
       type: "object",
@@ -126,6 +139,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "forget",
+    annotations: { title: "Forget note", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     description: "Delete a note from session memory by id.",
     inputSchema: {
       type: "object",
@@ -137,6 +151,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "find_related",
+    annotations: { title: "Find related entities", readOnlyHint: true, openWorldHint: false },
     description: "Explore the entity graph built from indexed documents. Returns documents and co-occurring entities for a given entity name.",
     inputSchema: {
       type: "object",
