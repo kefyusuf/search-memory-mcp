@@ -5,6 +5,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Re-run the publish steps for the version on the selected ref; finished steps are skipped.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,6 +25,7 @@ jobs:
           cache: "npm"
 
       - name: Check tag matches package.json and server.json
+        if: github.ref_type == 'tag'
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg="$(node -p "require('./package.json').version")"
@@ -38,12 +41,25 @@ jobs:
       - run: npm run build
 
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "search-memory-mcp@$version" version >/dev/null 2>&1; then
+            echo "search-memory-mcp@$version is already on npm; skipping."
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to the MCP Registry
         run: |
+          # The registry checks the npm package, which can take a minute to become visible.
+          version="$(node -p "require('./package.json').version")"
+          for attempt in $(seq 1 30); do
+            npm view "search-memory-mcp@$version" version >/dev/null 2>&1 && break
+            echo "Waiting for search-memory-mcp@$version on npm ($attempt/30)"
+            sleep 10
+          done
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
