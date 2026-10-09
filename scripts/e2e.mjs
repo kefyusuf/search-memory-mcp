@@ -59,7 +59,7 @@ const transport = new StdioClientTransport({
     ...process.env,
     CACHE_DB_PATH: join(root, "e2e.db"),
     INGEST_ALLOWED_DIRS: docs,
-    SEARCH_PROVIDERS: process.env.SEARCH_PROVIDERS ?? "duckduckgo,bing",
+    SEARCH_PROVIDERS: process.env.SEARCH_PROVIDERS ?? "duckduckgo,marginalia,bing",
     ENABLE_CROSSLINGUAL: "false",
   },
   stderr: "ignore",

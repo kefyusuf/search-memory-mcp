@@ -11,16 +11,16 @@ async function configuredProviders(): Promise<string[]> {
 describe("default search providers", () => {
   afterEach(() => { vi.unstubAllEnvs(); });
 
-  it("uses duckduckgo and bing without configuration", async () => {
+  it("uses duckduckgo, marginalia and bing without configuration", async () => {
     vi.stubEnv("SEARCH_PROVIDERS", "");
     vi.stubEnv("BRAVE_SEARCH_API_KEY", "");
-    expect(await configuredProviders()).toEqual(["duckduckgo", "bing"]);
+    expect(await configuredProviders()).toEqual(["duckduckgo", "marginalia", "bing"]);
   });
 
   it("puts the Brave Search API first when a key is set", async () => {
     vi.stubEnv("SEARCH_PROVIDERS", "");
     vi.stubEnv("BRAVE_SEARCH_API_KEY", "key");
-    expect(await configuredProviders()).toEqual(["brave", "duckduckgo", "bing"]);
+    expect(await configuredProviders()).toEqual(["brave", "duckduckgo", "marginalia", "bing"]);
   });
 
   it("keeps an explicit SEARCH_PROVIDERS order", async () => {
