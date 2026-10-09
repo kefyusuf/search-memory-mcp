@@ -13,7 +13,8 @@ export async function searchBrave(query: string, locale: SearchLocale): Promise<
   });
 
   if (!response.ok) {
-    return [];
+    // A block (403/429) or outage must surface as an error, not as "no results".
+    throw new Error(`brave returned HTTP ${response.status}`);
   }
 
   const html = await response.text();

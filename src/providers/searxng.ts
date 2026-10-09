@@ -66,8 +66,7 @@ export async function searchSearXng(query: string, locale: SearchLocale): Promis
   });
 
   if (!response.ok) {
-    console.error(`SearXNG returned HTTP ${response.status}`);
-    return [];
+    throw new Error(`searxng returned HTTP ${response.status}`);
   }
 
   let payload: SearXngJsonResponse;
