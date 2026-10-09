@@ -176,7 +176,7 @@ For package-runner based clients, use the `npx` configuration from [Quick start]
 | --- | --- | --- |
 | `fallback` **(default)** | Tries configured providers in order and stops at the first usable result set. | Enabled (namespace: `fallback`) |
 | `aggregate` | Queries all currently available configured providers in parallel, deduplicates URLs, and fuses rankings with RRF. | Enabled (namespace: `aggregate`) |
-| `auto` | Detects intent, builds a routing plan from profile `v1`, then delegates to the existing fallback/aggregate executor. | Enabled (namespace: `auto:{profile}:{intent}:{providers}`) |
+| `auto` | Detects intent, builds a routing plan from profile `v2`, then delegates to the existing fallback/aggregate executor. | Enabled (namespace: `auto:{profile}:{intent}:{providers}`) |
 
 Semantic query cache keys are namespaced by execution strategy (and by plan fingerprint for `auto`), so a cached `fallback` result is never reused for `aggregate` or a different auto plan. Deep-search page content continues to use the normal content cache.
 
@@ -186,20 +186,20 @@ Domain and date bounds are exact cache constraints, isolated from semantic query
 
 For aggregate auto profiles, secondary configured providers are contacted only if **all** selected primary providers return no usable result. A partial primary success is accepted instead of widening the request just to increase result count. This limits scraping load and reduces unnecessary blocking/CAPTCHA exposure.
 
-Current routing profile: `v1`.
+Current routing profile: `v2`.
 
 | Intent | Execution | Preferred order | Primary target |
 | --- | --- | --- | ---: |
-| `technical` | aggregate | searxng, brave, google, bing, duckduckgo | 2 |
-| `research` | aggregate | searxng, brave, google, bing, duckduckgo | 3 |
-| `news` | aggregate | searxng, google, bing, brave, duckduckgo | 3 |
-| `commercial` | aggregate | searxng, brave, google, bing, duckduckgo | 3 |
-| `shopping` | aggregate | google, bing, searxng, duckduckgo, brave | 2 |
-| `local` | aggregate | google, bing, searxng, duckduckgo, brave | 2 |
-| `navigational` | fallback | google, bing, searxng, duckduckgo, brave | all configured |
+| `technical` | aggregate | searxng, brave, duckduckgo, bing, google | 2 |
+| `research` | aggregate | searxng, brave, duckduckgo, bing, google | 3 |
+| `news` | aggregate | searxng, duckduckgo, brave, bing, google | 3 |
+| `commercial` | aggregate | searxng, brave, duckduckgo, bing, google | 3 |
+| `shopping` | aggregate | searxng, duckduckgo, brave, bing, google | 2 |
+| `local` | aggregate | searxng, duckduckgo, brave, bing, google | 2 |
+| `navigational` | fallback | searxng, duckduckgo, brave, bing, google | all configured |
 | `general` | fallback | existing configured order | all configured |
 
-These provider preferences are initial hypotheses, not permanent quality claims. They are versioned so later releases can tune them from deterministic and live evaluation evidence without scattering routing conditionals through the server.
+Profile `v2` orders providers by measured reliability (`npm run benchmark:providers`, October 2026). Self-hosted SearXNG and the Brave Search API answered reliably, and DuckDuckGo was the only scraper that answered consistently. Bing and Google mostly blocked scraping clients, so they come last. These preferences are not permanent quality claims. They are versioned so later releases can tune them from deterministic and live evaluation evidence without scattering routing conditionals through the server.
 
 ### Example: intent-aware search
 

@@ -263,7 +263,7 @@ function assertHasStatusShape(status) {
   if (status.config.autoRouting !== "available") {
     fail("server_status did not report auto routing availability.");
   }
-  if (status.config.routingProfileVersion !== "v1") {
+  if (status.config.routingProfileVersion !== "v2") {
     fail(`server_status routing profile mismatch: ${status.config.routingProfileVersion}`);
   }
 }
