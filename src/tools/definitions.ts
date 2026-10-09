@@ -35,7 +35,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "fetch_content",
     annotations: { title: "Fetch page as Markdown", readOnlyHint: true, openWorldHint: true },
-    description: "Fetch a webpage and return its content as clean Markdown. Uses smart caching based on content type.",
+    description: "Fetch a webpage and return its content as clean Markdown. PDF, DOCX and EPUB links are converted to text. Uses smart caching based on content type.",
     inputSchema: {
       type: "object",
       properties: {
@@ -74,7 +74,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: "index_url",
     annotations: { title: "Index web page into knowledge base", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-    description: "Fetch a URL and index its clean Markdown into the local knowledge base for later hybrid search.",
+    description: "Fetch a URL and index its clean Markdown into the local knowledge base for later hybrid search. Works for web pages and PDF, DOCX and EPUB links.",
     inputSchema: {
       type: "object",
       properties: {
