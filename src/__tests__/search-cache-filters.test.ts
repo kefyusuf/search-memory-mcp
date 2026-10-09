@@ -7,7 +7,7 @@ import type { SearchResultItem } from "../cache/types.js";
 const oldHit: SearchResultItem = { title: "Old guide", url: "https://docs.example/old", snippet: "Published 2024-01-10", source: "bing" };
 const newHit: SearchResultItem = { title: "New guide", url: "https://docs.example/new", snippet: "Published 2026-09-10", source: "bing" };
 type Response = { content: Array<{ text: string }>; isError?: boolean };
-type Internals = { cache: SemanticCache; handleSearch(args: unknown): Promise<Response>; buildSearchResponse(query: string, results: SearchResultItem[], format: string): Promise<Response> };
+type Internals = { cache: SemanticCache; handleSearch(args: unknown): Promise<Response>; contentFetcher: { fetchPage(url: string): Promise<unknown> } };
 
 describe("cached search filters", () => {
   beforeEach(() => {
@@ -55,11 +55,11 @@ describe("cached search filters", () => {
     vi.spyOn(internals.cache, "get").mockResolvedValue([
       oldHit, newHit, { ...newHit, url: "https://other.example/new" },
     ]);
-    vi.spyOn(internals, "buildSearchResponse").mockImplementation(async (_query, results) => ({
-      content: [{ text: JSON.stringify({ results }) }],
-    }));
+    // No page content forces deep search to return the filtered candidates it would have fetched.
+    const fetchPage = vi.spyOn(internals.contentFetcher, "fetchPage").mockResolvedValue(null);
     const response = await internals.handleSearch({ query: "database guides", domain: "docs.example", from_date: "2026-01-01", format: "json", deep });
     expect(JSON.parse(response.content[0].text).results.map((r: SearchResultItem) => r.url)).toEqual([newHit.url]);
+    expect(fetchPage.mock.calls.map(([url]) => url)).toEqual(deep ? [newHit.url] : []);
     expect(calls()).toBe(0);
   });
 

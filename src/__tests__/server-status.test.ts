@@ -65,10 +65,17 @@ describe("WebSearchServer diagnostics", () => {
     const server = new WebSearchServer();
     server.overrideSearchProvidersForTesting([emptyProvider, successfulProvider]);
 
-    const results = await callPrivate(server, "executeProviderSearch", ["mcp guide", {
-      acceptLanguage: "en-US,en;q=0.9",
-      market: "en-US",
-    }]);
+    const cache = (server as unknown as { cache: {
+      get: (query: string) => Promise<unknown>;
+      set: (...args: unknown[]) => Promise<void>;
+      reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
+    } }).cache;
+    vi.spyOn(cache, "get").mockResolvedValue(null);
+    vi.spyOn(cache, "set").mockResolvedValue();
+    vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
+
+    const response = await callPrivate<{ content: Array<{ text: string }> }>(server, "handleSearch", [{ query: "mcp guide", format: "json" }]);
+    const results = JSON.parse(response.content[0].text).results;
 
     expect(emptyProvider.execute).toHaveBeenCalled();
     expect(successfulProvider.execute).toHaveBeenCalled();
