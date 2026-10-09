@@ -61,6 +61,19 @@ describe("provider benchmark runner", () => {
   });
 });
 
+describe("provider benchmark attempt hook", () => {
+  it("reports each attempt with the query that produced it", async () => {
+    const seen: string[] = [];
+    await runProviderBenchmark({
+      providers: [{ name: "bing", execute: async () => [] }],
+      queries: [{ query: "a" }, { query: "b" }],
+      delayMs: 0,
+      onAttempt: (attempt, query) => seen.push(`${attempt.provider}:${attempt.status}:${query}`),
+    });
+    expect(seen).toEqual(["bing:empty:a", "bing:empty:b"]);
+  });
+});
+
 describe("provider benchmark report", () => {
   it("renders a Markdown table with the measured counts", () => {
     const report = formatProviderBenchmarkReport(
