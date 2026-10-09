@@ -29,11 +29,14 @@ export async function runProviderBenchmark({
   queries,
   delayMs = 1500,
   sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  onAttempt,
 }: {
   providers: SearchProvider[];
   queries: BenchmarkQuery[];
   delayMs?: number;
   sleep?: (ms: number) => Promise<void>;
+  /** Called after each provider call, for example to save the raw page of an empty result. */
+  onAttempt?: (attempt: ProviderAttempt, query: string) => void | Promise<void>;
 }): Promise<ProviderAttempt[]> {
   const attempts: ProviderAttempt[] = [];
   let first = true;
@@ -49,6 +52,7 @@ export async function runProviderBenchmark({
         healthTracker: new ProviderHealthTracker(),
         onAttempt: (attempt) => attempts.push(attempt),
       });
+      if (onAttempt) await onAttempt(attempts[attempts.length - 1], query);
     }
   }
   return attempts;
