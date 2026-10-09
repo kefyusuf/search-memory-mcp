@@ -5,19 +5,19 @@ const all = ["duckduckgo", "bing", "brave", "google"];
 
 describe("search planner", () => {
   it.each([
-    ["technical", "aggregate", ["brave", "google"], ["duckduckgo", "bing"]],
-    ["research", "aggregate", ["brave", "google", "bing"], ["duckduckgo"]],
-    ["news", "aggregate", ["google", "bing", "brave"], ["duckduckgo"]],
-    ["commercial", "aggregate", ["brave", "google", "bing"], ["duckduckgo"]],
-    ["shopping", "aggregate", ["google", "bing"], ["duckduckgo", "brave"]],
-    ["local", "aggregate", ["google", "bing"], ["duckduckgo", "brave"]],
+    ["technical", "aggregate", ["brave", "duckduckgo"], ["bing", "google"]],
+    ["research", "aggregate", ["brave", "duckduckgo", "bing"], ["google"]],
+    ["news", "aggregate", ["duckduckgo", "brave", "bing"], ["google"]],
+    ["commercial", "aggregate", ["brave", "duckduckgo", "bing"], ["google"]],
+    ["shopping", "aggregate", ["duckduckgo", "brave"], ["bing", "google"]],
+    ["local", "aggregate", ["duckduckgo", "brave"], ["bing", "google"]],
   ] as const)("plans %s intent", (intent, strategy, primary, fallback) => {
     expect(planSearch({ intent, configuredProviderNames: all })).toEqual({
       intent,
       strategy,
       primaryProviderNames: primary,
       fallbackProviderNames: fallback,
-      profileVersion: "v1",
+      profileVersion: "v2",
     });
   });
 
@@ -28,9 +28,9 @@ describe("search planner", () => {
     })).toEqual({
       intent: "navigational",
       strategy: "fallback",
-      primaryProviderNames: ["google", "bing", "duckduckgo", "brave"],
+      primaryProviderNames: ["duckduckgo", "brave", "bing", "google"],
       fallbackProviderNames: [],
-      profileVersion: "v1",
+      profileVersion: "v2",
     });
   });
 
@@ -43,7 +43,7 @@ describe("search planner", () => {
       strategy: "fallback",
       primaryProviderNames: ["bing", "duckduckgo", "google"],
       fallbackProviderNames: [],
-      profileVersion: "v1",
+      profileVersion: "v2",
     });
   });
 
@@ -54,9 +54,9 @@ describe("search planner", () => {
     })).toEqual({
       intent: "technical",
       strategy: "aggregate",
-      primaryProviderNames: ["bing", "duckduckgo"],
+      primaryProviderNames: ["duckduckgo", "bing"],
       fallbackProviderNames: [],
-      profileVersion: "v1",
+      profileVersion: "v2",
     });
   });
 
@@ -64,6 +64,6 @@ describe("search planner", () => {
     expect(planSearch({
       intent: "technical",
       configuredProviderNames: ["bing", "bing", "duckduckgo"],
-    }).primaryProviderNames).toEqual(["bing", "duckduckgo"]);
+    }).primaryProviderNames).toEqual(["duckduckgo", "bing"]);
   });
 });

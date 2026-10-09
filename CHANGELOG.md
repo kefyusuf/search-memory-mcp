@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Routing profile `v2`: `auto` search tries providers in measured reliability order (SearXNG, Brave, DuckDuckGo, then Bing and Google) instead of preferring Google and Bing, which mostly block scrapers.
 - Optional Brave Search API support: with `BRAVE_SEARCH_API_KEY` set, the `brave` provider uses the official API instead of scraping, and leads the default provider order.
 
 ## 1.0.0 (unreleased)
