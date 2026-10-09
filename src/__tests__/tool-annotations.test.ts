@@ -19,7 +19,7 @@ describe("tool annotations", () => {
     },
   );
 
-  it.each(["ingest_document", "index_url", "remember"])("marks %s as an additive write", (name) => {
+  it.each(["ingest_document", "index_url", "remember", "research"])("marks %s as an additive write", (name) => {
     expect(byName.get(name)?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
   });
 
@@ -29,7 +29,7 @@ describe("tool annotations", () => {
 
   it("marks only tools that reach the internet as open-world", () => {
     const openWorld = TOOL_DEFINITIONS.filter((tool) => tool.annotations?.openWorldHint).map((tool) => tool.name).sort();
-    expect(openWorld).toEqual(["fetch_content", "index_url", "web_search"]);
+    expect(openWorld).toEqual(["fetch_content", "index_url", "research", "web_search"]);
     for (const tool of TOOL_DEFINITIONS) {
       expect(tool.annotations?.openWorldHint, tool.name).toEqual(expect.any(Boolean));
     }

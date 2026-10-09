@@ -23,7 +23,7 @@ describe("WebSearchServer tool service", () => {
 
   it("rejects hosted calls for every built-in tool until its dependencies are tenant-safe", async () => {
     const server = new WebSearchServer();
-    for (const name of ["web_search", "fetch_content", "server_status", "ingest_document", "index_url", "search_index", "list_index", "remember", "recall", "forget", "find_related"]) {
+    for (const name of ["web_search", "fetch_content", "server_status", "ingest_document", "index_url", "search_index", "list_index", "remember", "recall", "forget", "find_related", "research"]) {
       const result = await server.callTool(name, { text: "Hosted leak" }, hosted());
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe("Request rejected: execution_mode_unavailable");

@@ -112,6 +112,6 @@ describe("tool definitions", () => {
       const result = await server.callTool(name, null, createLocalRequestContext());
       expect(text(result)).not.toMatch(/^Unknown tool/);
     }
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(12);
   });
 });

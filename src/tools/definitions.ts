@@ -1,4 +1,4 @@
-import { SEARCH_INDEX_OUTPUT_SCHEMA, SERVER_STATUS_OUTPUT_SCHEMA, WEB_SEARCH_OUTPUT_SCHEMA } from "./output-schemas.js";
+import { RESEARCH_OUTPUT_SCHEMA, SEARCH_INDEX_OUTPUT_SCHEMA, SERVER_STATUS_OUTPUT_SCHEMA, WEB_SEARCH_OUTPUT_SCHEMA } from "./output-schemas.js";
 
 /**
  * MCP tool advertisements. Names must match the handlers registered in WebSearchServer.
@@ -31,6 +31,24 @@ export const TOOL_DEFINITIONS = [
       required: ["query"],
     },
     outputSchema: WEB_SEARCH_OUTPUT_SCHEMA,
+  },
+  {
+    name: "research",
+    annotations: { title: "Research a question", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    description: "Research a question in one call: checks the local knowledge base, searches the web, reads the top pages, and returns an answer with citations from both. Pages it reads are added to the knowledge base (index=false to skip), so later research and search_index can reuse them.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Question or topic to research" },
+        max_sources: { type: "number", description: "Web pages to read, 1-5 (default 3)" },
+        index: { type: "boolean", description: "Add pages read to the knowledge base (default true)" },
+        domain: { type: "string", description: "Optional domain filter for the web search" },
+        from_date: { type: "string", description: "Optional inclusive lower date bound YYYY-MM-DD" },
+        to_date: { type: "string", description: "Optional inclusive upper date bound YYYY-MM-DD" },
+      },
+      required: ["query"],
+    },
+    outputSchema: RESEARCH_OUTPUT_SCHEMA,
   },
   {
     name: "fetch_content",
