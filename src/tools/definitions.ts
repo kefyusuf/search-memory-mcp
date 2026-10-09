@@ -1,8 +1,11 @@
+import { SEARCH_INDEX_OUTPUT_SCHEMA, SERVER_STATUS_OUTPUT_SCHEMA, WEB_SEARCH_OUTPUT_SCHEMA } from "./output-schemas.js";
+
 /**
  * MCP tool advertisements. Names must match the handlers registered in WebSearchServer.
  * Annotations are client hints only: openWorldHint marks tools that contact external sites,
  * and internal cache writes do not make a tool non-read-only.
  */
+
 export const TOOL_DEFINITIONS = [
   {
     name: "web_search",
@@ -27,6 +30,7 @@ export const TOOL_DEFINITIONS = [
       },
       required: ["query"],
     },
+    outputSchema: WEB_SEARCH_OUTPUT_SCHEMA,
   },
   {
     name: "fetch_content",
@@ -50,6 +54,7 @@ export const TOOL_DEFINITIONS = [
       properties: {},
       required: [],
     },
+    outputSchema: SERVER_STATUS_OUTPUT_SCHEMA,
   },
   {
     name: "ingest_document",
@@ -94,6 +99,7 @@ export const TOOL_DEFINITIONS = [
       },
       required: ["query"],
     },
+    outputSchema: SEARCH_INDEX_OUTPUT_SCHEMA,
   },
   {
     name: "list_index",

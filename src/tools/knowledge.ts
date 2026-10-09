@@ -97,12 +97,13 @@ export function createKnowledgeHandlers({
       const effectiveQuery = rewriteQuery(query) || query;
       const hits = await knowledgeIndex.search(effectiveQuery, max_results, { source, embed });
 
+      const payload = buildIndexHitJson(query, hits);
       if (format === "json") {
-        return textResult(formatToolResult(buildIndexHitJson(query, hits), "json"));
+        return textResult(formatToolResult(payload, "json"), payload);
       }
 
       if (hits.length === 0) {
-        return textResult(`No knowledge-index chunks matched "${query}". Use ingest_document or index_url to add content first.`);
+        return textResult(`No knowledge-index chunks matched "${query}". Use ingest_document or index_url to add content first.`, payload);
       }
 
       const lines = hits.map((hit: KnowledgeChunkHit, index: number) => {
@@ -110,7 +111,7 @@ export function createKnowledgeHandlers({
         return `${index + 1}. [Source ${index + 1}] "${hit.title}" (${hit.source})\n   match=${hit.matchedBy} score=${hit.score.toFixed(4)} chunk=${hit.chunkIndex}\n   ${excerpt}`;
       });
       const sources = hits.map((hit: KnowledgeChunkHit, index: number) => `Source ${index + 1}: ${hit.source} — ${hit.title}`).join("\n");
-      return textResult(`Knowledge index hits for "${query}":\n\n${lines.join("\n\n")}\n\nSources:\n${sources}`);
+      return textResult(`Knowledge index hits for "${query}":\n\n${lines.join("\n\n")}\n\nSources:\n${sources}`, payload);
     },
 
     async list_index(args: unknown): Promise<ToolResult> {

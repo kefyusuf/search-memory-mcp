@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -289,9 +290,13 @@ export class WebSearchServer {
     return this.statusTool();
   }
 
-  async run() {
-    const transport = new StdioServerTransport();
+  /** Connects the MCP server to any transport; run() uses stdio. */
+  async connect(transport: Transport): Promise<void> {
     await this.server.connect(transport);
+  }
+
+  async run() {
+    await this.connect(new StdioServerTransport());
     console.error("Search Memory MCP Server running on stdio");
   }
 }

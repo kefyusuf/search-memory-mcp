@@ -95,19 +95,15 @@ export function createSearchHandler(deps: SearchToolDeps) {
         query,
         validPages.map((page) => ({ title: page.title, url: page.url, content: page.content })),
       );
-      if (format === "json") {
-        return textResult(formatToolResult(
-          buildAnswerJson(query, answer, validPages.map((page) => ({ url: page.url, title: page.title }))),
-          "json",
-        ));
-      }
-      return textResult(answer);
+      const payload = buildAnswerJson(query, answer, validPages.map((page) => ({ url: page.url, title: page.title })));
+      return textResult(format === "json" ? formatToolResult(payload, "json") : answer, payload);
     }
 
     const rankedResults = await deps.cache().reRankResults(query, results, results.length);
+    const payload = buildSearchJson(query, rankedResults, { deep: true, pagesFetched: 0 });
     return textResult(format === "json"
-      ? formatToolResult(buildSearchJson(query, rankedResults, { deep: true, pagesFetched: 0 }), "json")
-      : formatSearchResults(query, rankedResults));
+      ? formatToolResult(payload, "json")
+      : formatSearchResults(query, rankedResults), payload);
   };
 
   return async (args: unknown): Promise<ToolResult> => {
@@ -187,9 +183,10 @@ export function createSearchHandler(deps: SearchToolDeps) {
         return buildDeepResponse(query, cached.slice(0, max_results), outputFormat);
       }
       const limitedResults = (await rankResults(query, cached, max_results)).slice(0, max_results);
+      const payload = buildSearchJson(query, limitedResults, { strategy, cache: "hit" });
       return textResult(outputFormat === "json"
-        ? formatToolResult(buildSearchJson(query, limitedResults, { strategy, cache: "hit" }), "json")
-        : formatSearchResults(query, limitedResults));
+        ? formatToolResult(payload, "json")
+        : formatSearchResults(query, limitedResults), payload);
     }
 
     trace.endStage("cache.lookup", { status: "empty", error: "miss" });
@@ -239,9 +236,10 @@ export function createSearchHandler(deps: SearchToolDeps) {
       const ranked = await rankResults(query, results, max_results);
       finalizeTrace(trace, ranked.length);
       const limitedResults = ranked.slice(0, max_results);
+      const payload = buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length });
       return textResult(outputFormat === "json"
-        ? formatToolResult(buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length }), "json")
-        : formatSearchResults(query, limitedResults));
+        ? formatToolResult(payload, "json")
+        : formatSearchResults(query, limitedResults), payload);
     }
 
     finalizeTrace(trace, results.length);

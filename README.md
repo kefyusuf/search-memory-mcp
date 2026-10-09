@@ -46,7 +46,7 @@ Restart your client and ask: *"Search the web for the latest Node.js release and
 - Query rewrite for local-index searches and opt-in web multi-query expansion (`expand_query=true`): abbreviation expansion, question normalization, and news year bias.
 - Optional cross-encoder reranking (`ENABLE_RERANKER`).
 - Deep-search answers with paragraph/sentence term scoring, stopword filtering, and per-source citations.
-- Structured JSON output (`format: "json"`) for machine-readable search results and answers.
+- Structured JSON output (`format: "json"`) for machine-readable search results and answers. `web_search`, `search_index` and `server_status` also declare an MCP `outputSchema` and return `structuredContent` on every successful call.
 
 **Local knowledge base (RAG)**
 
