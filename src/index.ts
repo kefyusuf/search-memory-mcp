@@ -309,6 +309,8 @@ export class WebSearchServer {
   async run() {
     await this.connect(new StdioServerTransport());
     console.error("Search Memory MCP Server running on stdio");
+    // Start the embedding model download now, so the first tool calls rarely wait for it.
+    this.embeddingProvider.warmUp();
   }
 }
 
