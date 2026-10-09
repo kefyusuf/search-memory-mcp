@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 (2026-10-09)
 
 - Default provider order is now `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` with a Brave key). In live benchmarks Bing returned no results for every query, while Marginalia answered 3 of 4.
 - Marginalia: when it answers with its "Wait A Moment" bot-check page, the provider waits the requested time and follows the one-time continue link; a repeated check is reported as an error instead of an empty result.
@@ -9,7 +9,7 @@
 - Routing profile `v2`: `auto` search tries providers in measured reliability order (SearXNG, Brave, DuckDuckGo, then Bing and Google) instead of preferring Google and Bing, which mostly block scrapers.
 - Optional Brave Search API support: with `BRAVE_SEARCH_API_KEY` set, the `brave` provider uses the official API instead of scraping, and leads the default provider order.
 
-## 1.0.0 (unreleased)
+## 1.0.0 (2026-10-09)
 
 First published release.
 

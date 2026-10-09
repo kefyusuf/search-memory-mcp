@@ -1,7 +1,7 @@
 {
   "name": "search-memory-mcp",
   "mcpName": "io.github.kefyusuf/search-memory-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Free web search and long-term memory for AI assistants via MCP. No API keys; cache, memory and index stay local.",
   "type": "module",
   "main": "build/index.js",
