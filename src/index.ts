@@ -106,11 +106,13 @@ export class WebSearchServer {
 
     // Initialize Semantic Cache with SQLite for persistence. The router and content
     // cache share one detector so ambiguous requests do not create duplicate models.
-    const embeddingProvider = new TransformersEmbeddingProvider();
+    // Queries never wait for the model to load (keyword-only until it is ready);
+    // knowledge-index embedding still waits so no document is left without vectors.
+    const embeddingProvider = new TransformersEmbeddingProvider(undefined, { loadWaitMs: 0 });
     this.embeddingProvider = embeddingProvider;
     const vectorStore = new SQLiteVectorStore(this.cacheDbPath);
     this.cache = new SemanticCache(embeddingProvider, vectorStore, 0.75, this.intentDetector);
-    this.knowledgeIndex = new KnowledgeIndex(this.cacheDbPath);
+    this.knowledgeIndex = new KnowledgeIndex(this.cacheDbPath, { embeddingProvider });
     this.sessionMemory = new SessionMemory(this.cacheDbPath, {
       maxNotes: parseInt(getEnv("MEMORY_MAX_NOTES", "500"), 10) || 500,
     });

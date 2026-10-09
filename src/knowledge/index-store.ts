@@ -49,7 +49,7 @@ export class KnowledgeIndex {
   private readonly scopeWhere = "execution_mode = ? AND tenant_id = ? AND workspace_id = ?";
   private readonly docScopeWhere = "d.execution_mode = ? AND d.tenant_id = ? AND d.workspace_id = ?";
 
-  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean; context?: RequestContext; maxPendingEmbeddingChunks?: number } = {}) {
+  constructor(dbPath: string = "websearch_cache.db", options: { enableEmbeddings?: boolean; context?: RequestContext; maxPendingEmbeddingChunks?: number; embeddingProvider?: TransformersEmbeddingProvider } = {}) {
     // Omitted context is the legacy local adapter; an invalid supplied context cannot fall back.
     if ("context" in options) assertRequestContext(options.context);
     this.maxPendingEmbeddingChunks = options.maxPendingEmbeddingChunks ?? 256;
@@ -57,6 +57,8 @@ export class KnowledgeIndex {
       throw new InvocationError("invalid_embedding_queue_limit");
     }
     this.context = options.context;
+    // Share the server's provider so the model is loaded once.
+    if (options.embeddingProvider) this.embeddingProvider = Promise.resolve(options.embeddingProvider);
     this.scope = this.context ? [this.context.mode, this.context.tenantId, this.context.workspaceId] : ["local", "local", "local"];
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
@@ -220,7 +222,7 @@ export class KnowledgeIndex {
 
       for (const chunk of chunks) {
         if (this.closed) return;
-        const embedding = await provider.getEmbedding(chunk.text);
+        const embedding = await provider.getEmbedding(chunk.text, { waitForModel: true });
         if (this.closed) return;
         this.authorize("knowledge:write");
         if (embedding.length === EMBEDDING_DIM) {
