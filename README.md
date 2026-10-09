@@ -365,6 +365,8 @@ npm audit --audit-level=moderate
 npm pack --dry-run --json
 ```
 
+`npm run e2e` runs a user scenario against the compiled server through the MCP SDK client: memory, local PDF/DOCX ingestion (including refusing hidden and outside files), knowledge search, entity graph, then web search, page and PDF fetch, and research. Web steps are reported as SKIP when web search is unavailable, so the local steps can run anywhere; run it on a normal network to cover the whole system. It exits with 1 when a step fails.
+
 `npm run smoke:mcp` starts the compiled server over stdio, verifies the `web_search` strategy values (`fallback`, `aggregate`, `auto`), checks the knowledge/memory tools, confirms routing diagnostics from `server_status`, and confirms that `fetch_content` blocks localhost. It does not perform a live provider search, keeping CI independent of search-engine HTML/network availability.
 
 `npm run eval:retrieval` runs an offline FTS-only retrieval baseline (recall@k, precision@k, MRR) over the knowledge index using fixtures in `evals/retrieval/cases.jsonl`. Embeddings are disabled for both ingestion and search, so the evaluation does not load or download models. It does not measure semantic/hybrid retrieval quality.

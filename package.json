@@ -58,6 +58,7 @@
     "test:watch": "vitest --configLoader native --pool forks",
     "test:coverage": "vitest run --configLoader native --pool forks --coverage",
     "smoke:mcp": "node scripts/smoke-mcp.mjs",
+    "e2e": "node scripts/e2e.mjs",
     "test:postgres": "node scripts/verify-membership-postgres.mjs",
     "test:postgres:shutdown": "node scripts/verify-membership-shutdown.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
