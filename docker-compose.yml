@@ -8,13 +8,25 @@ services:
     environment:
       RATE_LIMIT_SEARCH_PER_MIN: "10"
       RATE_LIMIT_FETCH_PER_MIN: "20"
-      SEARCH_PROVIDERS: "duckduckgo,bing"
+      SEARCH_PROVIDERS: "${SEARCH_PROVIDERS:-duckduckgo,bing}"
+      SEARXNG_BASE_URL: "${SEARXNG_BASE_URL:-}"
       ENABLE_CROSSLINGUAL: "false"
       FETCH_WAIT_UNTIL: "domcontentloaded"
       CACHE_DB_PATH: "/app/data/websearch_cache.db"
     volumes:
       - websearch-data:/app/data
       - websearch-models:/root/.cache/huggingface
+
+  # Optional self-hosted meta-search. Start with:
+  #   SEARCH_PROVIDERS=searxng,duckduckgo SEARXNG_BASE_URL=http://searxng:8080 docker compose --profile searxng up
+  searxng:
+    image: searxng/searxng:2026.10.4-d48c4b555
+    profiles: ["searxng"]
+    environment:
+      SEARXNG_SECRET: "${SEARXNG_SECRET:-change-me}"
+    volumes:
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped
 
 volumes:
   websearch-data:

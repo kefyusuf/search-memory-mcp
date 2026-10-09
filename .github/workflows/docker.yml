@@ -13,6 +13,8 @@ on:
       - .dockerignore
       - package.json
       - package-lock.json
+      - docker-compose.yml
+      - docker/**
       - .github/workflows/docker.yml
 
 env:
@@ -49,6 +51,27 @@ jobs:
         env:
           SMOKE_DOCKER_IMAGE: search-memory-mcp:smoke
         run: node scripts/smoke-mcp.mjs
+
+      - name: Check the optional SearXNG service answers JSON
+        env:
+          SEARXNG_SECRET: ci-only-secret
+        run: |
+          docker compose --profile searxng config --quiet
+          docker compose --profile searxng up -d searxng
+          for attempt in $(seq 1 30); do
+            if docker compose exec -T searxng wget -qO /tmp/out.json "http://localhost:8080/search?q=searxng&format=json"; then
+              docker compose exec -T searxng sh -c 'head -c 200 /tmp/out.json'; echo
+              docker compose exec -T searxng grep -q '"results"' /tmp/out.json
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs searxng
+          exit 1
+
+      - name: Clean up SearXNG
+        if: always()
+        run: docker compose --profile searxng down --volumes
 
       - name: Image tags
         id: meta
