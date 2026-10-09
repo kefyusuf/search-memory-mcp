@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance and MCP Registry GitHub OIDC login
+  id-token: write # npm trusted publishing and provenance, MCP Registry GitHub OIDC login
 
 jobs:
   publish:
@@ -36,6 +36,9 @@ jobs:
             exit 1
           fi
 
+      # npm trusted publishing (OIDC, no token) needs npm 11.5.1 or later.
+      - run: npm install -g npm@11
+
       - run: npm ci
 
       - run: npm run build
@@ -48,8 +51,6 @@ jobs:
           else
             npm publish --provenance --access public
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to the MCP Registry
         run: |
