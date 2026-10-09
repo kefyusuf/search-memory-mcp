@@ -77,16 +77,17 @@ export const TOOL_DEFINITIONS = [
   {
     name: "ingest_document",
     annotations: { title: "Add document to knowledge base", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-    description: "Index a document into the local knowledge base for later hybrid search (FTS + vectors). Use this to remember reference material the agent will cite later.",
+    description: "Index a document into the local knowledge base for later hybrid search (FTS + vectors). Pass content, or path to a local PDF, DOCX, EPUB, HTML or text file inside INGEST_ALLOWED_DIRS (local files are disabled unless that is set; hidden files are never read). Use this to remember reference material the agent will cite later.",
     inputSchema: {
       type: "object",
       properties: {
-        content: { type: "string", description: "Document text (Markdown or plain text)" },
+        content: { type: "string", description: "Document text (Markdown or plain text); omit when using path" },
+        path: { type: "string", description: "Local file path inside INGEST_ALLOWED_DIRS; omit when using content" },
         title: { type: "string", description: "Optional title" },
         source: { type: "string", description: "Optional source URL or path" },
         category: { type: "string", description: "Optional category label" },
       },
-      required: ["content"],
+      required: [],
     },
   },
   {

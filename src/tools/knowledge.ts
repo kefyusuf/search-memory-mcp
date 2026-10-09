@@ -1,7 +1,9 @@
+import { basename } from "node:path";
 import { z } from "zod";
 import type { EntityGraph } from "../graph/entity-graph.js";
 import type { KnowledgeChunkHit, KnowledgeIndex } from "../knowledge/index-store.js";
 import type { TokenBucket } from "../rate-limiter.js";
+import { parseAllowedDirs, readLocalDocument } from "../documents/local-files.js";
 import { rewriteQuery } from "../search/query-rewrite.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
 import { buildIndexHitJson, formatToolResult } from "../format/structured-output.js";
@@ -9,11 +11,12 @@ import type { ContentLoader, UrlValidator } from "./fetch.js";
 import { blockedUrlError, errorResult, rateLimitError, textResult, type ToolResult } from "./types.js";
 
 const IngestDocumentSchema = z.object({
-  content: z.string().min(1).describe("Document text to index (Markdown or plain text)."),
+  content: z.string().min(1).optional().describe("Document text to index (Markdown or plain text)."),
+  path: z.string().min(1).optional().describe("Local file to index (PDF, DOCX, EPUB, HTML or text) inside INGEST_ALLOWED_DIRS."),
   title: z.string().optional().describe("Optional document title."),
   source: z.string().optional().describe("Optional source identifier, usually a URL or file path."),
   category: z.string().optional().describe("Optional category label, e.g. docs, notes, research."),
-});
+}).refine((input) => (input.content === undefined) !== (input.path === undefined), "Provide either content or path, not both.");
 
 const IndexUrlSchema = z.object({
   url: z.string().url().describe("URL to fetch and index into the local knowledge base."),
@@ -40,6 +43,8 @@ export type KnowledgeToolDeps = {
   fetchContent: ContentLoader;
   fetchLimiter: TokenBucket;
   validateUrl?: UrlValidator;
+  /** Directories ingest_document may read files from; empty disables local files. */
+  allowedDirs?: () => string[];
 };
 
 export function createKnowledgeHandlers({
@@ -49,6 +54,7 @@ export function createKnowledgeHandlers({
   fetchContent,
   fetchLimiter,
   validateUrl = validatePublicHttpUrl,
+  allowedDirs = () => parseAllowedDirs(process.env.INGEST_ALLOWED_DIRS),
 }: KnowledgeToolDeps) {
   const ingest = (input: { content: string; title?: string; source?: string; category?: string }) => {
     const doc = knowledgeIndex.ingest(input);
@@ -64,7 +70,14 @@ export function createKnowledgeHandlers({
   return {
     async ingest_document(args: unknown): Promise<ToolResult> {
       try {
-        const { doc, entityCount } = ingest(IngestDocumentSchema.parse(args));
+        const { content, path, title, source, category } = IngestDocumentSchema.parse(args);
+        const input = path === undefined
+          ? { content: content as string, title, source, category }
+          : await (async () => {
+              const file = await readLocalDocument(path, { allowedDirs: allowedDirs() });
+              return { content: file.text, title: title ?? file.title ?? basename(file.path), source: source ?? file.path, category: category ?? "file" };
+            })();
+        const { doc, entityCount } = ingest(input);
         return textResult(`Indexed document "${doc.title}" (${doc.id.slice(0, 12)}…)\nSource: ${doc.source}\nChunks: ${doc.chunkCount}\nEntities: ${entityCount}\nCategory: ${doc.category}`);
       } catch (error) {
         return errorResult(`Failed to ingest document: ${error instanceof Error ? error.message : String(error)}`);

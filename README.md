@@ -139,7 +139,7 @@ For package-runner based clients, use the `npx` configuration from [Quick start]
 | `fetch_content` | Fetches a URL and returns clean Markdown with content caching, charset handling, GitHub Raw fast paths, RSS feed extraction, and Playwright fallback. |
 | `research` | Researches a question in one call: checks the local knowledge base, searches the web, reads the top pages (`max_sources`, default 3), answers with citations from both, and adds the pages it read to the knowledge base (`index=false` to skip; sources already indexed are not added again). |
 | `server_status` | Returns provider availability, cache stats, knowledge index stats, memory stats, entity graph stats, recent search traces, browser state, routing profile metadata, feature flags, and uptime. |
-| `ingest_document` | Chunks a document and indexes it into the local knowledge base (FTS + vectors) and entity graph. |
+| `ingest_document` | Chunks a document and indexes it into the local knowledge base (FTS + vectors) and entity graph. Pass `content`, or `path` to a local PDF, DOCX, EPUB, HTML or text file inside `INGEST_ALLOWED_DIRS`. |
 | `index_url` | Fetches a URL and indexes its Markdown into the local knowledge base and entity graph. |
 | `search_index` | Hybrid keyword + semantic search over the local knowledge base; returns chunks with source citations. Supports `format: "json"`. |
 | `list_index` | Lists documents stored in the local knowledge base. |
@@ -281,6 +281,7 @@ Or explore the entity graph:
 | `CHROMIUM_INSTALL_TIMEOUT_MS` | `600000` | Maximum time for the automatic first-use Chromium download. A stalled download is stopped after this time and the next browser request tries again. |
 | `FORCE_PLAYWRIGHT` | unset | Set to `true` to skip HTTP-first fetch and always use Playwright. |
 | `CACHE_DB_PATH` | `websearch_cache.db` | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph. |
+| `INGEST_ALLOWED_DIRS` | _(empty: disabled)_ | Comma-separated directories `ingest_document` may read files from, for example `~/Documents/notes,~/Papers`. Symlinks are resolved first, so a link cannot point outside these directories. Hidden files and anything inside hidden folders (such as `.ssh` or `.env`) are never read. Files above 25 MB are refused. |
 | `CACHE_CLEANUP_INTERVAL_HOURS` | `24` | Interval for expired content cache cleanup. |
 
 File-backed SQLite stores use WAL journaling with `synchronous=FULL`; `:memory:` databases remain in memory. Use a writable local data directory: WAL requires shared memory on the same host and is unsuitable for a database shared over a network filesystem. While the server is running, the `-wal` and `-shm` files belong to the database; copying only the `.db` file does not provide a consistent live backup. See [SQLite WAL documentation](https://www.sqlite.org/wal.html) and the [disposable backup/restore rehearsal](docs/sqlite-backup-restore.md). Production backup operations remain separate from these local regressions.

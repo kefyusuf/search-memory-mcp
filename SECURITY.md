@@ -14,6 +14,8 @@ Do not include secrets, private tokens, or credentials in reports.
 
 The server includes SSRF protection for `fetch_content`, rate limiting for public MCP tools, and no requirement for external API keys.
 
+Local file reading in `ingest_document` is disabled by default. It reads only files whose real path (after resolving symlinks) is inside a directory listed in `INGEST_ALLOWED_DIRS`, never hidden files or files inside hidden folders, and nothing above 25 MB. Only list directories whose contents you are willing to put into the knowledge base, because an agent can be instructed by untrusted web content to call this tool.
+
 Dependency security is enforced in CI with `npm audit --audit-level=moderate`; moderate-or-higher findings fail the CI job.
 
 The project uses the maintained `@huggingface/transformers` package for local model pipelines. Two npm overrides keep transitive native/archive dependencies on patched releases:
