@@ -28,3 +28,7 @@ The project uses the maintained `@huggingface/transformers` package for local mo
 Remove these overrides when the corresponding upstream dependency ranges include patched versions and the blocking audit remains clean without local intervention.
 
 On 2026-10-02, the lockfile was updated to `fast-uri` 3.1.8 and `ip-address` 10.7.3 to remediate the URI authority parsing and IP classification advisories reported by npm audit. The audit reported zero vulnerabilities after these updates.
+
+## Third-party reader fallback
+
+`READER_FALLBACK_URL` is unset by default. When it is set, URLs that cannot be fetched directly are sent to that service, which then sees which pages you read. Only the URL is sent, after the same public-address check as direct fetches; its response is treated as untrusted web content.

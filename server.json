@@ -43,6 +43,11 @@
           "description": "Optional Brave Search API key; the brave provider then uses the official API instead of scraping",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "READER_FALLBACK_URL",
+          "description": "Optional reader service (for example https://markdown.new/) used when a page cannot be fetched directly; sends the page URL to that service",
+          "isRequired": false
         }
       ]
     }
