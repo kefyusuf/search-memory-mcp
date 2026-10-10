@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Docs: the opt-in `yahoo` provider is documented as blocked (empty HTTP 500 for every non-browser request) and is no longer in the provider benchmark by default.
+
 ## 1.0.1 (2026-10-09)
 
 - Default provider order is now `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` with a Brave key). In live benchmarks Bing returned no results for every query, while Marginalia answered 3 of 4.
