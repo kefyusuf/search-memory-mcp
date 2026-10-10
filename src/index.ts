@@ -140,6 +140,7 @@ export class WebSearchServer {
       cache: this.cache,
       getBrowserContext: () => this.getBrowserContext(),
       fetchWaitUntil: this.fetchWaitUntil,
+      readerFallbackUrl: process.env.READER_FALLBACK_URL,
       detectIntent: this.enableCrosslingual
         ? (text) => this.cache.detectIntent(text)
         : null,

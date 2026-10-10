@@ -30,7 +30,7 @@ type FetchFailure = {
 type FetchArticleResult = {
   kind: "article";
   article: FetchArticle;
-  source: "http" | "playwright" | "page-cache" | "github-raw" | "rss";
+  source: "http" | "playwright" | "page-cache" | "github-raw" | "rss" | "reader";
 };
 
 type HttpFetchResult =
@@ -56,7 +56,7 @@ export type FetchContentResult =
   | {
       kind: "content";
       text: string;
-      source: "content-cache" | "http" | "playwright" | "github-raw" | "rss";
+      source: "content-cache" | "http" | "playwright" | "github-raw" | "rss" | "reader";
       /** When the text was fetched from the web (ISO 8601); for cache hits, the original fetch. */
       fetchedAt: string;
       /** Publication date (YYYY-MM-DD) found in the page or document, when present. */
@@ -73,6 +73,12 @@ type ContentFetcherOptions = {
   /** Largest PDF/DOCX/EPUB response downloaded for extraction (default 25 MB). */
   maxDocumentBytes?: number;
   forcePlaywright?: () => boolean;
+  /**
+   * Optional reader service used as a last resort, called as `${readerFallbackUrl}${pageUrl}`
+   * (for example https://markdown.new/). It sends the page URL to that third party, so it is
+   * off unless configured.
+   */
+  readerFallbackUrl?: string;
 };
 
 const DOCUMENT_CONTENT_TYPES = /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/epub\+zip)\b/i;
@@ -143,6 +149,7 @@ export class ContentFetcher {
   private readonly maxContentChars: number;
   private readonly maxDocumentBytes: number;
   private readonly forcePlaywright: () => boolean;
+  private readonly readerFallbackUrl: string | null;
   private readonly turndown: TurndownService;
   private readonly pageCache: LRUCache<string, FetchArticle>;
 
@@ -154,6 +161,7 @@ export class ContentFetcher {
     this.maxContentChars = options.maxContentChars ?? 50_000;
     this.maxDocumentBytes = options.maxDocumentBytes ?? 25 * 1024 * 1024;
     this.forcePlaywright = options.forcePlaywright ?? (() => isEnabledEnvFlag(process.env.FORCE_PLAYWRIGHT));
+    this.readerFallbackUrl = options.readerFallbackUrl?.trim() || null;
     this.turndown = new TurndownService({
       headingStyle: "atx",
       codeBlockStyle: "fenced",
@@ -277,7 +285,42 @@ export class ContentFetcher {
       }
     }
 
-    return this.fetchViaPlaywright(url, options);
+    if (!this.readerFallbackUrl) return this.fetchViaPlaywright(url, options);
+
+    let browserResult: FetchArticleResult | FetchFailure;
+    try {
+      browserResult = await this.fetchViaPlaywright(url, options);
+    } catch (error) {
+      console.error(`Browser fetch failed for ${url}:`, error instanceof Error ? error.message : String(error));
+      browserResult = { kind: "error", reason: "fetch_failed" };
+    }
+    if (browserResult.kind !== "error" || browserResult.reason === "blocked_url") return browserResult;
+
+    const readerArticle = await this.fetchViaReader(this.readerFallbackUrl, url);
+    if (!readerArticle) return browserResult;
+    await this.persistArticle(readerArticle, options);
+    return { kind: "article", article: readerArticle, source: "reader" };
+  }
+
+  /** Reader services answer with "Title: …", "URL Source: …" and "Markdown Content:" sections. */
+  private async fetchViaReader(readerUrl: string, url: string): Promise<FetchArticle | null> {
+    try {
+      const response = await fetch(`${readerUrl}${url}`, {
+        headers: { "Accept": "text/plain, text/markdown;q=0.9, */*;q=0.1" },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) return null;
+      const body = (await response.text()).replace(/\r\n?/g, "\n");
+      const marker = body.indexOf("Markdown Content:");
+      const markdown = (marker >= 0 ? body.slice(marker + "Markdown Content:".length) : body).trim();
+      if (markdown.length < 50) return null;
+      const title = /^Title:[ \t]*(.+)$/m.exec(body)?.[1]?.trim() || url;
+      const content = this.truncateContent(markdown);
+      return { url, title, content, fullText: `# ${title}\n\n${content}` };
+    } catch (error) {
+      console.error(`Reader fallback failed for ${url}:`, error instanceof Error ? error.message : String(error));
+      return null;
+    }
   }
 
   private async fetchViaPlaywright(

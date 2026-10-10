@@ -293,6 +293,7 @@ Or explore the entity graph:
 | `RATE_LIMIT_SEARCH_PER_MIN` | `10` | Maximum `web_search` requests per minute. Invalid or non-positive values disable the limiter. |
 | `RATE_LIMIT_FETCH_PER_MIN` | `20` | Maximum `fetch_content` requests per minute. Invalid or non-positive values disable the limiter. |
 | `SEARCH_PROVIDERS` | `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`. |
+| `READER_FALLBACK_URL` | unset | Optional reader service used by `fetch_content`, `index_url` and `research` when direct HTTP and the browser both fail, called as `<READER_FALLBACK_URL><page url>`, for example `https://markdown.new/`. The page URL is sent to that third party, so it is off by default. |
 | `BRAVE_SEARCH_API_KEY` | unset | Optional key for the [Brave Search API](https://api-dashboard.search.brave.com/). When set, the `brave` provider calls the official API instead of scraping the website, which avoids the rate limits that block scraping. |
 | `SEARXNG_BASE_URL` | unset | Base URL of a SearXNG instance with the JSON format enabled (for example `https://searx.example.com`). Required for the `searxng` provider; no API key is used. |
 | `ENABLE_CROSSLINGUAL` | `false` | Enables language detection and cross-lingual search support. This can trigger first-run local model downloads. When disabled, query heuristics still infer supported locales such as Turkish. |
