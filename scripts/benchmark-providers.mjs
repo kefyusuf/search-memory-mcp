@@ -8,7 +8,7 @@
  * Usage: node scripts/benchmark-providers.mjs [--limit N] [--delay MS] [--json PATH] [--dump DIR] [cases.jsonl]
  * --dump saves the raw response of every empty or failed attempt, to check whether
  * a provider served a block page or its result markup changed.
- * Providers come from SEARCH_PROVIDERS (default: duckduckgo,bing,brave,google,yahoo,marginalia).
+ * Providers come from SEARCH_PROVIDERS (default: duckduckgo,bing,brave,google,marginalia).
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -34,7 +34,7 @@ const casesPath = positionals[0] ?? join(root, "evals/providers/queries.jsonl");
 let queries = readFileSync(casesPath, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
 if (values.limit) queries = queries.slice(0, Number(values.limit));
 
-const providerNames = (process.env.SEARCH_PROVIDERS ?? "duckduckgo,bing,brave,google,yahoo,marginalia")
+const providerNames = (process.env.SEARCH_PROVIDERS ?? "duckduckgo,bing,brave,google,marginalia")
   .split(",").map((name) => name.trim().toLowerCase()).filter(Boolean);
 const providers = buildProviders(providerNames);
 
