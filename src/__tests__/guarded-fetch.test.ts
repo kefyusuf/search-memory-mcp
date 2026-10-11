@@ -35,6 +35,9 @@ describe("guarded outbound HTTP fetch", () => {
       "https://[::1]/",
       "http://[::ffff:7f00:1]/",
       "http://169.254.169.254/latest/meta-data",
+      "http://[::]/",
+      "https://[2001:db8::1]/",
+      "http://198.51.100.1/",
       "file:///etc/passwd",
     ]) {
       await expect(guardedHttpFetch(url)).rejects.toBeInstanceOf(BlockedFetchUrlError);
