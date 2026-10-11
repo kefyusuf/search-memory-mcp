@@ -67,6 +67,7 @@ export class WebSearchServer {
   private browser: Browser | null = null;
   private browserContext: BrowserContext | null = null;
   private browserContextLaunch: Promise<BrowserContext> | null = null;
+  private browserShuttingDown = false;
   private browserEgressProxy: BrowserEgressProxy | null = null;
   private browserLaunch: Promise<Browser> | null = null;
   private cache: SemanticCache;
@@ -239,6 +240,7 @@ export class WebSearchServer {
   }
 
   private async getBrowserContext(): Promise<BrowserContext> {
+    if (this.browserShuttingDown) throw new Error("Browser is shutting down");
     if (this.browserContext) return this.browserContext;
     // Concurrent fetches share the same guarded context/proxy startup. The
     // proxy must be listening before any Chromium request is permitted.
@@ -247,6 +249,10 @@ export class WebSearchServer {
       const { context, proxy } = await openGuardedBrowserContext(browser, {
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       });
+      if (this.browserShuttingDown) {
+        try { await context.close(); } finally { await proxy.close(); }
+        throw new Error("Browser is shutting down");
+      }
       this.browserEgressProxy = proxy;
       this.browserContext = context;
       console.error("Persistent guarded browser context created.");
@@ -255,23 +261,34 @@ export class WebSearchServer {
     return this.browserContextLaunch;
   }
 
+  /** Finish pending Chromium initialization before closing context, proxy and browser. */
+  private async closeBrowserResources(): Promise<void> {
+    this.browserShuttingDown = true;
+    // In-flight context creation may allocate a proxy and browser after the
+    // shutdown signal. Await it even when it rejects, then close every resource.
+    try { await this.browserContextLaunch; } catch {}
+    try { await this.browserLaunch; } catch {}
+    if (this.browserContext) {
+      try { await this.browserContext.close(); } catch {}
+      this.browserContext = null;
+    }
+    if (this.browserEgressProxy) {
+      try { await this.browserEgressProxy.close(); } catch (error) {
+        console.error("Error stopping browser egress proxy:", error);
+      }
+      this.browserEgressProxy = null;
+    }
+    if (this.browser) {
+      try { await this.browser.close(); } catch {}
+      this.browser = null;
+    }
+  }
+
   private setupShutdownHandlers() {
     const shutdown = async () => {
+      if (this.browserShuttingDown) return; // ignore concurrent signals
       console.error("Shutting down Search Memory MCP Server...");
-      if (this.browserContext) {
-        try { await this.browserContext.close(); } catch {}
-        this.browserContext = null;
-      }
-      if (this.browserEgressProxy) {
-        try { await this.browserEgressProxy.close(); } catch (error) {
-          console.error("Error stopping browser egress proxy:", error);
-        }
-        this.browserEgressProxy = null;
-      }
-      if (this.browser) {
-        try { await this.browser.close(); } catch {}
-        this.browser = null;
-      }
+      await this.closeBrowserResources();
       this.contentFetcher.close();
       this.cache.close();
       this.knowledgeIndex.close();
