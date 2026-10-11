@@ -65,6 +65,15 @@ describe("isPrivateIP", () => {
     expect(isPrivateIP("::ffff:10.0.0.1")).toBe(true);
   });
 
+  it("recognizes IPv4-mapped IPv6 addresses in canonical and expanded forms", () => {
+    expect(isPrivateIP("::ffff:127.0.0.1")).toBe(true);
+    expect(isPrivateIP("::ffff:7f00:1")).toBe(true);
+    expect(isPrivateIP("0:0:0:0:0:ffff:7f00:1")).toBe(true);
+    expect(isPrivateIP("::ffff:c0a8:101")).toBe(true);
+    expect(isPrivateIP("::ffff:8.8.8.8")).toBe(false);
+    expect(isPrivateIP("::ffff:808:808")).toBe(false);
+  });
+
   it("should allow public IPs", () => {
     expect(isPrivateIP("8.8.8.8")).toBe(false);
     expect(isPrivateIP("1.1.1.1")).toBe(false);
@@ -81,6 +90,56 @@ describe("isPrivateHost", () => {
   it("blocks a hostname resolving to a private IPv6 address", async () => {
     vi.mocked(dns.resolve6).mockResolvedValue(["fd00::1"] as never);
     expect(await isPrivateHost("private.example")).toBe(true);
+  });
+
+  it("allows public bracketed IPv6 URL hosts without DNS lookups", async () => {
+    expect(await isPrivateHost("[2606:4700:4700::1111]")).toBe(false);
+    await expect(validatePublicHttpUrl("https://[2606:4700:4700::1111]/")).resolves.toMatchObject({
+      ok: true,
+    });
+    expect(dns.resolve4).not.toHaveBeenCalled();
+    expect(dns.resolve6).not.toHaveBeenCalled();
+  });
+
+  it("blocks private bracketed IPv6 URL hosts and mapped IPv4 targets", async () => {
+    for (const host of ["[::1]", "[fc00::1]", "[fe80::1]", "[::ffff:7f00:1]", "[::ffff:c0a8:101]"]) {
+      expect(await isPrivateHost(host)).toBe(true);
+      await expect(validatePublicHttpUrl(`https://${host}/`)).resolves.toMatchObject({
+        ok: false,
+        reason: "private_host",
+      });
+    }
+    expect(dns.resolve4).not.toHaveBeenCalled();
+    expect(dns.resolve6).not.toHaveBeenCalled();
+  });
+
+  it("allows public IPv4-mapped IPv6 URL hosts", async () => {
+    await expect(validatePublicHttpUrl("https://[::ffff:808:808]/")).resolves.toMatchObject({
+      ok: true,
+    });
+    expect(dns.resolve4).not.toHaveBeenCalled();
+    expect(dns.resolve6).not.toHaveBeenCalled();
+  });
+
+  it("blocks a hostname when both DNS families return no addresses", async () => {
+    vi.mocked(dns.resolve4).mockResolvedValue([] as never);
+    vi.mocked(dns.resolve6).mockResolvedValue([] as never);
+    expect(await isPrivateHost("unresolved.example")).toBe(true);
+    await expect(validatePublicHttpUrl("https://unresolved.example/")).resolves.toMatchObject({
+      ok: false,
+      reason: "private_host",
+    });
+  });
+
+  it("blocks a hostname if both DNS lookups fail", async () => {
+    vi.mocked(dns.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENOTFOUND"));
+    expect(await isPrivateHost("missing.example")).toBe(true);
+  });
+
+  it("allows a public IPv4 result when IPv6 resolution fails", async () => {
+    vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENODATA"));
+    expect(await isPrivateHost("ipv4-only.example")).toBe(false);
   });
 
   it("should block localhost string", async () => {
