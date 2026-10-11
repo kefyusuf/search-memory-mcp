@@ -2,6 +2,7 @@
 // This checks the actual browser + egress proxy, NOT mock route callbacks.
 import assert from "node:assert/strict";
 import { promises as dns, lookup as nodeLookup } from "node:dns";
+import { createSocket as createDatagramSocket } from "node:dgram";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
 import { openGuardedBrowserContext, startBrowserEgressProxy } from "../build/security/browser-egress-proxy.js";
@@ -12,6 +13,8 @@ const original6 = dns.resolve6;
 let browser;
 let context;
 let proxy;
+let udpSocket;
+let privateUdpPackets = 0;
 const destinationRequests = [];
 let destinationSockets = 0;
 const destination = createServer((request, response) => {
@@ -80,6 +83,25 @@ try {
   assert.notEqual(wsResult, "opened", "WebSocket unexpectedly connected");
   assert.equal(destinationSockets, 0, "WebSocket reached private socket");
 
+  // Browser-side WebRTC STUN UDP attempts must not bypass the proxy policy.
+  // Chromium is launched with disable_non_proxied_udp; verify against a real
+  // private datagram listener, not just navigator/network instrumentation.
+  udpSocket = createDatagramSocket("udp4");
+  udpSocket.on("message", () => { privateUdpPackets += 1; });
+  await new Promise((resolve) => udpSocket.bind(0, "127.0.0.1", resolve));
+  const udpPort = udpSocket.address().port;
+  const rtcOutcome = await page.evaluate(async (stunPort) => {
+    const rtc = new RTCPeerConnection({ iceServers: [{ urls: `stun:127.0.0.1:${stunPort}` }] });
+    try {
+      rtc.createDataChannel("egress-probe");
+      const offer = await rtc.createOffer();
+      await rtc.setLocalDescription(offer);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      return rtc.iceGatheringState;
+    } finally { rtc.close(); }
+  }, udpPort);
+  assert.equal(privateUdpPackets, 0, "Browser WebRTC sent STUN datagram to private IP");
+
   // New independent context from the exact production startup helper,
   // with its default real resolver, must also preserve ordinary public HTTPS.
   await context.close();
@@ -108,6 +130,8 @@ try {
     rebound_private: reboundStatus,
     private_image_blocked: !destinationRequests.includes("/image-private"),
     websocket: wsResult,
+    webrtc_ice_state: rtcOutcome,
+    private_udp_packets: privateUdpPackets,
     https_status: secure.status(),
     https_hostname: new URL(secure.url()).hostname,
     after_proxy_shutdown: afterStop,
@@ -124,6 +148,7 @@ try {
   if (context) await context.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
   if (proxy) await proxy.close().catch(() => {});
+  if (udpSocket) await new Promise((resolve) => udpSocket.close(resolve));
   destination.closeAllConnections?.();
   if (destination.listening) await new Promise((resolve) => destination.close(resolve));
 }
