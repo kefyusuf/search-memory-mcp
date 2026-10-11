@@ -74,6 +74,15 @@ function sanitizedHeaders(headers: IncomingHttpHeaders, host: string): IncomingH
   return clean;
 }
 
+/** Parse exact CONNECT authority-form without losing an explicit :443 port. */
+export function parseConnectAuthority(authority: string): { port: number } | null {
+  if (!authority || /[\\/@?#]/.test(authority)) return null;
+  const matched = /^(?:\[[^\]]+\]|[^:[\]]+):([0-9]{1,5})$/.exec(authority);
+  if (!matched) return null;
+  const port = Number(matched[1]);
+  return Number.isInteger(port) && port >= 1 && port <= 65535 ? { port } : null;
+}
+
 function closeSocket(socket: Duplex, code: 403 | 502 | 503): void {
   if (socket.destroyed) return;
   socket.end(`HTTP/1.1 ${code} Denied\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
@@ -128,18 +137,12 @@ export async function startBrowserEgressProxy(
     // Only authority-form host:port is accepted. CONNECT is a raw TCP tunnel;
     // the browser still performs TLS/SNI verification end-to-end.
     const authority = request.url ?? "";
-    if (!authority || /[\\/@?#]/.test(authority)) {
+    const parsedAuthority = parseConnectAuthority(authority);
+    if (!parsedAuthority) {
       closeSocket(client, 403);
       return;
     }
-    // The URL constructor normalizes away :443 for HTTPS; retain the port
-    // explicitly from authority-form CONNECT rather than URL.port.
-    const authorityParts = /^(?:\[[^\]]+\]|[^:[\]]+):([0-9]{1,5})$/.exec(authority);
-    if (!authorityParts) {
-      closeSocket(client, 403);
-      return;
-    }
-    const port = Number(authorityParts[1]);
+    const port = parsedAuthority.port;
     let target: URL | null = null;
     try {
       target = await allowedTarget(`https://${authority}`);
@@ -149,10 +152,6 @@ export async function startBrowserEgressProxy(
       return;
     }
 
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      closeSocket(client, 403);
-      return;
-    }
 
     const upstream = connectSocket({
       host: unwrapHostname(target.hostname),
