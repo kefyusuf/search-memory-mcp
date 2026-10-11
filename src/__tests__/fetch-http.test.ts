@@ -193,6 +193,20 @@ describe("ContentFetcher", () => {
     }
   });
 
+  it("does not fall back to the browser after a guarded socket denies a private peer", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ getBrowserContext: browser });
+    const denial = Object.assign(new Error("Blocked non-public outbound address"), { code: "EACCES" });
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw Object.assign(new TypeError("fetch failed"), { cause: denial });
+    }));
+
+    await expect(fetcher.fetchContent("https://example.com/guarded", true)).resolves.toEqual({
+      kind: "error", reason: "blocked_url",
+    });
+    expect(browser).not.toHaveBeenCalled();
+  });
+
   it("blocks HTTP redirects to private network targets", async () => {
     const { fetcher } = createFetcher({
       getBrowserContext: async () => {

@@ -50,6 +50,22 @@ describe("reader fallback", () => {
     expect(result.kind === "content" && result.text).toMatch(/^# Node\.js — About Node\.js®\n\nAbout Node\.js\n\nNode\.js is a free/);
   });
 
+  it("does not follow a reader redirect into localhost", async () => {
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      requested.push(url);
+      if (url.startsWith("https://markdown.new/")) {
+        return new Response(null, { status: 302, headers: { location: "http://127.0.0.1/internal" } });
+      }
+      return new Response("blocked", { status: 403, headers: { "content-type": "text/html" } });
+    }));
+
+    const result = await createFetcher("https://markdown.new/").fetchContent("https://example.com/about");
+    expect(result).toMatchObject({ kind: "error", reason: "fetch_failed" });
+    expect(requested.some((value) => value.includes("127.0.0.1"))).toBe(false);
+  });
+
   it("is off unless configured", async () => {
     const fetchMock = vi.fn(async () => new Response("blocked", { status: 403, headers: { "content-type": "text/html" } }));
     vi.stubGlobal("fetch", fetchMock);
