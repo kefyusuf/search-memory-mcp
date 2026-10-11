@@ -83,6 +83,27 @@ describe("isPrivateHost", () => {
     expect(await isPrivateHost("private.example")).toBe(true);
   });
 
+  it("blocks a hostname when both DNS families return no addresses", async () => {
+    vi.mocked(dns.resolve4).mockResolvedValue([] as never);
+    vi.mocked(dns.resolve6).mockResolvedValue([] as never);
+    expect(await isPrivateHost("unresolved.example")).toBe(true);
+    await expect(validatePublicHttpUrl("https://unresolved.example/")).resolves.toMatchObject({
+      ok: false,
+      reason: "private_host",
+    });
+  });
+
+  it("blocks a hostname if both DNS lookups fail", async () => {
+    vi.mocked(dns.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
+    vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENOTFOUND"));
+    expect(await isPrivateHost("missing.example")).toBe(true);
+  });
+
+  it("allows a public IPv4 result when IPv6 resolution fails", async () => {
+    vi.mocked(dns.resolve6).mockRejectedValue(new Error("ENODATA"));
+    expect(await isPrivateHost("ipv4-only.example")).toBe(false);
+  });
+
   it("should block localhost string", async () => {
     expect(await isPrivateHost("localhost")).toBe(true);
     expect(await isPrivateHost("localhost6")).toBe(true);
