@@ -3,7 +3,7 @@ import { promises as dns, lookup as systemLookup, type LookupAddress } from "nod
 import { createServer, request as httpRequest } from "node:http";
 import { connect as netConnect, type AddressInfo } from "node:net";
 import type { Browser, BrowserContext } from "playwright";
-import { openGuardedBrowserContext, startBrowserEgressProxy, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
+import { openGuardedBrowserContext, parseConnectAuthority, startBrowserEgressProxy, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 
 function fakeResolver(records: LookupAddress[]): typeof systemLookup {
   return ((_host: string, _opts: unknown, cb: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void) => {
@@ -101,6 +101,22 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
     ]));
     const result = await proxyGet(proxy, "http://browser-egress-probe.invalid:81/private");
     expect(result.status).toBe(403);
+  });
+
+  it("parses public and private IPv6 CONNECT authorities without confusing syntax and address policy", () => {
+    expect(parseConnectAuthority("[2606:4700:4700::1111]:443")).toEqual({ port: 443 });
+    expect(parseConnectAuthority("[2001:4860:4860::8888]:8443")).toEqual({ port: 8443 });
+    // Syntax remains valid even though the socket safety policy must block it.
+    expect(parseConnectAuthority("[::1]:443")).toEqual({ port: 443 });
+    expect(parseConnectAuthority("example.org:443")).toEqual({ port: 443 });
+    expect(parseConnectAuthority("example.org:65535")).toEqual({ port: 65535 });
+    for (const malformed of [
+      "[::1]", "[::1]:0", "[::1]:65536", "example.org:0",
+      "example.org", "example.org:abc", "example.org:443/path",
+      "user@example.org:443", "[::1]:80:90", "[2606:4700::1111:443",
+    ]) {
+      expect(parseConnectAuthority(malformed)).toBeNull();
+    }
   });
 
   it("rejects HTTPS CONNECT to a private literal or a rebinding hostname", async () => {
