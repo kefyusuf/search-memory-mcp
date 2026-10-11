@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { promises as dns, lookup as nodeLookup } from "node:dns";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
-import { startBrowserEgressProxy } from "../build/security/browser-egress-proxy.js";
+import { openGuardedBrowserContext, startBrowserEgressProxy } from "../build/security/browser-egress-proxy.js";
 
 const HOST = "browser-egress-probe.invalid";
 const original4 = dns.resolve4;
@@ -80,17 +80,27 @@ try {
   assert.notEqual(wsResult, "opened", "WebSocket unexpectedly connected");
   assert.equal(destinationSockets, 0, "WebSocket reached private socket");
 
-  const secure = await page.goto("https://example.com/", {
+  // New independent context from the exact production startup helper,
+  // with its default real resolver, must also preserve ordinary public HTTPS.
+  await context.close();
+  context = undefined;
+  await proxy.close();
+  proxy = undefined;
+  const production = await openGuardedBrowserContext(browser);
+  context = production.context;
+  proxy = production.proxy;
+  const realPage = await context.newPage();
+  const secure = await realPage.goto("https://example.com/", {
     waitUntil: "domcontentloaded", timeout: 20000,
   });
-  assert.ok(secure?.ok(), "Legitimate HTTPS navigation failed through guarded proxy");
-  assert.equal(new URL(page.url()).hostname, "example.com");
+  assert.ok(secure?.ok(), "Legitimate HTTPS navigation failed in the actual production guarded context");
+  assert.equal(new URL(realPage.url()).hostname, "example.com");
   assert.equal(destinationSockets, 0);
 
   const preShutdownCount = destinationSockets;
   await proxy.close();
   proxy = undefined;
-  const afterStop = await navigation(page, `http://127.0.0.1:${port}/after-shutdown`);
+  const afterStop = await navigation(realPage, `http://127.0.0.1:${port}/after-shutdown`);
   assert.equal(destinationSockets, preShutdownCount, "Chromium used DIRECT after proxy shutdown");
 
   console.log("GUARDED_BROWSER_EGRESS", JSON.stringify({
