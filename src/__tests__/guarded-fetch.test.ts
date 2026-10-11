@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { promises as dns } from "node:dns";
+import { promises as dns, lookup as systemLookup, type LookupAddress } from "node:dns";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { Agent } from "undici";
-import { BlockedFetchUrlError, guardedHttpFetch } from "../security/guarded-fetch.js";
+import { BlockedFetchUrlError, createGuardedHttpFetcher, guardedHttpFetch } from "../security/guarded-fetch.js";
 
 describe("guarded outbound HTTP fetch", () => {
   beforeEach(() => {
@@ -38,6 +40,33 @@ describe("guarded outbound HTTP fetch", () => {
       await expect(guardedHttpFetch(url)).rejects.toBeInstanceOf(BlockedFetchUrlError);
     }
     expect(mock).not.toHaveBeenCalled();
+  });
+
+  it("stops a real Undici socket when DNS returns a private peer after public precheck", async () => {
+    const server = createServer((_req, response) => response.end("should never connect"));
+    let sockets = 0;
+    server.on("connection", () => { sockets += 1; });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as AddressInfo).port;
+
+    // URL validation sees a benign public DNS result; connection-time lookup
+    // rebinds that hostname to a local IP. No TCP socket may reach the fixture.
+    const resolver = ((_name: string, _options: unknown, cb: (
+      error: NodeJS.ErrnoException | null,
+      records: LookupAddress[],
+    ) => void) => queueMicrotask(() => cb(null, [{ address: "127.0.0.1", family: 4 }]))) as typeof systemLookup;
+    const safeFetch = createGuardedHttpFetcher(resolver);
+
+    try {
+      await expect(safeFetch(`http://rebinding.example:${port}/secret`, {
+        signal: AbortSignal.timeout(2500),
+      })).rejects.toThrow();
+      expect(sockets).toBe(0);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => err ? reject(err) : resolve()),
+      );
+    }
   });
 
   it("checks DNS again at the transport boundary after a previous public result", async () => {
