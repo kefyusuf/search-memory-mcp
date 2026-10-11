@@ -45,6 +45,10 @@ export async function isPrivateHost(hostname: string): Promise<boolean> {
   const addresses6 = await dns.resolve6(hostname).catch(() => []);
   const allAddresses = [...addresses, ...addresses6];
 
+  // Fail closed if DNS supplies no addresses. A failed lookup must not
+  // authorize a later connection that can resolve to a private target.
+  if (allAddresses.length === 0) return true;
+
   for (const ip of allAddresses) {
     if (isPrivateIP(ip)) return true;
   }
