@@ -26,6 +26,7 @@ import { EntityGraph } from "./graph/entity-graph.js";
 import { createLocalRequestContext, InvocationError } from "./runtime/request-context.js";
 import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
 import { launchWithAutoInstall } from "./browser-launcher.js";
+import { openGuardedBrowserContext, type BrowserEgressProxy } from "./security/browser-egress-proxy.js";
 import { checkSqliteBinding } from "./runtime/native-check.js";
 import { resolveCacheDbPath } from "./runtime/db-path.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
@@ -65,6 +66,8 @@ export class WebSearchServer {
   private dispatcher: ToolDispatcher<ToolResult>;
   private browser: Browser | null = null;
   private browserContext: BrowserContext | null = null;
+  private browserContextLaunch: Promise<BrowserContext> | null = null;
+  private browserEgressProxy: BrowserEgressProxy | null = null;
   private browserLaunch: Promise<Browser> | null = null;
   private cache: SemanticCache;
   private crossLingual: CrossLingualEngine | null = null;
@@ -221,7 +224,14 @@ export class WebSearchServer {
   private async getBrowser() {
     if (!this.browser) {
       console.error("Launching persistent browser instance...");
-      this.browserLaunch ??= launchWithAutoInstall(() => chromium.launch({ headless: true }))
+      this.browserLaunch ??= launchWithAutoInstall(() => chromium.launch({
+        headless: true,
+        args: [
+          "--disable-quic",
+          "--disable-background-networking",
+          "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+        ],
+      }))
         .finally(() => { this.browserLaunch = null; });
       this.browser = await this.browserLaunch;
     }
@@ -229,14 +239,20 @@ export class WebSearchServer {
   }
 
   private async getBrowserContext(): Promise<BrowserContext> {
-    if (!this.browserContext) {
+    if (this.browserContext) return this.browserContext;
+    // Concurrent fetches share the same guarded context/proxy startup. The
+    // proxy must be listening before any Chromium request is permitted.
+    this.browserContextLaunch ??= (async () => {
       const browser = await this.getBrowser();
-      this.browserContext = await browser.newContext({
+      const { context, proxy } = await openGuardedBrowserContext(browser, {
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       });
-      console.error("Persistent browser context created.");
-    }
-    return this.browserContext;
+      this.browserEgressProxy = proxy;
+      this.browserContext = context;
+      console.error("Persistent guarded browser context created.");
+      return context;
+    })().finally(() => { this.browserContextLaunch = null; });
+    return this.browserContextLaunch;
   }
 
   private setupShutdownHandlers() {
@@ -245,6 +261,12 @@ export class WebSearchServer {
       if (this.browserContext) {
         try { await this.browserContext.close(); } catch {}
         this.browserContext = null;
+      }
+      if (this.browserEgressProxy) {
+        try { await this.browserEgressProxy.close(); } catch (error) {
+          console.error("Error stopping browser egress proxy:", error);
+        }
+        this.browserEgressProxy = null;
       }
       if (this.browser) {
         try { await this.browser.close(); } catch {}
