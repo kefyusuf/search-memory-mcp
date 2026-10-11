@@ -19,6 +19,18 @@ export class BlockedFetchUrlError extends Error {
   }
 }
 
+/** Distinguish socket-policy denial from an ordinary network error: never
+ * retry a denied address in the unguarded browser fallback. */
+export function isGuardedFetchRejection(error: unknown): boolean {
+  let cause = error;
+  for (let i = 0; i < 4 && cause && typeof cause === "object"; i += 1) {
+    if (cause instanceof BlockedFetchUrlError ||
+        ("code" in cause && cause.code === "EACCES")) return true;
+    cause = "cause" in cause ? cause.cause : undefined;
+  }
+  return false;
+}
+
 /**
  * HTTP-only guarded fetch. It rejects unsafe URL literals before any socket is
  * acquired and never follows redirects without the caller revalidating each hop.
