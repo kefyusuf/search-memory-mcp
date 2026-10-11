@@ -18,6 +18,9 @@ const publicIpv6 = new BlockList();
 publicIpv6.addSubnet("2000::", 3, "ipv6");
 const blockedIpv6 = new BlockList();
 blockedIpv6.addSubnet("2001:db8::", 32, "ipv6"); // documentation
+blockedIpv6.addSubnet("3fff::", 20, "ipv6"); // documentation (RFC 9637)
+blockedIpv6.addSubnet("2001:2::", 48, "ipv6"); // benchmarking
+blockedIpv6.addSubnet("2001:10::", 28, "ipv6"); // deprecated ORCHID
 blockedIpv6.addSubnet("2001::", 32, "ipv6"); // Teredo tunneling
 blockedIpv6.addSubnet("2002::", 16, "ipv6"); // 6to4 tunneling
 
