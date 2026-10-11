@@ -588,7 +588,8 @@ export class ContentFetcher {
       }
 
       return null;
-    } catch {
+    } catch (error) {
+      if (error instanceof BlockedFetchUrlError) return { kind: "blocked" };
       return null;
     }
   }
@@ -627,7 +628,8 @@ export class ContentFetcher {
           contentType: response.headers.get("content-type") ?? "",
         };
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof BlockedFetchUrlError) return { kind: "blocked" };
       return null;
     }
 
