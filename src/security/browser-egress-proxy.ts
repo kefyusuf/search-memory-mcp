@@ -134,7 +134,7 @@ export async function startBrowserEgressProxy(
     }
     // The URL constructor normalizes away :443 for HTTPS; retain the port
     // explicitly from authority-form CONNECT rather than URL.port.
-    const authorityParts = /^(?:\\[[^\\]]+\\]|[^:]+):([0-9]{1,5})$/.exec(authority);
+    const authorityParts = /^(?:\[[^\]]+\]|[^:[\]]+):([0-9]{1,5})$/.exec(authority);
     if (!authorityParts) {
       closeSocket(client, 403);
       return;
