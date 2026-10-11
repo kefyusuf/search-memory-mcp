@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { promises as dns, lookup as systemLookup, type LookupAddress } from "node:dns";
 import { createServer, request as httpRequest } from "node:http";
 import { connect as netConnect, type AddressInfo } from "node:net";
-import { startBrowserEgressProxy, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
+import type { Browser, BrowserContext } from "playwright";
+import { openGuardedBrowserContext, startBrowserEgressProxy, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 
 function fakeResolver(records: LookupAddress[]): typeof systemLookup {
   return ((_host: string, _opts: unknown, cb: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void) => {
@@ -116,6 +117,48 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
     expect(await proxyConnect(proxy, "browser-egress-probe.invalid")).toContain("403 Denied");
     expect(await proxyConnect(proxy, "user@browser-egress-probe.invalid:443")).toContain("403 Denied");
     expect(await proxyConnect(proxy, "browser-egress-probe.invalid:443/path")).toContain("403 Denied");
+  });
+
+  it("configures production Chromium context with mandatory proxy and blocked service workers", async () => {
+    const fakeContext = { close: vi.fn() } as unknown as BrowserContext;
+    const newContext = vi.fn(async (_opts: unknown) => fakeContext);
+    const browser = { newContext } as unknown as Pick<Browser, "newContext">;
+
+    const opened = await openGuardedBrowserContext(browser, { userAgent: "Security fixture" });
+    try {
+      expect(opened.context).toBe(fakeContext);
+      expect(newContext).toHaveBeenCalledTimes(1);
+      const options = newContext.mock.calls[0][0] as {
+        userAgent: string; serviceWorkers: string;
+        proxy: { server: string; bypass: string };
+      };
+      expect(options.userAgent).toBe("Security fixture");
+      expect(options.serviceWorkers).toBe("block");
+      expect(options.proxy.server).toBe(opened.proxy.url);
+      expect(options.proxy.bypass).toBe("<-loopback>");
+      expect(new URL(options.proxy.server).hostname).toBe("127.0.0.1");
+    } finally {
+      await opened.proxy.close();
+    }
+  });
+
+  it("closes proxy and propagates error when a browser context cannot start", async () => {
+    let proxyUrl = "";
+    const browser = {
+      newContext: async (options: { proxy?: { server?: string } }) => {
+        proxyUrl = options.proxy?.server ?? "";
+        throw new Error("browser context denied");
+      },
+    } as unknown as Pick<Browser, "newContext">;
+    await expect(openGuardedBrowserContext(browser)).rejects.toThrow("browser context denied");
+    expect(proxyUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+
+    const port = Number(new URL(proxyUrl).port);
+    await expect(new Promise((resolve, reject) => {
+      const socket = netConnect({ host: "127.0.0.1", port });
+      socket.once("connect", () => { socket.destroy(); resolve("unexpected proxy still listening"); });
+      socket.once("error", reject);
+    })).rejects.toMatchObject({ code: "ECONNREFUSED" });
   });
 
   it("stops listening and cannot serve new proxy requests after close", async () => {
