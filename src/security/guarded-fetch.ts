@@ -37,7 +37,8 @@ export function createGuardedHttpFetcher(
 
     // Node's built-in fetch supports a request-specific Undici dispatcher.
     // RequestInit omits this documented Node-specific extension in its DOM type.
-    return fetch(url, { ...init, redirect: "manual" as const, dispatcher: httpAgent });
+    const options = { ...init, redirect: "manual" as const, dispatcher: httpAgent };
+    return fetch(url, options);
   };
 }
 
