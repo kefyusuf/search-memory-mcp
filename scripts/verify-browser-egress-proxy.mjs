@@ -8,6 +8,10 @@ import { chromium } from "playwright";
 import { openGuardedBrowserContext, startBrowserEgressProxy } from "../build/security/browser-egress-proxy.js";
 
 const HOST = "browser-egress-probe.invalid";
+const MIXED_HOST = "browser-egress-mixed.invalid";
+const EMPTY_HOST = "browser-egress-empty.invalid";
+const ERROR_HOST = "browser-egress-dns-error.invalid";
+const PROBE_HOSTS = new Set([HOST, MIXED_HOST, EMPTY_HOST, ERROR_HOST]);
 const original4 = dns.resolve4;
 const original6 = dns.resolve6;
 let browser;
@@ -30,6 +34,15 @@ destination.on("upgrade", (request, socket) => {
 function mappedResolver(host, opts, callback) {
   if (host === HOST) {
     queueMicrotask(() => callback(null, [{ address: "127.0.0.1", family: 4 }]));
+  } else if (host === MIXED_HOST) {
+    queueMicrotask(() => callback(null, [
+      { address: "1.1.1.1", family: 4 },
+      { address: "127.0.0.1", family: 4 },
+    ]));
+  } else if (host === EMPTY_HOST) {
+    queueMicrotask(() => callback(null, []));
+  } else if (host === ERROR_HOST) {
+    queueMicrotask(() => callback(Object.assign(new Error("DNS unavailable"), { code: "ENOTFOUND" }), []));
   } else nodeLookup(host, opts, callback);
 }
 
@@ -43,9 +56,9 @@ try {
   await new Promise((resolve) => destination.listen(0, "127.0.0.1", resolve));
   const port = destination.address().port;
   dns.resolve4 = async (hostname, ...args) =>
-    hostname === HOST ? ["8.8.8.8"] : original4(hostname, ...args);
+    PROBE_HOSTS.has(hostname) ? ["8.8.8.8"] : original4(hostname, ...args);
   dns.resolve6 = async (hostname, ...args) =>
-    hostname === HOST ? [] : original6(hostname, ...args);
+    PROBE_HOSTS.has(hostname) ? [] : original6(hostname, ...args);
 
   proxy = await startBrowserEgressProxy(mappedResolver);
   browser = await chromium.launch({
@@ -67,6 +80,29 @@ try {
 
   const reboundStatus = await navigation(page, `http://${HOST}:${port}/rebound`);
   assert.equal(destinationSockets, 0, "DNS-rebound navigation reached private socket");
+
+  // The same real Chromium connection path must fail closed for mixed DNS,
+  // empty DNS, and lookup errors. All hosts are inert reserved .invalid names.
+  const mixedStatus = await navigation(page, `http://${MIXED_HOST}:${port}/mixed`);
+  const emptyStatus = await navigation(page, `http://${EMPTY_HOST}:${port}/empty`);
+  const failedDnsStatus = await navigation(page, `http://${ERROR_HOST}:${port}/dns-error`);
+  assert.equal(mixedStatus, 403, "Mixed public/private DNS answer was not blocked");
+  assert.equal(emptyStatus, 403, "Empty DNS answer was not blocked");
+  assert.equal(failedDnsStatus, 502, "DNS failure was not rejected");
+  assert.equal(destinationSockets, 0, "One of the DNS failure paths reached a private socket");
+
+  // Route fulfilment simulates only the INITIAL public HTTP 302, so the
+  // redirected request still travels through Chromium's actual proxy.
+  await page.route("https://safe-redirect.invalid/start", async (route) =>
+    route.fulfill({
+      status: 302,
+      headers: { location: `http://127.0.0.1:${port}/redirect-private` },
+      body: "",
+    }),
+  );
+  const redirectStatus = await navigation(page, "https://safe-redirect.invalid/start");
+  assert.equal(redirectStatus, 403, "Chromium redirect bypassed the private-IP proxy guard");
+  assert.equal(destinationSockets, 0, "Private redirect opened a real TCP socket");
 
   await page.goto("about:blank");
   await page.setContent(`<img src="http://127.0.0.1:${port}/image-private" />`);
@@ -128,6 +164,10 @@ try {
   console.log("GUARDED_BROWSER_EGRESS", JSON.stringify({
     literal_private: literalStatus,
     rebound_private: reboundStatus,
+    mixed_dns_private: mixedStatus,
+    empty_dns: emptyStatus,
+    dns_failure: failedDnsStatus,
+    redirect_to_private: redirectStatus,
     private_image_blocked: !destinationRequests.includes("/image-private"),
     websocket: wsResult,
     webrtc_ice_state: rtcOutcome,
