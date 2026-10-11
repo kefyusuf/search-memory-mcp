@@ -10,6 +10,7 @@ import iconv from "iconv-lite";
 import type { SearchIntent } from "./search/intent.js";
 import type { SemanticCache } from "./cache/semantic-cache.js";
 import { validatePublicHttpUrl } from "./ssrf.js";
+import { guardedHttpFetch, BlockedFetchUrlError } from "./security/guarded-fetch.js";
 
 type WaitUntilMode = "domcontentloaded" | "networkidle";
 
@@ -102,7 +103,7 @@ const PLAIN_HEADERS = { "Accept": "*/*" };
 const CHALLENGE_STATUSES = new Set([403, 503]);
 
 function httpGet(url: string, headers: Record<string, string>): Promise<Response> {
-  return fetch(url, { headers, redirect: "manual", signal: AbortSignal.timeout(10000) });
+  return guardedHttpFetch(url, { headers, signal: AbortSignal.timeout(10000) });
 }
 
 function isDocumentResponse(contentType: string, url: string): boolean {
@@ -305,11 +306,21 @@ export class ContentFetcher {
   /** Reader services answer with "Title: …", "URL Source: …" and "Markdown Content:" sections. */
   private async fetchViaReader(readerUrl: string, url: string): Promise<FetchArticle | null> {
     try {
-      const response = await fetch(`${readerUrl}${url}`, {
-        headers: { "Accept": "text/plain, text/markdown;q=0.9, */*;q=0.1" },
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (!response.ok) return null;
+      let currentUrl = `${readerUrl}${url}`;
+      let response: Response | null = null;
+      for (let redirects = 0; redirects <= ContentFetcher.MAX_HTTP_REDIRECTS; redirects += 1) {
+        response = await guardedHttpFetch(currentUrl, {
+          headers: { "Accept": "text/plain, text/markdown;q=0.9, */*;q=0.1" },
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!isRedirectStatus(response.status)) break;
+        const location = response.headers.get("location");
+        await response.body?.cancel();
+        if (!location || redirects === ContentFetcher.MAX_HTTP_REDIRECTS) return null;
+        currentUrl = new URL(location, currentUrl).toString();
+        response = null;
+      }
+      if (!response?.ok) return null;
       const body = (await response.text()).replace(/\r\n?/g, "\n");
       const marker = body.indexOf("Markdown Content:");
       const markdown = (marker >= 0 ? body.slice(marker + "Markdown Content:".length) : body).trim();
@@ -591,12 +602,11 @@ export class ContentFetcher {
           return { kind: "blocked" };
         }
 
-        const response = await fetch(currentUrl, {
+        const response = await guardedHttpFetch(currentUrl, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             "Accept": accept,
           },
-          redirect: "manual",
           signal: AbortSignal.timeout(10000),
         });
 
