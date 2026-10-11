@@ -1,4 +1,5 @@
 import { Agent } from "undici";
+import { lookup as systemLookup } from "node:dns";
 import { createGuardedLookup } from "./guarded-lookup.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
 
@@ -10,10 +11,6 @@ import { validatePublicHttpUrl } from "../ssrf.js";
  * IP-literal URLs skip DNS lookup in Node, so URL validation is mandatory.
  * Browser/Playwright traffic does not use this transport and remains in #54.
  */
-const httpAgent = new Agent({
-  connect: { lookup: createGuardedLookup() },
-});
-
 export class BlockedFetchUrlError extends Error {
   constructor() {
     super("HTTP fetch blocked by outbound URL policy");
@@ -28,17 +25,20 @@ export class BlockedFetchUrlError extends Error {
  * The caller must either consume or cancel the response body before reusing the
  * connection. Undici checks destinations on each new connection, not on reuse.
  */
-export async function guardedHttpFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  if (!(await validatePublicHttpUrl(url)).ok) {
-    throw new BlockedFetchUrlError();
-  }
+export function createGuardedHttpFetcher(
+  resolver: typeof systemLookup = systemLookup,
+): (url: string, init?: RequestInit) => Promise<Response> {
+  const httpAgent = new Agent({ connect: { lookup: createGuardedLookup(resolver) } });
 
-  // Node's built-in fetch supports a per-request dispatcher at runtime.
-  // RequestInit omits the Undici-specific extension in its standard DOM type.
-  const opts = {
-    ...init,
-    redirect: "manual" as const,
-    dispatcher: httpAgent,
+  return async (url: string, init: RequestInit = {}): Promise<Response> => {
+    if (!(await validatePublicHttpUrl(url)).ok) {
+      throw new BlockedFetchUrlError();
+    }
+
+    // Node's built-in fetch supports a request-specific Undici dispatcher.
+    // RequestInit omits this documented Node-specific extension in its DOM type.
+    return fetch(url, { ...init, redirect: "manual" as const, dispatcher: httpAgent });
   };
-  return fetch(url, opts);
 }
+
+export const guardedHttpFetch = createGuardedHttpFetcher();
