@@ -26,6 +26,7 @@ import { EntityGraph } from "./graph/entity-graph.js";
 import { createLocalRequestContext, InvocationError } from "./runtime/request-context.js";
 import { ToolDispatcher } from "./runtime/tool-dispatcher.js";
 import { launchWithAutoInstall } from "./browser-launcher.js";
+import { openGuardedBrowserContext, type BrowserEgressProxy } from "./security/browser-egress-proxy.js";
 import { checkSqliteBinding } from "./runtime/native-check.js";
 import { resolveCacheDbPath } from "./runtime/db-path.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
@@ -65,6 +66,9 @@ export class WebSearchServer {
   private dispatcher: ToolDispatcher<ToolResult>;
   private browser: Browser | null = null;
   private browserContext: BrowserContext | null = null;
+  private browserContextLaunch: Promise<BrowserContext> | null = null;
+  private browserShuttingDown = false;
+  private browserEgressProxy: BrowserEgressProxy | null = null;
   private browserLaunch: Promise<Browser> | null = null;
   private cache: SemanticCache;
   private crossLingual: CrossLingualEngine | null = null;
@@ -221,7 +225,14 @@ export class WebSearchServer {
   private async getBrowser() {
     if (!this.browser) {
       console.error("Launching persistent browser instance...");
-      this.browserLaunch ??= launchWithAutoInstall(() => chromium.launch({ headless: true }))
+      this.browserLaunch ??= launchWithAutoInstall(() => chromium.launch({
+        headless: true,
+        args: [
+          "--disable-quic",
+          "--disable-background-networking",
+          "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+        ],
+      }))
         .finally(() => { this.browserLaunch = null; });
       this.browser = await this.browserLaunch;
     }
@@ -229,27 +240,55 @@ export class WebSearchServer {
   }
 
   private async getBrowserContext(): Promise<BrowserContext> {
-    if (!this.browserContext) {
+    if (this.browserShuttingDown) throw new Error("Browser is shutting down");
+    if (this.browserContext) return this.browserContext;
+    // Concurrent fetches share the same guarded context/proxy startup. The
+    // proxy must be listening before any Chromium request is permitted.
+    this.browserContextLaunch ??= (async () => {
       const browser = await this.getBrowser();
-      this.browserContext = await browser.newContext({
+      const { context, proxy } = await openGuardedBrowserContext(browser, {
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       });
-      console.error("Persistent browser context created.");
+      if (this.browserShuttingDown) {
+        try { await context.close(); } finally { await proxy.close(); }
+        throw new Error("Browser is shutting down");
+      }
+      this.browserEgressProxy = proxy;
+      this.browserContext = context;
+      console.error("Persistent guarded browser context created.");
+      return context;
+    })().finally(() => { this.browserContextLaunch = null; });
+    return this.browserContextLaunch;
+  }
+
+  /** Finish pending Chromium initialization before closing context, proxy and browser. */
+  private async closeBrowserResources(): Promise<void> {
+    this.browserShuttingDown = true;
+    // In-flight context creation may allocate a proxy and browser after the
+    // shutdown signal. Await it even when it rejects, then close every resource.
+    try { await this.browserContextLaunch; } catch {}
+    try { await this.browserLaunch; } catch {}
+    if (this.browserContext) {
+      try { await this.browserContext.close(); } catch {}
+      this.browserContext = null;
     }
-    return this.browserContext;
+    if (this.browserEgressProxy) {
+      try { await this.browserEgressProxy.close(); } catch (error) {
+        console.error("Error stopping browser egress proxy:", error);
+      }
+      this.browserEgressProxy = null;
+    }
+    if (this.browser) {
+      try { await this.browser.close(); } catch {}
+      this.browser = null;
+    }
   }
 
   private setupShutdownHandlers() {
     const shutdown = async () => {
+      if (this.browserShuttingDown) return; // ignore concurrent signals
       console.error("Shutting down Search Memory MCP Server...");
-      if (this.browserContext) {
-        try { await this.browserContext.close(); } catch {}
-        this.browserContext = null;
-      }
-      if (this.browser) {
-        try { await this.browser.close(); } catch {}
-        this.browser = null;
-      }
+      await this.closeBrowserResources();
       this.contentFetcher.close();
       this.cache.close();
       this.knowledgeIndex.close();
