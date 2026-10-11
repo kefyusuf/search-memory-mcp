@@ -49,7 +49,10 @@ describe.skipIf(!opensslAvailable)("Undici TLS hostname contract (local HTTPS fi
     const agent = new Agent({
       connect: {
         ca: cert,
-        lookup: (_hostname, _options, callback) => callback(null, "127.0.0.1", 4),
+        lookup: (_hostname, options, callback) => {
+          if (options.all) callback(null, [{ address: "127.0.0.1", family: 4 }]);
+          else callback(null, "127.0.0.1", 4);
+        },
       },
     });
 
