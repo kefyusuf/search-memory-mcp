@@ -1,6 +1,7 @@
 import { lookup as systemLookup } from "node:dns";
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
 import { connect as connectSocket, isIP, type Socket } from "node:net";
+import type { Duplex } from "node:stream";
 import { createGuardedLookup, isPublicConnectionAddress } from "./guarded-lookup.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
 
@@ -49,7 +50,7 @@ function sanitizedHeaders(headers: IncomingHttpHeaders, host: string): IncomingH
   return clean;
 }
 
-function closeSocket(socket: Socket, code: 403 | 502 | 503): void {
+function closeSocket(socket: Duplex, code: 403 | 502 | 503): void {
   if (socket.destroyed) return;
   socket.end(`HTTP/1.1 ${code} Denied\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
 }
