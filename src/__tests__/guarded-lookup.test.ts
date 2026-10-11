@@ -32,7 +32,8 @@ describe("guarded socket DNS lookup (not yet integrated with ContentFetcher)", (
       "127.0.0.1", "10.0.0.1", "169.254.169.254", "100.64.0.1",
       "192.168.1.5", "198.18.0.1", "203.0.113.1", "224.0.0.1",
       "255.255.255.255", "::1", "::", "fc00::1", "fe80::1",
-      "2001:db8::1", "2002::1", "::ffff:7f00:1", "::ffff:c0a8:101",
+      "2001:db8::1", "3fff::1", "2001:2::1", "2001:10::1",
+      "2002::1", "::ffff:7f00:1", "::ffff:c0a8:101",
     ]) {
       expect(isPublicConnectionAddress(ip)).toBe(false);
     }
