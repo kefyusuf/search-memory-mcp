@@ -3,7 +3,7 @@ import { promises as dns, lookup as systemLookup, type LookupAddress } from "nod
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Agent } from "undici";
-import { BlockedFetchUrlError, createGuardedHttpFetcher, guardedHttpFetch } from "../security/guarded-fetch.js";
+import { BlockedFetchUrlError, createGuardedHttpFetcher, guardedHttpFetch, isGuardedFetchRejection } from "../security/guarded-fetch.js";
 
 describe("guarded outbound HTTP fetch", () => {
   beforeEach(() => {
@@ -61,9 +61,13 @@ describe("guarded outbound HTTP fetch", () => {
     const safeFetch = createGuardedHttpFetcher(resolver);
 
     try {
-      await expect(safeFetch(`http://rebinding.example:${port}/secret`, {
+      const error = await safeFetch(`http://rebinding.example:${port}/secret`, {
         signal: AbortSignal.timeout(2500),
-      })).rejects.toThrow();
+      }).then(() => null, (failure: unknown) => failure);
+      expect(error).toBeInstanceOf(Error);
+      // A real Undici/Node socket-policy denial must be classified as blocked
+      // so the caller cannot retry the URL through the browser fallback.
+      expect(isGuardedFetchRejection(error)).toBe(true);
       expect(sockets).toBe(0);
     } finally {
       await new Promise<void>((resolve, reject) =>
