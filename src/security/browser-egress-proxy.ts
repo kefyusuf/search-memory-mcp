@@ -107,18 +107,23 @@ export async function startBrowserEgressProxy(
       closeSocket(client, 403);
       return;
     }
+    // The URL constructor normalizes away :443 for HTTPS; retain the port
+    // explicitly from authority-form CONNECT rather than URL.port.
+    const authorityParts = /^(?:\\[[^\\]]+\\]|[^:]+):([0-9]{1,5})$/.exec(authority);
+    if (!authorityParts) {
+      closeSocket(client, 403);
+      return;
+    }
+    const port = Number(authorityParts[1]);
     let target: URL | null = null;
     try {
-      const parsed = new URL(`https://${authority}`);
-      if (!parsed.port || parsed.username || parsed.password) throw new Error("Invalid CONNECT authority");
-      target = await allowedTarget(parsed.href);
+      target = await allowedTarget(`https://${authority}`);
     } catch { /* fail closed */ }
     if (!target) {
       closeSocket(client, 403);
       return;
     }
 
-    const port = Number(target.port);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       closeSocket(client, 403);
       return;
