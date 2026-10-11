@@ -1,6 +1,7 @@
 import { Agent } from "undici";
 import { lookup as systemLookup } from "node:dns";
-import { createGuardedLookup } from "./guarded-lookup.js";
+import { isIP } from "node:net";
+import { createGuardedLookup, isPublicConnectionAddress } from "./guarded-lookup.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
 
 /**
@@ -31,7 +32,16 @@ export function createGuardedHttpFetcher(
   const httpAgent = new Agent({ connect: { lookup: createGuardedLookup(resolver) } });
 
   return async (url: string, init: RequestInit = {}): Promise<Response> => {
-    if (!(await validatePublicHttpUrl(url)).ok) {
+    const validation = await validatePublicHttpUrl(url);
+    if (!validation.ok) throw new BlockedFetchUrlError();
+
+    // DNS lookup is bypassed for IP literals. Apply the same peer-address
+    // policy BEFORE opening a socket, including IPv4-mapped/unspecified IPv6.
+    const bracketed = validation.url.hostname;
+    const literal = bracketed.startsWith("[") && bracketed.endsWith("]")
+      ? bracketed.slice(1, -1)
+      : bracketed;
+    if (isIP(literal) && !isPublicConnectionAddress(literal)) {
       throw new BlockedFetchUrlError();
     }
 
