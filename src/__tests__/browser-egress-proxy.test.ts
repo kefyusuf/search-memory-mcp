@@ -5,9 +5,9 @@ import { connect as netConnect, type AddressInfo } from "node:net";
 import type { Browser, BrowserContext } from "playwright";
 import { openGuardedBrowserContext, parseConnectAuthority, startBrowserEgressProxy, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 
-function fakeResolver(records: LookupAddress[]): typeof systemLookup {
+function fakeResolver(records: LookupAddress[], error: NodeJS.ErrnoException | null = null): typeof systemLookup {
   return ((_host: string, _opts: unknown, cb: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void) => {
-    queueMicrotask(() => cb(null, records));
+    queueMicrotask(() => cb(error, records));
   }) as typeof systemLookup;
 }
 
@@ -117,6 +117,29 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
     ]) {
       expect(parseConnectAuthority(malformed)).toBeNull();
     }
+  });
+
+  it("fails closed on connect-time DNS failures and empty records", async () => {
+    const error = Object.assign(new Error("DNS unavailable"), { code: "ENOTFOUND" });
+    proxy = await startBrowserEgressProxy(fakeResolver([], error));
+    const failed = await proxyGet(proxy, "http://browser-egress-probe.invalid:81/private");
+    expect(failed.status).toBe(502);
+    expect(await proxyConnect(proxy, "browser-egress-probe.invalid:443")).toContain("502 Denied");
+
+    await proxy.close();
+    proxy = await startBrowserEgressProxy(fakeResolver([]));
+    expect((await proxyGet(proxy, "http://browser-egress-probe.invalid:81/private")).status).toBe(403);
+  });
+
+  it("rejects private IPv6, mapped IPv4-in-IPv6 and mixed-family answers", async () => {
+    proxy = await startBrowserEgressProxy(fakeResolver([
+      { address: "2606:4700:4700::1111", family: 6 },
+      { address: "::1", family: 6 },
+    ]));
+    expect((await proxyGet(proxy, "http://browser-egress-probe.invalid:81/private")).status).toBe(403);
+    expect(await proxyConnect(proxy, "[::ffff:7f00:1]:443")).toContain("403 Denied");
+    expect(await proxyConnect(proxy, "[::]:443")).toContain("403 Denied");
+    expect((await proxyGet(proxy, "http://[::ffff:c0a8:101]:80/")).status).toBe(403);
   });
 
   it("rejects HTTPS CONNECT to a private literal or a rebinding hostname", async () => {
