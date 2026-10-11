@@ -10,7 +10,7 @@ import iconv from "iconv-lite";
 import type { SearchIntent } from "./search/intent.js";
 import type { SemanticCache } from "./cache/semantic-cache.js";
 import { validatePublicHttpUrl } from "./ssrf.js";
-import { guardedHttpFetch, BlockedFetchUrlError } from "./security/guarded-fetch.js";
+import { guardedHttpFetch, isGuardedFetchRejection } from "./security/guarded-fetch.js";
 
 type WaitUntilMode = "domcontentloaded" | "networkidle";
 
@@ -589,7 +589,7 @@ export class ContentFetcher {
 
       return null;
     } catch (error) {
-      if (error instanceof BlockedFetchUrlError) return { kind: "blocked" };
+      if (isGuardedFetchRejection(error)) return { kind: "blocked" };
       return null;
     }
   }
@@ -629,7 +629,7 @@ export class ContentFetcher {
         };
       }
     } catch (error) {
-      if (error instanceof BlockedFetchUrlError) return { kind: "blocked" };
+      if (isGuardedFetchRejection(error)) return { kind: "blocked" };
       return null;
     }
 
