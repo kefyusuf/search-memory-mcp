@@ -4,6 +4,7 @@ import { connect as connectSocket, isIP, type Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import { createGuardedLookup, isPublicConnectionAddress } from "./guarded-lookup.js";
 import { validatePublicHttpUrl } from "../ssrf.js";
+import type { Browser, BrowserContext } from "playwright";
 
 const TIMEOUT_MS = 15_000;
 const MAX_PROXY_CONNECTIONS = 64;
@@ -19,6 +20,29 @@ const MAX_PROXY_CONNECTIONS = 64;
 export interface BrowserEgressProxy {
   url: string;
   close(): Promise<void>;
+}
+
+/**
+ * Start proxy BEFORE creating a browser context. No direct-network fallback:
+ * any proxy startup/context setup error propagates to ContentFetcher.
+ * The caller owns both resources and must close context before proxy.
+ */
+export async function openGuardedBrowserContext(
+  browser: Pick<Browser, "newContext">,
+  options: { userAgent?: string } = {},
+): Promise<{ context: BrowserContext; proxy: BrowserEgressProxy }> {
+  const proxy = await startBrowserEgressProxy();
+  try {
+    const context = await browser.newContext({
+      ...options,
+      proxy: { server: proxy.url, bypass: "<-loopback>" },
+      serviceWorkers: "block",
+    });
+    return { context, proxy };
+  } catch (error) {
+    await proxy.close();
+    throw error;
+  }
 }
 
 function unwrapHostname(hostname: string): string {
