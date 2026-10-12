@@ -210,6 +210,58 @@ describe("ContentFetcher", () => {
     expect(browser).not.toHaveBeenCalled();
   });
 
+  it("does not reject a decoded HTML body using an encoded Content-Length", async () => {
+    const html = `<html><head><title>Compressed</title></head><body><article><p>${"decoded content ".repeat(60)}</p></article></body></html>`;
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ maxHtmlBytes: 2048, getBrowserContext: browser });
+    // Model Node fetch: the response body is already decoded, but these
+    // original wire headers may remain and describe a different byte count.
+    const response = new Response(html, {
+      headers: {
+        "content-type": "text/html",
+        "content-encoding": "gzip",
+        "content-length": "99999",
+      },
+    });
+    const cancel = vi.spyOn(response.body!, "cancel");
+    vi.stubGlobal("fetch", vi.fn(async () => response));
+
+    const result = await fetcher.fetchContent("https://example.com/decoded-small", true);
+    expect(result).toMatchObject({ kind: "content", source: "http" });
+    if (result.kind === "content") expect(result.text).toContain("# Compressed");
+    expect(cancel).not.toHaveBeenCalled();
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized decoded HTML stream despite a small encoded Content-Length", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({
+      getBrowserContext: browser, maxHtmlBytes: 256, readerFallbackUrl: "https://markdown.new/",
+    });
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(180));
+        controller.enqueue(new Uint8Array(180));
+      },
+      cancel() { cancelled = true; },
+    });
+    const network = vi.fn(async () => new Response(stream, {
+      headers: {
+        "content-type": "text/html",
+        "content-encoding": "gzip",
+        "content-length": "24",
+      },
+    }));
+    vi.stubGlobal("fetch", network);
+
+    await expect(fetcher.fetchContent("https://example.com/decoded-large", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toBe(true);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
   it("fetches GitHub blob URLs through raw Markdown before browser fallback", async () => {
     const { fetcher } = createFetcher({
       getBrowserContext: async () => {
