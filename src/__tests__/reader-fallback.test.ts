@@ -118,6 +118,27 @@ describe("reader fallback", () => {
     expect(urls.filter(url => url.startsWith("https://markdown.new/"))).toHaveLength(1);
   });
 
+  it("cancels an unsuccessful reader response without reading or retrying its body", async () => {
+    const readerResponse = new Response("unused upstream error", {
+      status: 503, headers: { "content-type": "text/plain" },
+    });
+    const cancel = vi.spyOn(readerResponse.body!, "cancel");
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return url.startsWith("https://markdown.new/")
+        ? readerResponse
+        : new Response("blocked", { status: 403, headers: { "content-type": "text/html" } });
+    }));
+
+    await expect(createFetcher("https://markdown.new/", 256)
+      .fetchContent("https://example.com/about", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(urls.filter(url => url.startsWith("https://markdown.new/"))).toHaveLength(1);
+  });
+
   it("does not follow a reader redirect into localhost", async () => {
     const requested: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
