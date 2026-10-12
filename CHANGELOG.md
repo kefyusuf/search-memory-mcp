@@ -5,7 +5,7 @@
 - Optional `READER_FALLBACK_URL` (for example `https://markdown.new/`): when direct HTTP and the browser both fail to read a page, the reader service converts it to Markdown. Off by default because it sends the page URL to a third party.
 - Docs: the opt-in `yahoo` provider is documented as blocked (empty HTTP 500 for every non-browser request) and is no longer in the provider benchmark by default.
 
-## 1.0.3 (2026-10-12)
+## 1.0.3 (pending release)
 
 Security maintenance release for the existing `fetch_content` and browser-fetch paths.
 
