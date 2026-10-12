@@ -1,0 +1,28 @@
+name: One-off Windows Chromium egress verification
+
+# Temporary OS-compatibility probe for #54. Do not merge into main.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-browser:
+    runs-on: windows-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install exact dependencies without postinstall side effects
+        run: npm ci --ignore-scripts
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+      - name: Compile existing production code
+        run: npm run build
+      - name: Verify guarded Chromium egress on Windows
+        run: node scripts/verify-browser-egress-proxy.mjs
