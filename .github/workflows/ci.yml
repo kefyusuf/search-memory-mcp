@@ -41,6 +41,9 @@ jobs:
 
       - run: npm test
 
+      - name: Verify Chromium outbound socket policy (real browser)
+        run: node scripts/verify-browser-egress-proxy.mjs
+
       - run: npm run smoke:mcp
 
       - name: Verify membership against real PostgreSQL
