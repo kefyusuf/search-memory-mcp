@@ -646,6 +646,9 @@ export class ContentFetcher {
 
         if (isRedirectStatus(response.status)) {
           const location = response.headers.get("location");
+          // The redirect body is not used; release its stream before opening
+          // the next guarded connection or falling back to another candidate.
+          await response.body?.cancel().catch(() => {});
           if (!location) return null;
 
           currentUrl = new URL(location, currentUrl).toString();
