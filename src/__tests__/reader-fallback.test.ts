@@ -16,7 +16,7 @@ const READER_BODY = [
   "Node.js is a free, open-source, cross-platform JavaScript runtime environment that lets developers create servers, web apps, command line tools and scripts.",
 ].join("\n");
 
-function createFetcher(readerFallbackUrl?: string) {
+function createFetcher(readerFallbackUrl?: string, maxTextBytes?: number) {
   const cache = new SemanticCache({ getEmbedding: async () => new Array(384).fill(0.01), isAvailable: () => true }, new InMemoryVectorStore());
   const failingBrowser = async () => { throw new Error("browser unavailable"); };
   return new ContentFetcher({
@@ -24,6 +24,7 @@ function createFetcher(readerFallbackUrl?: string) {
     getBrowserContext: failingBrowser as unknown as () => Promise<BrowserContext>,
     fetchWaitUntil: "domcontentloaded",
     ...(readerFallbackUrl ? { readerFallbackUrl } : {}),
+    ...(maxTextBytes !== undefined ? { maxTextBytes } : {}),
   });
 }
 
@@ -48,6 +49,73 @@ describe("reader fallback", () => {
     expect(requested).toContain("https://markdown.new/https://example.com/about");
     expect(result).toMatchObject({ kind: "content", source: "reader" });
     expect(result.kind === "content" && result.text).toMatch(/^# Node\.js — About Node\.js®\n\nAbout Node\.js\n\nNode\.js is a free/);
+  });
+
+  it("accepts a reader response exactly at the decoded-byte limit", async () => {
+    const bytes = new TextEncoder().encode(READER_BODY).byteLength;
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return url.startsWith("https://markdown.new/")
+        ? new Response(READER_BODY, {
+          headers: { "content-type": "text/plain", "content-length": String(bytes) },
+        })
+        : new Response("blocked", { status: 403, headers: { "content-type": "text/html" } });
+    }));
+
+    const result = await createFetcher("https://markdown.new/", bytes)
+      .fetchContent("https://example.com/about", true);
+    expect(result).toMatchObject({ kind: "content", source: "reader" });
+    expect(urls.filter(url => url.startsWith("https://markdown.new/"))).toHaveLength(1);
+  });
+
+  it("cancels a declared-oversized reader response and returns fetch_failed", async () => {
+    const readerResponse = new Response("small payload", {
+      headers: { "content-type": "text/plain", "content-length": "999999" },
+    });
+    const cancelled = vi.spyOn(readerResponse.body!, "cancel");
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return url.startsWith("https://markdown.new/")
+        ? readerResponse
+        : new Response("blocked", { status: 403, headers: { "content-type": "text/html" } });
+    }));
+
+    await expect(createFetcher("https://markdown.new/", 256)
+      .fetchContent("https://example.com/about", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect(urls.filter(url => url.startsWith("https://markdown.new/"))).toHaveLength(1);
+  });
+
+  it("cancels a misleadingly small encoded reader stream after the actual byte cap", async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(180));
+        controller.enqueue(new Uint8Array(180));
+      },
+      cancel() { cancelled = true; },
+    });
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return url.startsWith("https://markdown.new/")
+        ? new Response(stream, {
+          headers: { "content-type": "text/plain", "content-encoding": "gzip", "content-length": "24" },
+        })
+        : new Response("blocked", { status: 403, headers: { "content-type": "text/html" } });
+    }));
+
+    await expect(createFetcher("https://markdown.new/", 256)
+      .fetchContent("https://example.com/about", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toBe(true);
+    expect(urls.filter(url => url.startsWith("https://markdown.new/"))).toHaveLength(1);
   });
 
   it("does not follow a reader redirect into localhost", async () => {
