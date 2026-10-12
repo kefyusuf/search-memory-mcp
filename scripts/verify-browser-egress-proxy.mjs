@@ -105,9 +105,34 @@ try {
   assert.equal(destinationSockets, 0, "Private redirect opened a real TCP socket");
 
   await page.goto("about:blank");
-  await page.setContent(`<img src="http://127.0.0.1:${port}/image-private" />`);
+  // The page must actually attempt these requests. A zero-socket count alone
+  // is not sufficient if Chromium never starts the network operation.
+  const observedBrowserUrls = new Set();
+  page.on("request", (request) => observedBrowserUrls.add(request.url()));
+  const scriptUrl = `http://${HOST}:${port}/script-rebound-private`;
+  const browserFetchUrl = `http://${HOST}:${port}/browser-fetch-rebound-private`;
+  await page.setContent(
+    `<img src="http://127.0.0.1:${port}/image-private" />` +
+    `<script src="${scriptUrl}"></script>`,
+  );
   await page.waitForTimeout(250);
-  assert.equal(destinationSockets, 0, "Private subresource bypassed proxy");
+  assert.ok(observedBrowserUrls.has(scriptUrl), "Chromium did not request the script subresource");
+  assert.equal(destinationSockets, 0, "Private image/script subresource bypassed proxy");
+
+  // Browser-side fetch() is separate from navigation and passive subresources.
+  // The synthetic public-looking hostname resolves to loopback only at the
+  // guarded connection boundary. No local TCP connection is permitted.
+  const browserFetchResult = await page.evaluate(async (target) => {
+    try {
+      const response = await fetch(target);
+      return `http_${response.status}`;
+    } catch {
+      return "rejected";
+    }
+  }, browserFetchUrl);
+  assert.ok(observedBrowserUrls.has(browserFetchUrl), "Chromium did not attempt browser-side fetch()");
+  assert.notEqual(browserFetchResult, "http_200", "Browser-side fetch unexpectedly returned success");
+  assert.equal(destinationSockets, 0, "Browser-side fetch reached a private TCP socket");
 
   const wsResult = await page.evaluate(async (targetPort) =>
     await new Promise((resolve) => {
@@ -169,6 +194,9 @@ try {
     dns_failure: failedDnsStatus,
     redirect_to_private: redirectStatus,
     private_image_blocked: !destinationRequests.includes("/image-private"),
+    private_script_blocked: !destinationRequests.includes("/script-rebound-private"),
+    browser_fetch: browserFetchResult,
+    browser_fetch_private_blocked: !destinationRequests.includes("/browser-fetch-rebound-private"),
     websocket: wsResult,
     webrtc_ice_state: rtcOutcome,
     private_udp_packets: privateUdpPackets,
