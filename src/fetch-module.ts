@@ -34,6 +34,12 @@ type FetchArticleResult = {
   source: "http" | "playwright" | "page-cache" | "github-raw" | "rss" | "reader";
 };
 
+/** Internal-only browser terminal outcome: never exposed via FetchContentResult. */
+type BrowserFetchResult = FetchArticleResult | FetchFailure | {
+  kind: "terminal_browser_failure";
+  cause: "oversize" | "interception_failed";
+};
+
 type HttpFetchResult =
   | { kind: "html"; html: string; buffer: Buffer }
   | { kind: "document"; data: Uint8Array; contentType: string; url: string }
@@ -311,14 +317,25 @@ export class ContentFetcher {
       }
     }
 
-    if (!this.readerFallbackUrl) return this.fetchViaPlaywright(url, options);
+    if (!this.readerFallbackUrl) {
+      // Preserve the existing exception behavior when no reader is configured.
+      const browserResult = await this.fetchViaPlaywright(url, options);
+      return browserResult.kind === "terminal_browser_failure"
+        ? { kind: "error", reason: "fetch_failed" }
+        : browserResult;
+    }
 
-    let browserResult: FetchArticleResult | FetchFailure;
+    let browserResult: BrowserFetchResult;
     try {
       browserResult = await this.fetchViaPlaywright(url, options);
     } catch (error) {
       console.error(`Browser fetch failed for ${url}:`, error instanceof Error ? error.message : String(error));
       browserResult = { kind: "error", reason: "fetch_failed" };
+    }
+    // Terminal CDP enforcement failures must never be re-fetched via an opt-in
+    // third-party reader. Only ordinary browser failures are reader-eligible.
+    if (browserResult.kind === "terminal_browser_failure") {
+      return { kind: "error", reason: "fetch_failed" };
     }
     if (browserResult.kind !== "error" || browserResult.reason === "blocked_url") return browserResult;
 
@@ -375,7 +392,7 @@ export class ContentFetcher {
       persistContentCache: boolean;
       useConfiguredWaitUntil: boolean;
     }
-  ): Promise<FetchArticleResult | FetchFailure> {
+  ): Promise<BrowserFetchResult> {
     const context = await this.getBrowserContext();
     const page = await context.newPage();
 
