@@ -37,7 +37,7 @@ type FetchArticleResult = {
 type HttpFetchResult =
   | { kind: "html"; html: string; buffer: Buffer }
   | { kind: "document"; data: Uint8Array; contentType: string; url: string }
-  | { kind: "document_too_large" }
+  | { kind: "response_too_large" }
   | { kind: "blocked" }
   | null;
 
@@ -73,6 +73,8 @@ type ContentFetcherOptions = {
   maxContentChars?: number;
   /** Largest PDF/DOCX/EPUB response downloaded for extraction (default 25 MB). */
   maxDocumentBytes?: number;
+  /** Maximum decoded HTML response bytes before parsing (default 8 MiB). */
+  maxHtmlBytes?: number;
   forcePlaywright?: () => boolean;
   /**
    * Optional reader service used as a last resort, called as `${readerFallbackUrl}${pageUrl}`
@@ -115,7 +117,14 @@ function isDocumentResponse(contentType: string, url: string): boolean {
 /** Reads at most maxBytes of a body; null when the declared or actual size is larger. */
 async function readLimitedBody(response: Response, maxBytes: number): Promise<Uint8Array | null> {
   const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  // Node fetch may transparently decode gzip/br while retaining the compressed
+  // Content-Length. Only trust the declared length for unencoded bodies; the
+  // stream check below always enforces the decoded-byte limit.
+  if (!response.headers.has("content-encoding") &&
+      Number.isFinite(declared) && declared > maxBytes) {
+    await response.body?.cancel().catch(() => {});
+    return null;
+  }
   if (!response.body) return new Uint8Array(await response.arrayBuffer());
 
   const reader = response.body.getReader();
@@ -126,7 +135,7 @@ async function readLimitedBody(response: Response, maxBytes: number): Promise<Ui
     if (done) break;
     total += value.byteLength;
     if (total > maxBytes) {
-      await reader.cancel();
+      await reader.cancel().catch(() => {});
       return null;
     }
     chunks.push(value);
@@ -149,6 +158,7 @@ export class ContentFetcher {
   private readonly detectIntent: ((text: string) => Promise<SearchIntent>) | null;
   private readonly maxContentChars: number;
   private readonly maxDocumentBytes: number;
+  private readonly maxHtmlBytes: number;
   private readonly forcePlaywright: () => boolean;
   private readonly readerFallbackUrl: string | null;
   private readonly turndown: TurndownService;
@@ -161,6 +171,10 @@ export class ContentFetcher {
     this.detectIntent = options.detectIntent ?? null;
     this.maxContentChars = options.maxContentChars ?? 50_000;
     this.maxDocumentBytes = options.maxDocumentBytes ?? 25 * 1024 * 1024;
+    this.maxHtmlBytes = options.maxHtmlBytes ?? 8 * 1024 * 1024;
+    if (!Number.isSafeInteger(this.maxHtmlBytes) || this.maxHtmlBytes <= 0) {
+      throw new Error("maxHtmlBytes must be a positive safe integer");
+    }
     this.forcePlaywright = options.forcePlaywright ?? (() => isEnabledEnvFlag(process.env.FORCE_PLAYWRIGHT));
     this.readerFallbackUrl = options.readerFallbackUrl?.trim() || null;
     this.turndown = new TurndownService({
@@ -261,7 +275,7 @@ export class ContentFetcher {
         return { kind: "error", reason: "blocked_url" };
       }
 
-      if (httpResult?.kind === "document_too_large") {
+      if (httpResult?.kind === "response_too_large") {
         return { kind: "error", reason: "fetch_failed" };
       }
 
@@ -568,14 +582,18 @@ export class ContentFetcher {
         const contentType = response.headers.get("content-type") ?? "";
         if (response.ok && isDocumentResponse(contentType, currentUrl)) {
           const data = await readLimitedBody(response, this.maxDocumentBytes);
-          return data ? { kind: "document", data, contentType, url: currentUrl } : { kind: "document_too_large" };
+          return data ? { kind: "document", data, contentType, url: currentUrl } : { kind: "response_too_large" };
         }
 
         if (!response.ok || !contentType.includes("text/html")) {
           return null;
         }
 
-        const buffer = Buffer.from(await response.arrayBuffer());
+        // Cap the decoded HTTP body before allocation/parsing. Over-limit
+        // HTML must not be re-downloaded through the Chromium/reader fallback.
+        const data = await readLimitedBody(response, this.maxHtmlBytes);
+        if (!data) return { kind: "response_too_large" };
+        const buffer = Buffer.from(data);
         if (buffer.length < 500) {
           return null;
         }
