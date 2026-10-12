@@ -126,7 +126,7 @@ describe("P0-03C experimental CDP early body budget (not production integration)
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
   }, 90_000);
-}
+
   it("probes CDP streaming alongside the production guarded HTTPS context and private-redirect policy", async () => {
     let privateConnections = 0;
     let privateRequests = 0;
