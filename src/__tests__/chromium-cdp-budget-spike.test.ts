@@ -179,6 +179,32 @@ describe("P0-03C experimental CDP early body budget (not production integration)
         await safePage.close().catch(() => {});
       }
 
+      // The same guarded proxy + CDP setup must abort an actually remote
+      // HTTPS document BEFORE returning its full decoded body to Node.
+      const cappedPage = await context.newPage();
+      let cappedRouteCalls = 0;
+      await cappedPage.route("**/*", async route => {
+        cappedRouteCalls++;
+        await route.continue();
+      });
+      const cappedSession = await context.newCDPSession(cappedPage);
+      try {
+        const capped = await testPage(cappedPage, cappedSession,
+          "https://example.com/", "guarded-https-over-budget", LIMIT);
+        console.log("P0_03C_GUARDED_HTTPS_OVER_BUDGET", JSON.stringify(capped));
+        expect(cappedRouteCalls).toBeGreaterThan(0);
+        expect(capped.streamed).toBe(true);
+        expect(capped.exceeded).toBe(true);
+        expect(capped.failed).toBe(true);
+        expect(capped.fulfilled).toBe(false);
+        expect(capped.navigated).toBe(false);
+        expect(capped.bytes).toBeGreaterThan(LIMIT);
+        expect(capped.bytes).toBeLessThanOrEqual(LIMIT + 64);
+      } finally {
+        await cappedSession.detach().catch(() => {});
+        await cappedPage.close().catch(() => {});
+      }
+
       const redirectPage = await context.newPage();
       const routeUrls: string[] = [];
       await redirectPage.route("**/*", async route => {
