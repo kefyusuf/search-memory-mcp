@@ -29,6 +29,12 @@ Remove these overrides when the corresponding upstream dependency ranges include
 
 On 2026-10-02, the lockfile was updated to `fast-uri` 3.1.8 and `ip-address` 10.7.3 to remediate the URI authority parsing and IP classification advisories reported by npm audit. The audit reported zero vulnerabilities after these updates.
 
+## Outbound network boundary (v1.0.3 scope)
+
+The HTTP content-fetch path uses connection-time DNS/IP checks and rejects private or otherwise disallowed network destinations, including IP-literal URLs. The Playwright Chromium path uses an ephemeral HTTP/CONNECT proxy bound to `127.0.0.1`; its outgoing socket destinations receive the same connection policy. Chromium service workers are blocked and its QUIC/non-proxied WebRTC UDP pathways are restricted. The browser fails rather than silently falling back to direct HTTP connections when the proxy becomes unavailable.
+
+This protection is **not a general-purpose sandbox** or a guarantee that every form of browser/OS network activity is intercepted. The local proxy is **not authenticated**; other processes on the same machine may be able to connect to it. Do not rely on it as a trust boundary between local users or mutually untrusted processes. For hostile inputs, operate the MCP server with least-privilege network/container policies appropriate to the deployment. Linux, production Docker and Windows Chromium cases were tested, but untested protocols and configurations remain tracked in [Issue #54](https://github.com/kefyusuf/search-memory-mcp/issues/54).
+
 ## Third-party reader fallback
 
 `READER_FALLBACK_URL` is unset by default. When it is set, URLs that cannot be fetched directly are sent to that service, which then sees which pages you read. Only the URL is sent, after the same public-address check as direct fetches; its response is treated as untrusted web content.

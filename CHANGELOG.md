@@ -5,6 +5,22 @@
 - Optional `READER_FALLBACK_URL` (for example `https://markdown.new/`): when direct HTTP and the browser both fail to read a page, the reader service converts it to Markdown. Off by default because it sends the page URL to a third party.
 - Docs: the opt-in `yahoo` provider is documented as blocked (empty HTTP 500 for every non-browser request) and is no longer in the provider benchmark by default.
 
+## 1.0.3 (pending release)
+
+Security maintenance release for the existing `fetch_content` and browser-fetch paths.
+
+- HTTP-first fetches, document/feed fast paths, retries and optional reader fallback use a request-scoped Undici dispatcher. The socket's actual DNS answers are checked before connecting; private/reserved IP literals, mixed public/private answers, and DNS failures are rejected.
+- Chromium requests now use a loopback-only guarded HTTP/HTTPS CONNECT egress proxy with the same outbound socket policy. This covers tested navigation, redirects, subresources and WebSocket paths. Browser contexts cannot start without the proxy; service workers are blocked, QUIC is disabled and non-proxied WebRTC UDP is restricted.
+- Browser startup/shutdown cleanup waits for in-flight contexts; public IPv6 CONNECT authority parsing is corrected.
+- Verification: successful main CI and Docker checks, real Linux/Docker and Windows Chromium egress fixtures, and public HTTPS over the guarded connection path.
+
+**Limitations:** This is defense in depth for the tested fetch paths, not process- or OS-level network isolation. The ephemeral proxy listens on localhost without authentication; untrusted local processes and untested browser protocols are not covered by a universal isolation guarantee. Additional risk tracking remains in [Issue #54](https://github.com/kefyusuf/search-memory-mcp/issues/54).
+
+## 1.0.2 (2026-10-11)
+
+- SSRF preflight hardening: DNS lookups with no usable results fail closed; IPv6 URL literals and IPv4-mapped IPv6 addresses are classified more accurately.
+- Add regression tests for DNS failures, private IPv6 and malformed address cases.
+
 ## 1.0.1 (2026-10-09)
 
 - Default provider order is now `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` with a Brave key). In live benchmarks Bing returned no results for every query, while Marginalia answered 3 of 4.
