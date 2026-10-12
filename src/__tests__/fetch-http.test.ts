@@ -323,6 +323,43 @@ describe("ContentFetcher", () => {
     expect(browser).not.toHaveBeenCalled();
   });
 
+  it("stops GitHub root README candidate probing after the first oversize response", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({
+      getBrowserContext: browser, maxTextBytes: 256, readerFallbackUrl: "https://markdown.new/",
+    });
+    const network = vi.fn(async () => new Response("# unused", {
+      headers: { "content-type": "text/markdown", "content-length": "999999" },
+    }));
+    vi.stubGlobal("fetch", network);
+
+    await expect(fetcher.fetchContent("https://github.com/owner/repo", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(String(network.mock.calls[0]?.[0])).toContain("raw.githubusercontent.com/owner/repo/main/README");
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("cancels a GitHub Raw redirect body before requesting the redirected document", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ getBrowserContext: browser });
+    const redirect = new Response("unused redirect body", {
+      status: 302, headers: { location: "https://raw.githubusercontent.com/owner/repo/main/OTHER.md" },
+    });
+    const cancel = vi.spyOn(redirect.body!, "cancel");
+    const markdown = "# Redirect target\n\nUseful content after the redirected response.";
+    const network = vi.fn(async () => network.mock.calls.length === 1
+      ? redirect
+      : new Response(markdown, { headers: { "content-type": "text/markdown" } }));
+    vi.stubGlobal("fetch", network);
+
+    const result = await fetcher.fetchContent("https://raw.githubusercontent.com/owner/repo/main/README.md", true);
+    expect(result).toMatchObject({ kind: "content", source: "github-raw" });
+    expect(network).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
   it("fetches GitHub blob URLs through raw Markdown before browser fallback", async () => {
     const { fetcher } = createFetcher({
       getBrowserContext: async () => {
