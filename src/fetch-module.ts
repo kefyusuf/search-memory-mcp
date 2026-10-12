@@ -447,7 +447,7 @@ export class ContentFetcher {
       await this.cache.setCachedContent(article.url, article.fullText, article.title, intent, article.publishedAt);
   }
 
-  private async fetchViaFastPath(url: string): Promise<FetchArticleResult | { kind: "blocked" | "response_too_large" } | null> {
+  private async fetchViaFastPath(url: string): Promise<FetchArticleResult | { kind: "blocked" } | { kind: "response_too_large" } | null> {
     const githubArticle = await this.fetchGitHubRawArticle(url);
     if (githubArticle === "blocked") return { kind: "blocked" };
     if (githubArticle === "response_too_large") return { kind: "response_too_large" };
