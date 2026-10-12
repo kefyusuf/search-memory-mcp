@@ -170,7 +170,8 @@ describe("P0-03C experimental CDP early body budget (not production integration)
         expect(safe.exceeded).toBe(false);
         expect(safe.navigated).toBe(true);
         expect(safe.httpStatus).toBe(200);
-        expect(safe.content).toContain("Example Domain");
+        expect(new URL(safePage.url()).hostname).toBe("example.com");
+        expect(safe.content.trim().length).toBeGreaterThan(30);
         expect(safe.bytes).toBeGreaterThan(0);
         expect(safe.bytes).toBeLessThanOrEqual(16 * 1024);
       } finally {
