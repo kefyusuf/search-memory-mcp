@@ -117,7 +117,11 @@ function isDocumentResponse(contentType: string, url: string): boolean {
 /** Reads at most maxBytes of a body; null when the declared or actual size is larger. */
 async function readLimitedBody(response: Response, maxBytes: number): Promise<Uint8Array | null> {
   const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > maxBytes) {
+  // Node fetch may transparently decode gzip/br while retaining the compressed
+  // Content-Length. Only trust the declared length for unencoded bodies; the
+  // stream check below always enforces the decoded-byte limit.
+  if (!response.headers.has("content-encoding") &&
+      Number.isFinite(declared) && declared > maxBytes) {
     await response.body?.cancel().catch(() => {});
     return null;
   }
