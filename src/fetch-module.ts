@@ -345,7 +345,12 @@ export class ContentFetcher {
         currentUrl = new URL(location, currentUrl).toString();
         response = null;
       }
-      if (!response?.ok) return null;
+      if (!response) return null;
+      if (!response.ok) {
+        // No need to retain an unsuccessful reader response's body.
+        await response.body?.cancel().catch(() => {});
+        return null;
+      }
       // The reader is an optional third-party transport: bound its decoded
       // response body before parsing or truncating the returned Markdown.
       const data = await readLimitedBody(response, this.maxTextBytes);
