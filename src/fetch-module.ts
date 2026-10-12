@@ -76,7 +76,7 @@ type ContentFetcherOptions = {
   maxDocumentBytes?: number;
   /** Maximum decoded HTML response bytes before parsing (default 8 MiB). */
   maxHtmlBytes?: number;
-  /** Maximum decoded GitHub Raw/RSS response bytes (default 8 MiB). */
+  /** Maximum decoded GitHub Raw/RSS and opt-in reader response bytes (default 8 MiB). */
   maxTextBytes?: number;
   forcePlaywright?: () => boolean;
   /**
@@ -346,7 +346,11 @@ export class ContentFetcher {
         response = null;
       }
       if (!response?.ok) return null;
-      const body = (await response.text()).replace(/\r\n?/g, "\n");
+      // The reader is an optional third-party transport: bound its decoded
+      // response body before parsing or truncating the returned Markdown.
+      const data = await readLimitedBody(response, this.maxTextBytes);
+      if (!data) return null;
+      const body = new TextDecoder().decode(data).replace(/\r\n?/g, "\n");
       const marker = body.indexOf("Markdown Content:");
       const markdown = (marker >= 0 ? body.slice(marker + "Markdown Content:".length) : body).trim();
       if (markdown.length < 50) return null;
