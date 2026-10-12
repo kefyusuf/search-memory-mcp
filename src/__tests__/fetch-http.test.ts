@@ -17,6 +17,7 @@ function createFetcher(overrides?: {
   getBrowserContext?: () => Promise<BrowserContext>;
   forcePlaywright?: () => boolean;
   maxHtmlBytes?: number;
+  readerFallbackUrl?: string;
 }) {
   const cache = new SemanticCache(createMockEmbedding(), new InMemoryVectorStore());
   const defaultContext = {
@@ -35,6 +36,7 @@ function createFetcher(overrides?: {
       fetchWaitUntil: "networkidle",
       forcePlaywright: overrides?.forcePlaywright,
       maxHtmlBytes: overrides?.maxHtmlBytes,
+      readerFallbackUrl: overrides?.readerFallbackUrl,
     }),
   };
 }
@@ -164,6 +166,47 @@ describe("ContentFetcher", () => {
       .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
     expect(cancelled).toBe(true);
     expect(mock).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid HTML body exactly at the configured byte limit", async () => {
+    const html = `<html><head><title>Exact limit</title></head><body><article><p>${"within bounds ".repeat(70)}</p></article></body></html>`;
+    const bytes = new TextEncoder().encode(html).byteLength;
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ maxHtmlBytes: bytes, getBrowserContext: browser });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(html, {
+      headers: { "content-type": "text/html", "content-length": String(bytes) },
+    })));
+
+    const result = await fetcher.fetchContent("https://example.com/exact-limit", true);
+    expect(result).toMatchObject({ kind: "content", source: "http" });
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a falsely small Content-Length without retrying through the reader", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({
+      getBrowserContext: browser,
+      maxHtmlBytes: 256,
+      readerFallbackUrl: "https://markdown.new/",
+    });
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(180));
+        controller.enqueue(new Uint8Array(180));
+      },
+      cancel() { cancelled = true; },
+    });
+    const fetchMock = vi.fn(async () => new Response(stream, {
+      headers: { "content-type": "text/html", "content-length": "10" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetcher.fetchContent("https://example.com/misreported-length", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(browser).not.toHaveBeenCalled();
   });
 
