@@ -1,7 +1,7 @@
 // P0-03C EXPERIMENT ONLY: real Chromium CDP response-stream semantics.
 // Local fixture WITHOUT production guarded egress proxy. Not production proof.
 import { createServer } from "node:http";
-import { gzipSync } from "node:zlib";
+import { brotliCompressSync, gzipSync } from "node:zlib";
 import type { AddressInfo } from "node:net";
 import { chromium, type CDPSession, type Page } from "playwright";
 import { openGuardedBrowserContext } from "../security/browser-egress-proxy.js";
@@ -9,12 +9,13 @@ import { describe, expect, it } from "vitest";
 
 const LIMIT = 256;
 const SMALL = "<html><title>Small</title><body>SAFE-SMALL</body></html>";
+const SMALL_WITH_SCRIPT = '<html><title>Small</title><body>SAFE-SMALL<script src="/large-script"></script></body></html>';
 const LARGE = "<html><title>Large</title><body>" + "x".repeat(8192) + "</body></html>";
 type Paused = { requestId: string; resourceType: string; responseStatusCode?: number; responseHeaders?: { name: string; value: string }[] };
-type Result = { path: string; paused: number; streamed: boolean; bytes: number; chunkMax: number; exceeded: boolean; failed: boolean; fulfilled: boolean; content: string; navigated: boolean; httpStatus?: number; errors: string[] };
+type Result = { path: string; paused: number; nonDocumentContinued: number; streamed: boolean; bytes: number; chunkMax: number; exceeded: boolean; failed: boolean; fulfilled: boolean; content: string; navigated: boolean; httpStatus?: number; errors: string[] };
 
 async function testPage(page: Page, session: CDPSession, url: string, path: string, budget = LIMIT): Promise<Result> {
-  const x: Result = { path, paused: 0, streamed: false, bytes: 0, chunkMax: 0, exceeded: false, failed: false, fulfilled: false, content: "", navigated: false, errors: [] };
+  const x: Result = { path, paused: 0, nonDocumentContinued: 0, streamed: false, bytes: 0, chunkMax: 0, exceeded: false, failed: false, fulfilled: false, content: "", navigated: false, errors: [] };
   const work = new Set<Promise<void>>();
   async function onPause(e: Paused) {
     let handle: string | undefined;
@@ -22,6 +23,7 @@ async function testPage(page: Page, session: CDPSession, url: string, path: stri
       x.paused++;
       // CDP response bodies are unavailable for redirects; ignore subresources.
       if (!e.responseStatusCode || e.resourceType !== "Document" || (e.responseStatusCode >= 300 && e.responseStatusCode < 400)) {
+        if (e.resourceType !== "Document") x.nonDocumentContinued++;
         await session.send("Fetch.continueResponse", { requestId: e.requestId });
         return;
       }
@@ -81,11 +83,16 @@ describe("P0-03C experimental CDP early body budget (not production integration)
     const server = createServer((req, res) => {
       const path = req.url ?? "/";
       if (path === "/redirect") { res.writeHead(302, { location: "/small" }); res.end(); return; }
-      const large = path.includes("large"), zip = path.includes("gzip"), chunked = path.includes("chunked");
-      const data = Buffer.from(large ? LARGE : SMALL);
-      const bytes = zip ? gzipSync(data) : data;
+      if (path === "/large-script") {
+        res.writeHead(200, { "content-type": "application/javascript" });
+        res.end("/*" + "x".repeat(8192) + "*/");
+        return;
+      }
+      const large = path.includes("large"), zip = path.includes("gzip"), br = path.endsWith("-br") || path.includes("-br-"), chunked = path.includes("chunked");
+      const data = Buffer.from(path === "/with-script" ? SMALL_WITH_SCRIPT : path === "/over-by-one" ? SMALL + "!" : large ? LARGE : SMALL);
+      const bytes = zip ? gzipSync(data) : br ? brotliCompressSync(data) : data;
       res.setHeader("content-type", "text/html; charset=utf-8");
-      if (zip) res.setHeader("content-encoding", "gzip");
+      if (zip || br) res.setHeader("content-encoding", br ? "br" : "gzip");
       if (!chunked) res.setHeader("content-length", String(bytes.byteLength));
       res.writeHead(200);
       if (chunked) {
@@ -99,23 +106,28 @@ describe("P0-03C experimental CDP early body budget (not production integration)
     const results: Result[] = [];
     try {
       browser = await chromium.launch({ headless: true, args: ["--disable-quic", "--disable-background-networking"] });
-      for (const path of ["/small", "/large-chunked", "/small-gzip", "/large-gzip-chunked", "/redirect"]) {
+      for (const path of ["/small", "/over-by-one", "/large-chunked", "/small-gzip", "/large-gzip-chunked", "/small-br", "/large-br-chunked", "/with-script", "/redirect"]) {
         const context = await browser.newContext({ serviceWorkers: "block" });
         try {
           const page = await context.newPage();
           const session = await context.newCDPSession(page);
           results.push(await testPage(page, session, origin + path, path,
-            path === "/small" ? Buffer.byteLength(SMALL) : LIMIT));
+            path === "/small" || path === "/over-by-one" ? Buffer.byteLength(SMALL) : LIMIT));
           await session.detach();
         } finally { await context.close(); }
       }
       console.log("P0_03C_CHROMIUM_SPIKE", JSON.stringify(results));
       for (const x of results) {
-        const over = x.path.includes("large");
+        const over = x.path.includes("large") && x.path !== "/with-script" && x.path !== "/large-script" || x.path === "/over-by-one";
         expect(x.streamed, x.path + " must take CDP stream").toBe(true);
         expect(x.paused, x.path + " must intercept response").toBeGreaterThan(0);
         expect(x.chunkMax, x.path + " per-read bytes").toBeLessThanOrEqual(64);
         if (x.path === "/small") expect(x.bytes).toBe(Buffer.byteLength(SMALL)); // exact-limit success
+        if (x.path === "/over-by-one") expect(x.bytes).toBe(Buffer.byteLength(SMALL) + 1); // limit+1 rejection
+        if (x.path === "/with-script") {
+          expect(x.bytes).toBe(Buffer.byteLength(SMALL_WITH_SCRIPT));
+          expect(x.nonDocumentContinued).toBeGreaterThan(0);
+        }
         expect(x.exceeded, x.path + " actual body boundary").toBe(over);
         if (over) {
           expect(x.failed, x.path + " must abort before buffering whole body").toBe(true);
