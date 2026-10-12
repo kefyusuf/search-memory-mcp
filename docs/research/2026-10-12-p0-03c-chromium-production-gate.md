@@ -68,7 +68,17 @@ framework, new package, MCP setting, provider, proxy, or public result type.
    These failures must not cause another `page.goto()` retry, HTTP transport
    re-download, opt-in reader call, parse attempt, page/content cache write,
    or persistence. Ordinary pre-existing non-budget navigation failures may
-   retain existing reader fallback if they remain distinguishable.
+   retain existing reader fallback if they remain distinguishable. Concretely,
+   `fetchViaPlaywright()` must return an **internal tagged terminal outcome**
+   distinct from the existing public `FetchFailure` (for example
+   `{ kind: "terminal_browser_failure", cause: "oversize" | "interception_failed" }`).
+   `acquireArticle()` checks this tag **before** the existing reader-fallback
+   branch; it maps either cause directly to public
+   `{ kind: "error", reason: "fetch_failed" }` and returns immediately. Only
+   ordinary `FetchFailure` results may reach the pre-existing fallback logic.
+   Preserve the terminal state even when the aborted `page.goto()` rejects or
+   a later teardown error occurs: do not flatten every exception into an
+   indistinguishable `fetch_failed` before checking the terminal marker.
 6. Accept a stream **only after explicit EOF**. Re-fulfill the intercepted response
    using the fully collected in-limit bytes, preserving meaningful response
    status/content-type/charset/security/cookie headers while removing obsolete
@@ -88,12 +98,21 @@ framework, new package, MCP setting, provider, proxy, or public result type.
    context or shared guarded proxy. Account for teardown racing with navigation,
    cancellation and server shutdown. No swallowed error may become a success.
 
-**Failure taxonomy (internal only):** `ok` with final bounded bytes; `terminal_oversize`;
-`terminal_interception_failure` (missing main response, incomplete stream,
-CDP detach/read failure, inability to enforce); `ordinary_navigation_failure`.
-The first two terminal categories map to existing `fetch_failed` **without fallback**.
-No new public error code is needed. If this cannot be expressed cleanly with
-one small seam, **STOP**, do not weaken the cap.
+**Failure taxonomy and routing (internal only):** `ok` with final bounded bytes;
+`terminal_oversize`; `terminal_interception_failure` (missing required
+main response, incomplete stream, CDP detach/read failure or inability to
+maintain/enforce the budget); and `ordinary_navigation_failure`. The two
+terminal categories are represented by the tagged **internal browser outcome**
+above, *not* by an unmarked `FetchFailure` with `reason: "fetch_failed"`.
+`acquireArticle()` must inspect that internal tag before choosing either
+reader fallback or returning the normal browser failure. Both terminal tags
+are converted to the existing public `fetch_failed` immediately, with **no
+`fetchViaReader()`, HTTP/second-browser fetch, retry, parsing or cache write**.
+`ordinary_navigation_failure` retains the existing fallback contract, while
+`blocked_url` remains terminal as today. A CDP rejection that also causes
+`page.goto()` to reject must **not** be reclassified as ordinary navigation
+failure by a catch block. No new public error code is needed. If this cannot
+be expressed cleanly with one small seam, **STOP**, do not weaken the cap.
 
 ## Reviewable acceptance matrix
 
@@ -101,12 +120,12 @@ one small seam, **STOP**, do not weaken the cap.
 |---|---|
 | Small/exact limit/limit+1 | HTML success and article parsing at limit; limit+1 returns terminal `fetch_failed`; no unbounded body call |
 | Unknown length / misleading `Content-Length` | Enforce actual decoded stream bytes irrespective of header |
-| gzip / Brotli | Both short and decompressed-oversize responses; correct replay headers |
+| gzip / Brotli | Both short and decompressed-oversize responses; correct replay headers; preserve original decoded bytes for non-ASCII, split UTF-8, legacy charset and invalid-UTF-8 fixtures rather than counting transcoded replacements |
 | Normal redirects / private redirect | Preserved public redirect; private destination denied at connected-IP boundary; zero private fixture traffic |
 | Mixed resources and iframe | Capture only main-frame document; subresource/iframe may continue under existing browser policy; no total-browser-memory claim |
-| Fallbacks and storage | Terminal oversize/CDP error causes zero reader calls, no second transport download, zero article cache writes; ordinary recoverable failure unaffected |
+| Terminal error routing and storage | With reader fallback enabled, inject **each** internal `terminal_oversize` and `terminal_interception_failure` result (including CDP `IO.read` rejection and `page.goto()` abort after terminal marking): public result is `fetch_failed`; assert **zero** `fetchViaReader()` invocations, zero HTTP/second-browser downloads, zero page/content cache writes and no parsing. In a separate ordinary navigation-failure case, assert the existing reader fallback still runs. |
 | Response metadata | HTML content-type/charset, status and relevant headers preserved on accepted response; malformed/unsupported state fails closed |
-| Navigation and teardown | `domcontentloaded`, `networkidle` timeout retry, navigation abort, concurrent fetches, CDP close/errors, shutdown races |
+| Navigation and teardown | `domcontentloaded`, `networkidle` timeout retry, navigation abort, concurrent fetches, rejected/**stalled** `IO.read`, CDP close/errors, shutdown races; assert stalled work settles by the existing navigation/cancellation boundary without retry/fallback bypass |
 | Security | Existing `verify-browser-egress-proxy.mjs` passes; no direct connection fallback, no proxy/TLS/SSRF regression |
 
 ### Verification method
