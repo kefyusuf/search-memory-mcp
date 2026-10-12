@@ -16,6 +16,7 @@ function createMockEmbedding(): IEmbeddingProvider {
 function createFetcher(overrides?: {
   getBrowserContext?: () => Promise<BrowserContext>;
   forcePlaywright?: () => boolean;
+  maxHtmlBytes?: number;
 }) {
   const cache = new SemanticCache(createMockEmbedding(), new InMemoryVectorStore());
   const defaultContext = {
@@ -33,6 +34,7 @@ function createFetcher(overrides?: {
       getBrowserContext: overrides?.getBrowserContext ?? (async () => defaultContext),
       fetchWaitUntil: "networkidle",
       forcePlaywright: overrides?.forcePlaywright,
+      maxHtmlBytes: overrides?.maxHtmlBytes,
     }),
   };
 }
@@ -109,6 +111,60 @@ describe("ContentFetcher", () => {
     expect(result?.title).toBe("Test");
     expect(result?.content).toContain("content");
     expect(result?.fullText).toContain("# Test");
+  });
+
+  it("accepts valid HTML under the streaming byte limit", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ getBrowserContext: browser, maxHtmlBytes: 2048 });
+    const html = `<html><head><title>Bounded</title></head><body><article><p>${"content ".repeat(80)}</p></article></body></html>`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(html, {
+      headers: { "content-type": "text/html" },
+    })));
+
+    const result = await fetcher.fetchContent("https://example.com/bounded", true);
+    expect(result).toMatchObject({ kind: "content", source: "http" });
+    if (result.kind === "content") expect(result.text).toContain("# Bounded");
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a declared-oversized HTML body before reading or browser retry", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ getBrowserContext: browser, maxHtmlBytes: 256 });
+    const response = new Response("<html><body>untrusted</body></html>", {
+      headers: { "content-type": "text/html", "content-length": "100000" },
+    });
+    const cancelled = vi.spyOn(response.body!, "cancel");
+    const mock = vi.fn(async () => response);
+    vi.stubGlobal("fetch", mock);
+
+    await expect(fetcher.fetchContent("https://example.com/declared-over-limit", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("stops an unknown-length HTML stream at the byte limit without browser fallback", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ getBrowserContext: browser, maxHtmlBytes: 256 });
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(160));
+        controller.enqueue(new Uint8Array(160));
+      },
+      cancel() { cancelled = true; },
+    });
+    const mock = vi.fn(async () => new Response(stream, {
+      headers: { "content-type": "text/html" },
+    }));
+    vi.stubGlobal("fetch", mock);
+
+    await expect(fetcher.fetchContent("https://example.com/chunked-over-limit", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toBe(true);
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
   });
 
   it("fetches GitHub blob URLs through raw Markdown before browser fallback", async () => {
