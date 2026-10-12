@@ -17,6 +17,7 @@ function createFetcher(overrides?: {
   getBrowserContext?: () => Promise<BrowserContext>;
   forcePlaywright?: () => boolean;
   maxHtmlBytes?: number;
+  maxTextBytes?: number;
   readerFallbackUrl?: string;
 }) {
   const cache = new SemanticCache(createMockEmbedding(), new InMemoryVectorStore());
@@ -36,6 +37,7 @@ function createFetcher(overrides?: {
       fetchWaitUntil: "networkidle",
       forcePlaywright: overrides?.forcePlaywright,
       maxHtmlBytes: overrides?.maxHtmlBytes,
+      maxTextBytes: overrides?.maxTextBytes,
       readerFallbackUrl: overrides?.readerFallbackUrl,
     }),
   };
@@ -256,6 +258,65 @@ describe("ContentFetcher", () => {
     vi.stubGlobal("fetch", network);
 
     await expect(fetcher.fetchContent("https://example.com/decoded-large", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancelled).toBe(true);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("accepts GitHub Raw text exactly at its decoded byte limit", async () => {
+    const markdown = "# Within budget\n\nThis document remains safely readable and contains useful text.";
+    const bytes = new TextEncoder().encode(markdown).byteLength;
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({ getBrowserContext: browser, maxTextBytes: bytes });
+    const network = vi.fn(async () => new Response(markdown, {
+      headers: { "content-type": "text/markdown", "content-length": String(bytes) },
+    }));
+    vi.stubGlobal("fetch", network);
+
+    const result = await fetcher.fetchContent("https://raw.githubusercontent.com/o/r/main/README.md", true);
+    expect(result).toMatchObject({ kind: "content", source: "github-raw" });
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("rejects declared-oversized GitHub Raw text without HTTP/browser/reader fallback", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({
+      getBrowserContext: browser, maxTextBytes: 256, readerFallbackUrl: "https://markdown.new/",
+    });
+    const response = new Response("# tiny\n\nshould never parse", {
+      headers: { "content-type": "text/plain", "content-length": "100000" },
+    });
+    const cancel = vi.spyOn(response.body!, "cancel");
+    const network = vi.fn(async () => response);
+    vi.stubGlobal("fetch", network);
+
+    await expect(fetcher.fetchContent("https://raw.githubusercontent.com/o/r/main/README.md", true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(browser).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized RSS text stream despite a misleading small length", async () => {
+    const browser = vi.fn(async () => { throw new Error("browser must not be used"); });
+    const { fetcher } = createFetcher({
+      getBrowserContext: browser, maxTextBytes: 256, readerFallbackUrl: "https://markdown.new/",
+    });
+    let cancelled = false;
+    const network = vi.fn(async () => new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(160));
+        controller.enqueue(new Uint8Array(160));
+      },
+      cancel() { cancelled = true; },
+    }), {
+      headers: { "content-type": "application/rss+xml", "content-length": "10" },
+    }));
+    vi.stubGlobal("fetch", network);
+
+    await expect(fetcher.fetchContent("https://example.com/blog", true))
       .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
     expect(cancelled).toBe(true);
     expect(network).toHaveBeenCalledTimes(1);
