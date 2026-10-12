@@ -197,7 +197,11 @@ describe("P0-03C experimental CDP early body budget (not production integration)
         console.log("P0_03C_GUARDED_PRIVATE_REDIRECT", JSON.stringify({
           ...redirected, routeUrls, privateConnections, privateRequests,
         }));
-        expect(routeUrls).toContain(privateUrl);
+        // route.fulfill redirects may not re-enter the generic Playwright
+        // route callback. The production CONNECT proxy must still deny the
+        // private target without ever opening a local TCP connection.
+        expect(redirected.httpStatus).toBe(403);
+        expect(redirected.content).toContain("Outbound connection denied");
         expect(privateConnections).toBe(0);
         expect(privateRequests).toBe(0);
         expect(redirected.content).not.toContain("PRIVATE_DESTINATION_MUST_NEVER_BE_READ");
