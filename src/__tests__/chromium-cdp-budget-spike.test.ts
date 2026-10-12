@@ -28,6 +28,7 @@ async function testPage(page: Page, session: CDPSession, url: string, path: stri
       handle = (await session.send("Fetch.takeResponseBodyAsStream", { requestId: e.requestId })).stream;
       x.streamed = true;
       const chunks: Buffer[] = [];
+      let reachedEof = false;
       for (let n = 0; n < 400; n++) {
         const r = await session.send("IO.read", { handle, size: 64 });
         const b = Buffer.from(r.data, r.base64Encoded ? "base64" : "utf8");
@@ -40,8 +41,11 @@ async function testPage(page: Page, session: CDPSession, url: string, path: stri
           return;
         }
         chunks.push(b);
-        if (r.eof) break;
+        if (r.eof) { reachedEof = true; break; }
       }
+      // The spike's diagnostic loop has a ceiling. Never replay a partial
+      // document as success when the CDP stream has not reached EOF.
+      if (!reachedEof) throw new Error("CDP diagnostic read ceiling reached before EOF");
       // Re-supply ONLY in-budget responses. The CDP stream cannot resume as-is.
       const body = Buffer.concat(chunks);
       const headers = (e.responseHeaders ?? []).filter(h => !["content-length", "content-encoding", "transfer-encoding"].includes(h.name.toLowerCase()));
@@ -100,7 +104,8 @@ describe("P0-03C experimental CDP early body budget (not production integration)
         try {
           const page = await context.newPage();
           const session = await context.newCDPSession(page);
-          results.push(await testPage(page, session, origin + path, path));
+          results.push(await testPage(page, session, origin + path, path,
+            path === "/small" ? Buffer.byteLength(SMALL) : LIMIT));
           await session.detach();
         } finally { await context.close(); }
       }
@@ -110,6 +115,7 @@ describe("P0-03C experimental CDP early body budget (not production integration)
         expect(x.streamed, x.path + " must take CDP stream").toBe(true);
         expect(x.paused, x.path + " must intercept response").toBeGreaterThan(0);
         expect(x.chunkMax, x.path + " per-read bytes").toBeLessThanOrEqual(64);
+        if (x.path === "/small") expect(x.bytes).toBe(Buffer.byteLength(SMALL)); // exact-limit success
         expect(x.exceeded, x.path + " actual body boundary").toBe(over);
         if (over) {
           expect(x.failed, x.path + " must abort before buffering whole body").toBe(true);
