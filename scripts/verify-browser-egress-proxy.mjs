@@ -109,13 +109,15 @@ try {
   // is not sufficient if Chromium never starts the network operation.
   const observedBrowserUrls = new Set();
   page.on("request", (request) => observedBrowserUrls.add(request.url()));
+  const imageUrl = `http://127.0.0.1:${port}/image-private`;
   const scriptUrl = `http://${HOST}:${port}/script-rebound-private`;
   const browserFetchUrl = `http://${HOST}:${port}/browser-fetch-rebound-private`;
   await page.setContent(
-    `<img src="http://127.0.0.1:${port}/image-private" />` +
+    `<img src="${imageUrl}" />` +
     `<script src="${scriptUrl}"></script>`,
   );
   await page.waitForTimeout(250);
+  assert.ok(observedBrowserUrls.has(imageUrl), "Chromium did not request the image subresource");
   assert.ok(observedBrowserUrls.has(scriptUrl), "Chromium did not request the script subresource");
   assert.equal(destinationSockets, 0, "Private image/script subresource bypassed proxy");
 
