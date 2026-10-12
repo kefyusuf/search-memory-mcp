@@ -328,7 +328,7 @@ describe("ContentFetcher", () => {
     const { fetcher } = createFetcher({
       getBrowserContext: browser, maxTextBytes: 256, readerFallbackUrl: "https://markdown.new/",
     });
-    const network = vi.fn(async () => new Response("# unused", {
+    const network = vi.fn(async (_url: string | URL) => new Response("# unused", {
       headers: { "content-type": "text/markdown", "content-length": "999999" },
     }));
     vi.stubGlobal("fetch", network);
@@ -348,7 +348,7 @@ describe("ContentFetcher", () => {
     });
     const cancel = vi.spyOn(redirect.body!, "cancel");
     const markdown = "# Redirect target\n\nUseful content after the redirected response.";
-    const network = vi.fn(async () => network.mock.calls.length === 1
+    const network = vi.fn(async (_url: string | URL) => network.mock.calls.length === 1
       ? redirect
       : new Response(markdown, { headers: { "content-type": "text/markdown" } }));
     vi.stubGlobal("fetch", network);
