@@ -43,6 +43,7 @@ type HttpFetchResult =
 
 type TextFetchResult =
   | { kind: "text"; url: string; text: string; contentType: string }
+  | { kind: "response_too_large" }
   | { kind: "blocked" }
   | null;
 
@@ -75,6 +76,8 @@ type ContentFetcherOptions = {
   maxDocumentBytes?: number;
   /** Maximum decoded HTML response bytes before parsing (default 8 MiB). */
   maxHtmlBytes?: number;
+  /** Maximum decoded GitHub Raw/RSS response bytes (default 8 MiB). */
+  maxTextBytes?: number;
   forcePlaywright?: () => boolean;
   /**
    * Optional reader service used as a last resort, called as `${readerFallbackUrl}${pageUrl}`
@@ -159,6 +162,7 @@ export class ContentFetcher {
   private readonly maxContentChars: number;
   private readonly maxDocumentBytes: number;
   private readonly maxHtmlBytes: number;
+  private readonly maxTextBytes: number;
   private readonly forcePlaywright: () => boolean;
   private readonly readerFallbackUrl: string | null;
   private readonly turndown: TurndownService;
@@ -174,6 +178,10 @@ export class ContentFetcher {
     this.maxHtmlBytes = options.maxHtmlBytes ?? 8 * 1024 * 1024;
     if (!Number.isSafeInteger(this.maxHtmlBytes) || this.maxHtmlBytes <= 0) {
       throw new Error("maxHtmlBytes must be a positive safe integer");
+    }
+    this.maxTextBytes = options.maxTextBytes ?? 8 * 1024 * 1024;
+    if (!Number.isSafeInteger(this.maxTextBytes) || this.maxTextBytes <= 0) {
+      throw new Error("maxTextBytes must be a positive safe integer");
     }
     this.forcePlaywright = options.forcePlaywright ?? (() => isEnabledEnvFlag(process.env.FORCE_PLAYWRIGHT));
     this.readerFallbackUrl = options.readerFallbackUrl?.trim() || null;
@@ -263,6 +271,9 @@ export class ContentFetcher {
       const fastPathResult = await this.fetchViaFastPath(url);
       if (fastPathResult?.kind === "blocked") {
         return { kind: "error", reason: "blocked_url" };
+      }
+      if (fastPathResult?.kind === "response_too_large") {
+        return { kind: "error", reason: "fetch_failed" };
       }
 
       if (fastPathResult) {
@@ -436,9 +447,10 @@ export class ContentFetcher {
       await this.cache.setCachedContent(article.url, article.fullText, article.title, intent, article.publishedAt);
   }
 
-  private async fetchViaFastPath(url: string): Promise<FetchArticleResult | { kind: "blocked" } | null> {
+  private async fetchViaFastPath(url: string): Promise<FetchArticleResult | { kind: "blocked" } | { kind: "response_too_large" } | null> {
     const githubArticle = await this.fetchGitHubRawArticle(url);
     if (githubArticle === "blocked") return { kind: "blocked" };
+    if (githubArticle === "response_too_large") return { kind: "response_too_large" };
     if (githubArticle) {
       return {
         kind: "article",
@@ -449,6 +461,7 @@ export class ContentFetcher {
 
     const rssArticle = await this.fetchRssArticle(url);
     if (rssArticle === "blocked") return { kind: "blocked" };
+    if (rssArticle === "response_too_large") return { kind: "response_too_large" };
     if (rssArticle) {
       return {
         kind: "article",
@@ -460,13 +473,14 @@ export class ContentFetcher {
     return null;
   }
 
-  private async fetchGitHubRawArticle(url: string): Promise<FetchArticle | "blocked" | null> {
+  private async fetchGitHubRawArticle(url: string): Promise<FetchArticle | "blocked" | "response_too_large" | null> {
     const candidates = toGitHubRawCandidates(url);
     if (candidates.length === 0) return null;
 
     for (const candidate of candidates) {
       const result = await this.fetchText(candidate, "text/markdown,text/plain,*/*");
       if (result?.kind === "blocked") return "blocked";
+      if (result?.kind === "response_too_large") return "response_too_large";
       if (!result || result.text.trim().length < 20) continue;
 
       return this.parseMarkdownToArticle(result.text, url, result.url);
@@ -475,13 +489,14 @@ export class ContentFetcher {
     return null;
   }
 
-  private async fetchRssArticle(url: string): Promise<FetchArticle | "blocked" | null> {
+  private async fetchRssArticle(url: string): Promise<FetchArticle | "blocked" | "response_too_large" | null> {
     const candidates = toRssCandidates(url);
     if (candidates.length === 0) return null;
 
     for (const candidate of candidates) {
       const result = await this.fetchText(candidate, "application/rss+xml,application/atom+xml,text/xml,application/xml,*/*");
       if (result?.kind === "blocked") return "blocked";
+      if (result?.kind === "response_too_large") return "response_too_large";
       if (!result || !looksLikeFeed(result.text)) continue;
 
       const article = this.parseRssToArticle(result.text, url, result.url);
@@ -631,6 +646,9 @@ export class ContentFetcher {
 
         if (isRedirectStatus(response.status)) {
           const location = response.headers.get("location");
+          // The redirect body is not used; release its stream before opening
+          // the next guarded connection or falling back to another candidate.
+          await response.body?.cancel().catch(() => {});
           if (!location) return null;
 
           currentUrl = new URL(location, currentUrl).toString();
@@ -639,10 +657,14 @@ export class ContentFetcher {
 
         if (!response.ok) return null;
 
+        // Reject oversized fast-path text without retrying the same resource
+        // through HTTP, Chromium or a reader service.
+        const data = await readLimitedBody(response, this.maxTextBytes);
+        if (!data) return { kind: "response_too_large" };
         return {
           kind: "text",
           url: currentUrl,
-          text: await response.text(),
+          text: new TextDecoder().decode(data),
           contentType: response.headers.get("content-type") ?? "",
         };
       }
