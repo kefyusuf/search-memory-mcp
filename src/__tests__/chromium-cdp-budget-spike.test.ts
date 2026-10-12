@@ -78,8 +78,10 @@ async function testPage(page: Page, session: CDPSession, url: string, path: stri
   return x;
 }
 
-describe("P0-03C experimental CDP early body budget (not production integration)", () => {
-  it("probes real Chromium plain, gzip, chunked and redirect responses", async () => {
+// The protocol spike needs real Chromium and external HTTPS. Keep normal Vitest
+// runs deterministic/offline; explicitly opt in with P0_03C_SPIKE=1.
+describe.skipIf(process.env.P0_03C_SPIKE !== "1")("P0-03C experimental CDP early body budget (not production integration)", () => {
+  it("probes Chromium HTML, gzip, Brotli, byte boundaries, subresources and redirects", async () => {
     const server = createServer((req, res) => {
       const path = req.url ?? "/";
       if (path === "/redirect") { res.writeHead(302, { location: "/small" }); res.end(); return; }
