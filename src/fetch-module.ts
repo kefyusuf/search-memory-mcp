@@ -5,6 +5,7 @@ import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { LRUCache } from "lru-cache";
 import type { BrowserContext } from "playwright";
+import { interceptBoundedMainDocument, type BoundedDocumentInterceptor } from "./security/bounded-chromium-document.js";
 import TurndownService from "turndown";
 import iconv from "iconv-lite";
 import type { SearchIntent } from "./search/intent.js";
@@ -395,6 +396,7 @@ export class ContentFetcher {
   ): Promise<BrowserFetchResult> {
     const context = await this.getBrowserContext();
     const page = await context.newPage();
+    let documentBudget: BoundedDocumentInterceptor | null = null;
 
     try {
       let response;
@@ -411,9 +413,23 @@ export class ContentFetcher {
         await route.abort("blockedbyclient");
       });
 
+      // Intercept before navigation. If this page cannot enforce the CDP body
+      // limit, fail closed; never fall through to the unbounded Response.body().
+      try {
+        documentBudget = await interceptBoundedMainDocument(context, page, this.maxHtmlBytes);
+      } catch {
+        return { kind: "terminal_browser_failure", cause: "interception_failed" };
+      }
+
       try {
         response = await page.goto(url, { waitUntil, timeout: 30000 });
       } catch (error) {
+        await documentBudget.settle();
+        // A failed/intercepted navigation often surfaces as a generic
+        // net::ERR_FAILED. Preserve the terminal cause before retry/fallback.
+        if (documentBudget.terminal()) {
+          return { kind: "terminal_browser_failure", cause: documentBudget.terminal()! };
+        }
         const shouldRetry =
           options.useConfiguredWaitUntil &&
           this.fetchWaitUntil === "networkidle" &&
@@ -423,12 +439,24 @@ export class ContentFetcher {
         if (!shouldRetry) throw error;
 
         console.error(`Fetch navigation timed out with networkidle for ${url}, retrying with domcontentloaded`);
-        response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+        try {
+          response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+        } catch (retryError) {
+          await documentBudget.settle();
+          if (documentBudget.terminal()) {
+            return { kind: "terminal_browser_failure", cause: documentBudget.terminal()! };
+          }
+          throw retryError;
+        }
       }
 
-      const buffer = await response?.body();
-      if (!buffer) {
-        return { kind: "error", reason: "fetch_failed" };
+      await documentBudget.settle();
+      if (documentBudget.terminal()) {
+        return { kind: "terminal_browser_failure", cause: documentBudget.terminal()! };
+      }
+      const buffer = documentBudget.captured()?.body;
+      if (!response || !buffer) {
+        return { kind: "terminal_browser_failure", cause: "interception_failed" };
       }
 
       const article = this.parseHtmlToArticle(this.decodeHtmlBuffer(buffer), url);
@@ -443,8 +471,14 @@ export class ContentFetcher {
         source: "playwright",
       };
     } catch {
+      // Never hide an interception failure behind an ordinary reader-eligible
+      // browser error, even when page.goto() or parsing subsequently rejects.
+      if (documentBudget?.terminal()) {
+        return { kind: "terminal_browser_failure", cause: documentBudget.terminal()! };
+      }
       return { kind: "error", reason: "fetch_failed" };
     } finally {
+      await documentBudget?.close();
       try {
         await page.close();
       } catch (error) {
