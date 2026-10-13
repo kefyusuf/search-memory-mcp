@@ -81,6 +81,8 @@ export type BoundedDocumentInterceptor = {
   /** Defined only after a complete, in-budget body was re-fulfilled. */
   captured(): DocumentData | null;
   terminal(): DocumentBudgetFailure | null;
+  /** Discard an earlier successful document before a second navigation attempt. */
+  resetForNavigation(): void;
   /** Called after navigation settles; drains current asynchronous CDP handlers. */
   settle(): Promise<void>;
   /** Disables only this page's CDP interception and detaches its session. */
@@ -174,6 +176,7 @@ export async function interceptBoundedMainDocument(
     return {
       captured: () => document,
       terminal: () => failure,
+      resetForNavigation: () => { document = null; },
       settle: async () => { await Promise.allSettled([...pending]); },
       close: async () => {
         if (disposed) return;
