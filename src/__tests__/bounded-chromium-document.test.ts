@@ -97,15 +97,37 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     await gate.close();
   });
 
-  it("fails closed when a non-ASCII plain CDP string cannot prove original byte length", async () => {
-    const f = fixture([{ data: "café", eof: true, base64Encoded: false }]);
-    const gate = await interceptBoundedMainDocument(f.context, f.page, 10);
+  it("counts UTF-8 bytes from valid non-base64 CDP Unicode chunks", async () => {
+    const unicode = "café 日本語 🌍";
+    const f = fixture([{ data: "café ", eof: false }, { data: "日本語 🌍", eof: true }]);
+    const gate = await interceptBoundedMainDocument(f.context, f.page, Buffer.byteLength(unicode));
+    f.events.emit("Fetch.requestPaused", mainResponse());
+    await gate.settle();
+    expect(gate.terminal()).toBeNull();
+    expect(gate.captured()?.body.equals(Buffer.from(unicode, "utf8"))).toBe(true);
+    await gate.close();
+  });
+
+  it("fails closed if a plain CDP chunk already contains lossy replacement text", async () => {
+    const f = fixture([{ data: "bad\uFFFDbytes", eof: true, base64Encoded: false }]);
+    const gate = await interceptBoundedMainDocument(f.context, f.page, 32);
     f.events.emit("Fetch.requestPaused", mainResponse());
     await gate.settle();
     expect(gate.terminal()).toBe("interception_failed");
     expect(gate.captured()).toBeNull();
     expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
     expect(f.sent.some(x => x.method === "Fetch.failRequest")).toBe(true);
+    await gate.close();
+  });
+
+  it("fails closed if re-encoded UTF-8 text exceeds the exact byte budget", async () => {
+    const f = fixture([{ data: "é", eof: true, base64Encoded: false }]);
+    const gate = await interceptBoundedMainDocument(f.context, f.page, 1);
+    f.events.emit("Fetch.requestPaused", mainResponse());
+    await gate.settle();
+    expect(gate.terminal()).toBe("oversize");
+    expect(gate.captured()).toBeNull();
+    expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
     await gate.close();
   });
 
