@@ -108,7 +108,7 @@ export async function interceptBoundedMainDocument(
   let document: DocumentData | null = null;
   const pending = new Set<Promise<void>>();
   try {
-    const frames = await session.send("Page.getFrameTree");
+    const frames = await withDeadline(session.send("Page.getFrameTree"), "Page.getFrameTree", CDP_SETTLE_TIMEOUT_MS);
     const mainFrameId = frames?.frameTree?.frame?.id as string | undefined;
     if (!mainFrameId) throw new Error("Cannot identify CDP main frame");
 
@@ -119,7 +119,7 @@ export async function interceptBoundedMainDocument(
         const status = event.responseStatusCode;
         if (event.resourceType !== "Document" || event.frameId !== mainFrameId ||
             (status !== undefined && isRedirect(status))) {
-          await session.send("Fetch.continueResponse", { requestId: event.requestId });
+          await withDeadline(session.send("Fetch.continueResponse", { requestId: event.requestId }), "Fetch.continueResponse", CDP_SETTLE_TIMEOUT_MS);
           return;
         }
         // This is the main-frame final document. A malformed response cannot
@@ -128,7 +128,7 @@ export async function interceptBoundedMainDocument(
         if (!status || status < 100 || status > 599 || !event.responseHeaders) {
           throw new Error("Missing main-document response metadata");
         }
-        handle = (await session.send("Fetch.takeResponseBodyAsStream", { requestId: event.requestId })).stream;
+        handle = (await withDeadline(session.send("Fetch.takeResponseBodyAsStream", { requestId: event.requestId }), "Fetch.takeResponseBodyAsStream", CDP_SETTLE_TIMEOUT_MS)).stream;
         if (!handle) throw new Error("No CDP response stream");
         let total = 0;
         const chunks: Buffer[] = [];
@@ -140,9 +140,9 @@ export async function interceptBoundedMainDocument(
           total += chunk.byteLength;
           if (total > maxBytes) {
             failure ??= "oversize";
-            await session.send("Fetch.failRequest", {
+            await withDeadline(session.send("Fetch.failRequest", {
               requestId: event.requestId, errorReason: "BlockedByClient",
-            }).catch(() => {});
+            }), "Fetch.failRequest", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
             return;
           }
           chunks.push(chunk);
@@ -151,22 +151,28 @@ export async function interceptBoundedMainDocument(
         if (!eof) throw new Error("CDP stream did not reach EOF");
         const body = Buffer.concat(chunks, total);
         const responseHeaders = safeReplayHeaders(event.responseHeaders, body.byteLength);
-        await session.send("Fetch.fulfillRequest", {
+        await withDeadline(session.send("Fetch.fulfillRequest", {
           requestId: event.requestId,
           responseCode: status,
           responseHeaders,
           body: body.toString("base64"),
-        });
+        }), "Fetch.fulfillRequest", CDP_SETTLE_TIMEOUT_MS);
         if (!failure) document = { body };
       } catch {
         failure ??= "interception_failed";
         document = null;
-        await session.send("Fetch.failRequest", {
+        await withDeadline(session.send("Fetch.failRequest", {
           requestId: event.requestId, errorReason: "Failed",
-        }).catch(() => {});
+        }), "Fetch.failRequest", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
       } finally {
         if (handle) {
-          await session.send("IO.close", { handle }).catch(() => {});
+          try {
+            await withDeadline(session.send("IO.close", { handle }), "IO.close", CDP_SETTLE_TIMEOUT_MS);
+          } catch {
+            // Stream cleanup is part of the fail-closed response boundary.
+            failure ??= "interception_failed";
+            document = null;
+          }
         }
       }
     }
@@ -176,9 +182,9 @@ export async function interceptBoundedMainDocument(
       pending.add(task);
       void task.finally(() => pending.delete(task));
     });
-    await session.send("Fetch.enable", {
+    await withDeadline(session.send("Fetch.enable", {
       patterns: [{ urlPattern: "*", requestStage: "Response" }],
-    });
+    }), "Fetch.enable", CDP_SETTLE_TIMEOUT_MS);
     enabled = true;
     return {
       captured: () => document,
@@ -213,8 +219,8 @@ export async function interceptBoundedMainDocument(
       },
     };
   } catch (error) {
-    if (enabled) await session.send("Fetch.disable").catch(() => {});
-    await session.detach().catch(() => {});
+    if (enabled) await withDeadline(session.send("Fetch.disable"), "Fetch.disable", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
+    await withDeadline(session.detach(), "session detach", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
     throw error;
   }
 }
