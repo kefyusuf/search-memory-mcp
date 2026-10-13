@@ -237,6 +237,28 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     } finally { vi.useRealTimers(); }
   });
 
+  it("reclaims a CDP session resolving only after its setup deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture([]);
+      const lateSession = await f.context.newCDPSession(f.page);
+      let resolveCreation!: (session: CDPSession) => void;
+      const pending = new Promise<CDPSession>(resolve => { resolveCreation = resolve; });
+      const context = {
+        newCDPSession: vi.fn(() => pending),
+      } as unknown as BrowserContext;
+      const initialization = interceptBoundedMainDocument(context, f.page, 100);
+      const rejected = expect(initialization).rejects.toThrow("CDP newCDPSession stalled");
+      await vi.advanceTimersByTimeAsync(15_001);
+      await rejected;
+      expect(f.detach).not.toHaveBeenCalled();
+      resolveCreation(lateSession);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(f.detach).toHaveBeenCalledOnce();
+      expect(f.send).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
   for (const method of ["Page.getFrameTree", "Fetch.enable"] as const) {
     it(`bounds stalled CDP initialization at ${method} and detaches the page session`, async () => {
       vi.useFakeTimers();
