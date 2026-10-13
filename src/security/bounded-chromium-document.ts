@@ -20,6 +20,8 @@ type DocumentData = { body: Buffer; url?: string };
 const READ_CHUNK_BYTES = 64 * 1024;
 const MAX_READS = 8192;
 const IO_READ_TIMEOUT_MS = 15_000;
+// Bounded cleanup: protocol sends other than IO.read can also stall.
+const CDP_SETTLE_TIMEOUT_MS = 15_000;
 const OMIT_REPLAY_HEADERS = new Set([
   "content-length", "transfer-encoding", "content-encoding",
   "content-md5", "digest", "etag", "content-range", "accept-ranges",
@@ -60,21 +62,26 @@ function safeReplayHeaders(original: Header[] | undefined, length: number): Head
   return headers;
 }
 
-async function readWithDeadline(session: CDPSession, handle: string): Promise<{
-  data: string; base64Encoded?: boolean; eof?: boolean;
-}> {
+async function withDeadline<T>(operation: Promise<T>, label: string, ms: number): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      session.send("IO.read", { handle, size: READ_CHUNK_BYTES }),
+      operation,
       new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => reject(new Error("CDP IO.read stalled")), IO_READ_TIMEOUT_MS);
+        timeout = setTimeout(() => reject(new Error(`CDP ${label} stalled`)), ms);
         timeout.unref?.();
       }),
     ]);
   } finally {
     if (timeout) clearTimeout(timeout);
   }
+}
+
+async function readWithDeadline(session: CDPSession, handle: string): Promise<{
+  data: string; base64Encoded?: boolean; eof?: boolean;
+}> {
+  return withDeadline(session.send("IO.read", { handle, size: READ_CHUNK_BYTES }),
+    "IO.read", IO_READ_TIMEOUT_MS);
 }
 
 export type BoundedDocumentInterceptor = {
@@ -177,12 +184,32 @@ export async function interceptBoundedMainDocument(
       captured: () => document,
       terminal: () => failure,
       resetForNavigation: () => { document = null; },
-      settle: async () => { await Promise.allSettled([...pending]); },
+      settle: async () => {
+        try {
+          await withDeadline(Promise.allSettled([...pending]), "response settlement", CDP_SETTLE_TIMEOUT_MS);
+        } catch {
+          // Includes paused non-document requests or Fetch.failRequest/IO.close
+          // that never settle; never convert this to a reader-eligible failure.
+          failure ??= "interception_failed";
+          document = null;
+        }
+      },
       close: async () => {
         if (disposed) return;
         disposed = true;
-        if (enabled) await session.send("Fetch.disable").catch(() => {});
-        await session.detach().catch(() => {});
+        let teardownFailed = false;
+        if (enabled) {
+          try {
+            await withDeadline(session.send("Fetch.disable"), "Fetch.disable", CDP_SETTLE_TIMEOUT_MS);
+          } catch { teardownFailed = true; }
+        }
+        try {
+          await withDeadline(session.detach(), "session detach", CDP_SETTLE_TIMEOUT_MS);
+        } catch { teardownFailed = true; }
+        if (teardownFailed) {
+          failure ??= "interception_failed";
+          document = null;
+        }
       },
     };
   } catch (error) {
