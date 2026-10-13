@@ -1,6 +1,6 @@
 # P0-02 — Recovery kapsamı ve güncel yetki otoritesi karar kapısı
 
-**Tarih:** 2026-10-13 · **Kaynak `main`:** [`8f89bdf`](https://github.com/kefyusuf/search-memory-mcp/commit/8f89bdf071a426d7202da6940fa6584e547377af) · **Durum (2026-10-13 D1 kapsam güncellemesi):** **D1 yalnızca ilk pilot kapsamı için kararlaştırıldı / D2–D4 OPEN / P0-02 ve L3 NO-GO**
+**Tarih:** 2026-10-13 · **Kaynak `main`:** [`8f89bdf`](https://github.com/kefyusuf/search-memory-mcp/commit/8f89bdf071a426d7202da6940fa6584e547377af) · **Durum (2026-10-13 D1/D2 kapsam güncellemesi):** **D1 pilot kapsamı belirlendi / D2 yalnızca güven sınırı belirlendi, operasyonel onay mekanizması OPEN / D3–D4 OPEN / P0-02 ve L3 NO-GO**
 
 ## Amaç ve sınır
 
@@ -17,12 +17,12 @@ Birleşen [P0-02 kanıt envanteri](2026-10-13-p0-02-hosted-recovery-evidence-gat
 - [Request context](../../src/runtime/request-context.ts) ve [hosted HTTP auth factory](../../src/runtime/hosted-http-auth.ts) geçerli yetkilendirme bağlamına ilişkin mevcut sınırları gösterir. Üretim hosted bootstrap, operatör restore kontrolü ve kimlik ile veri arasında atomik restore/fencing bulunmaz.
 - [Membership SQL izinleri](../../migrations/0001-hosted-membership.sql) arama/içerik/knowledge/memory/status/cache için tanımlıdır; **restore yönetimi için public MCP izni** veya kullanıcıya açık restore akışı içermez.
 
-## Karar durumu — yalnızca D1 planlama kapsamı kararı
+## Karar durumu — D1 kapsamı ve D2 güven sınırı (yalnızca planlama)
 
 | ID | Karar sorusu | Kapsamı küçük tutan yaklaşım | Durum ve yürütme sınırı |
 | --- | --- | --- | --- |
 | D1 — Restore granülerliği | İlk pilotta boş ortama tam çevre recovery yeterli mi, tenant/workspace seçmeli restore ayrı ürün gereksinimi mi? | İlk hosted pilotun **hedef kabul kapsamı R-A: ayrı/boş hedefe tam ortam kurtarması**. **R-B: tenant/workspace-seçmeli restore HOLD**, doğrulanmış müşteri gereksinimi doğmadan başlatılmaz. Fiziksel backup hiçbir zaman tenant export olarak sunulmaz. | **D1 SCOPE DECIDED (planlama):** Gerekli hosted kanıt henüz YOK. D2–D4 ve ayrı implementation/test onayı olmadan bu karar yürütme yetkisi değildir. |
-| D2 — Restore yetkisi | Restore isteğini, onayını, yürütmesini, doğrulamasını ve yayına almayı kim yetkilendirir? | İstek, onay, başlatma, doğrulama ve aktif hale getirme sorumlularını **güvenilen operasyon yolu** kapsamında açıkça belirleyin; mevcut kullanıcının `memory:write` / `cache:manage` gibi tool izinlerini restore yetkisine yükseltmeyin. İnsan onayı/rol akışı henüz tasarlanmadı. | D2 **OPEN**. Canlı veri restore işlemi veya dışa açık araç devreye alınamaz. |
+| D2 — Restore yetkisi | Restore isteğini, onayını, yürütmesini, doğrulamasını ve yayına almayı kim yetkilendirir? | İlk pilot için restore **yalnızca güvenilen, uygulama/MCP istek yolundan ayrı operasyonel yetki sınırı** içindedir. Normal tool izinleri, tenant üyeliği ve identity DB rollerinin varlığı restore yetkisi vermez. | **D2 TRUST BOUNDARY DECIDED (planlama); OPERATOR WORKFLOW OPEN:** Gerçek kişi/sorumlu, onay yöntemi, uygulanacak credentials, kanıt/audit ve devreye alma yetkilisi henüz belirlenmedi. Canlı restore ve public endpoint **NO-GO**. |
 | D3 — Restore sonrası geçerli yetki | Eski identity yedeğinden dönüşten sonra revocation ve grant azaltmanın güncel otoritesi nasıl korunur? | Eski identity backup'ının yeni revocation/grant azaltma kararlarını geri almadığı **bağımsız biçimde kanıtlanmalı**. Güncel yetkinin nereden ve hangi rollback sınırının dışından doğrulanacağı ya da nasıl uzlaştırılacağı henüz seçilmedi. Sadece eski audit snapshot'ı veya yeni restore edilmiş membership satırını yeterli saymayın. | D3 **OPEN**. Restore edilmiş ortamda hosted erişim **fail closed** kalmalıdır. |
 | D4 — Yayına alma / hata sınırı | Restore hedefi hangi doğrulama, fencing ve geri dönüş koşullarında etkin hale getirilebilir? | Önce izolasyonlu hedef ve bütünlük/tenant sahiplik/yetki doğrulaması; aktif hedefe geçiş, erişim durdurma, yeniden deneme ve hata halinde kaynak koruma kuralları **ayrı** tanımlanmalı. Mevcut iki DB'nin atomik snapshot/restore'u kanıtlanmadı. | D4 **OPEN**. Üretim veri yoluna restore hedefi bağlanamaz. |
 
@@ -34,9 +34,25 @@ Birleşen [P0-02 kanıt envanteri](2026-10-13-p0-02-hosted-recovery-evidence-gat
 
 **Neden:** [Roadmap'in P0-02 kabulü](../production-roadmap.md) storage-aware backup ve **boş ortama restore** ispatı ister. Yerel [SQLite fiziksel prova](../sqlite-backup-restore.md) ise tüm scope'ları aynı dosyayla taşır ve hosted yetki/kimlik geri yüklemesi değildir. Tenant-seçmeli özelliği erken seçmek, bu eksikleri çözmeden yeni migration/authorization yüzeyi ekler.
 
-**D1'in çözmediği zorunlu kapılar:** D2 güvenilir operatör ve onay sorumlusu; D3 restore sonrası güncel revocation/grant otoritesi (eski yedeğe bakmak yeterli değildir); D4 yalıtılmış hedefte bütünlük, cross-tenant doğrulama ve fail-closed aktivasyon. Sayısal RPO/RTO, retention ve backup güvenliği ayrıca belirlenmelidir. Bunların hiçbiri bu kapsam kararıyla PASS olmaz.
+**D1'in çözmediği zorunlu kapılar:** D2 için güven sınırı belirlenmiş olsa da gerçek operatör ve onay sorumlusu hâlâ açık; D3 restore sonrası güncel revocation/grant otoritesi (eski yedeğe bakmak yeterli değildir); D4 yalıtılmış hedefte bütünlük, cross-tenant doğrulama ve fail-closed aktivasyon. Sayısal RPO/RTO, retention ve backup güvenliği ayrıca belirlenmelidir. Bunların hiçbiri bu kapsam kararıyla PASS olmaz.
 
 **Uygulama izni:** **YOK**. Mevcut hosted built-in handler'lar açılmaz, DB/tenant restore kodu veya test altyapısı eklenmez. TR-01–TR-05 bu karar yüzünden çalıştırılmış sayılmaz. **P0-02 ve public L3 NO-GO** sürer.
+
+## D2 karar kaydı — güvenilen operasyon sınırı, yetkilendirme uygulaması değil
+
+**İlk pilot güven sınırı kararı:** Tam ortam recovery yedeklerinin **bütün tenant/workspace verilerini** içermesi beklenebilir. Yedek okuma, boş hedefe restore denemesi ve hedefi etkin hale getirme, kamuya açık MCP istekleriyle veya workspace üyeliğiyle devredilemez. **Yalnızca dağıtım tarafından güvenilen, uygulama runtime'ından ayrı operasyonel süreç/kişi yetkilendirmesi adayı** olarak tutulur. Henüz gerçek operatör, rol, credential ya da onay yöntemi seçilmedi; bu karar mevcut bir operasyon yüzeyi yaratmaz.
+
+**Mevcut yetkilere yapılamayacak eşleme:**
+
+- [`request-context.ts`](../../src/runtime/request-context.ts) içinde restore veya operasyonel backup yetkisi yoktur. `memory:write`, `cache:manage`, `knowledge:write`, admin benzeri workspace membership veya token scope tek başına restore hakkı vermez. Local trusted stdio context'i de hosted restore yetkisinin yerine geçirilemez.
+- [`0001-hosted-membership.sql`](../../migrations/0001-hosted-membership.sql) workspace/grant read-model şemasıdır. [Membership operator / reader / audit-reader](../hosted-membership-audit.md) DB rolleri yalnızca kimlik yönetimi ve denetimi için tariflenir; bunları backup/restore operatörü olarak yorumlamayın. Ayrı migration owner credential'ı da otomatik olarak recovery approver değildir.
+- [`0002-hosted-membership-audit.sql`](../../migrations/0002-hosted-membership-audit.sql) kimlik tablolarının DML değişikliklerini transaction içinde kaydeder. Restore talebi, insanın onayı, backup erişimi, restore denemesi, veri yayımlama ve reddedilen girişimleri **bu audit otomatik kaydetmez**. `SESSION_USER` paylaşılan service login ise gerçek insanı kanıtlamaz.
+
+**D2'nin henüz verilmemiş operasyon kararları:** Kim isteyebilir ve olay/ticket bağlamını kim doğrular? Kim onaylar, hangi kimlik/credential ile yürütür ve ayrı hedefi kim kontrol eder? Kim yayına alma talimatını verip D3/D4 kanıtlarını kabul eder? İzin/backup kapsamı, görev ayrımı gereksinimi, kanıt kaydı, erişim iptali ve acil erişim prosedürü onaylanmadan **işletim yetkisi verilmiş sayılmaz**. İki-kişi onayı, yeni IAM platformu veya kalıcı admin panel bu belgeyle zorunlu teknoloji/uygulama kararı haline getirilmez.
+
+**Doğrulanması gereken olumsuz senaryolar (henüz NOT RUN):** Normal hosted token/workspace izniyle restore denemesi **deny**; local fallback ve değiştirilebilir request context **deny**; yetkisiz backup okumaları **deny**; kimliği/onayı doğrulanamayan operatör veya kaydı olmayan işlem **fail closed**; yalnızca backup/restore başarı logu, güncel revocation'a (D3) veya güvenli aktivasyona (D4) kanıt sayılmaz. Bu satırlar uygulanmış test değil, gelecekteki yetki/operasyon kabul girdileridir.
+
+**Sabit sınır:** D2 güven sınırının belgelenmesi, restore komutu, kontrol paneli, approval servisi, SQL/secret/role yaratımı, yeni MCP permission, aktif veri taşıma veya deployment izni değildir. P0-06 kullanıcı verisi silme/export yükümlülükleri bundan bağımsızdır. D2 operasyon akışı, D3 ve D4 kapıları açık kaldığından **P0-02 ve public L3 NO-GO**.
 
 ## Ayrı ele alınması gereken iki senaryo
 
@@ -60,8 +76,8 @@ Birleşen [P0-02 kanıt envanteri](2026-10-13-p0-02-hosted-recovery-evidence-gat
 
 ## PASS / HOLD kararı
 
-**PASS (yalnızca D1 kapsam kararı belgesi):** D1'in yalnızca pilot kabul kapsamını sınırladığı, R-A/R-B farkı, D2–D4 açık durumu ve TR senaryolarının NOT RUN olduğu kaynaklarla doğrulanır; bağlantılar ve exact-head CI kontrol edilir, bağımsız review tamamlanır.
+**PASS (yalnızca D1/D2 kapsam belgesi):** D1 pilot kapsamı ve D2 güven sınırının yürütme yetkisi olmadığını, D2 operatör akışı ile D3–D4'ün açık kaldığını, R-A/R-B ayrımını ve TR senaryolarının NOT RUN olduğunu doğrulayın; bağlantılar, exact-head CI ve bağımsız doküman review tamamlanmalı.
 
-**HOLD:** D1 planlama kapsamını belirler, fakat **D2–D4 henüz OPEN**. Operasyon/security yetki ve gereksinimleri ayrı onay alana kadar P0-02 restore test uygulaması, depolama migration'ı, restore aracı, **R-B kapsamındaki seçmeli tenant export/restore**, hosted pilot veya yeni P0-02 altyapı çalışması başlatılmaz. Bu HOLD, P0-06 kullanıcı verisi silme/export, retention ve graph temizliği yükümlülüklerini kapsamaz; bu işler kendi ayrı kabul kapılarına tabidir.
+**HOLD:** D1 pilot kapsamı ve D2 güven sınırı belirlenmiştir; ancak **D2 operasyonel sorumluluk/kanıt ile D3–D4 hâlâ OPEN**. Operasyon/security yetki ve gereksinimleri ayrı onay alana kadar P0-02 restore test uygulaması, depolama migration'ı, restore aracı, **R-B kapsamındaki seçmeli tenant export/restore**, hosted pilot veya yeni P0-02 altyapı çalışması başlatılmaz. Bu HOLD, P0-06 kullanıcı verisi silme/export, retention ve graph temizliği yükümlülüklerini kapsamaz; bu işler kendi ayrı kabul kapılarına tabidir.
 
 **P0-02 / L3 sonucu:** **NO-GO değişmedi.** Bu dosyanın birleşmesi P0-02 tamamlandı, DR sertifikalandı veya public L3 yetkilendirildi anlamına gelmez.
