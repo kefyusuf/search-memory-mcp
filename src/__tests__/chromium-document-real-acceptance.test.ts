@@ -77,6 +77,7 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
         vi.spyOn(fetcher as never, "isFetchUrlAllowed" as never).mockResolvedValue(true as never);
         const nodeFetch = vi.fn();
         vi.stubGlobal("fetch", nodeFetch);
+        const reader = vi.spyOn(fetcher as never, "fetchViaReader" as never);
         try {
           const result = await fetcher.fetchContent(origin + check.path, true);
           if (check.success) {
@@ -85,7 +86,8 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
           } else {
             expect(result, check.path).toEqual({ kind: "error", reason: "fetch_failed" });
           }
-          expect(nodeFetch, check.path + " must not invoke reader").not.toHaveBeenCalled();
+          expect(reader, check.path + " must not invoke reader").not.toHaveBeenCalled();
+          expect(nodeFetch, check.path + " must not send alternate HTTP request").not.toHaveBeenCalled();
         } finally {
           fetcher.close(); cache.close();
           await context.close();
@@ -111,9 +113,11 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
       const { fetcher, cache } = fetcherFor(context, 256, "https://markdown.new/");
       const nodeFetch = vi.fn();
       vi.stubGlobal("fetch", nodeFetch);
+      const reader = vi.spyOn(fetcher as never, "fetchViaReader" as never);
       try {
         const result = await fetcher.fetchContent("https://example.com/", true);
         expect(result).toEqual({ kind: "error", reason: "fetch_failed" });
+        expect(reader).not.toHaveBeenCalled();
         expect(nodeFetch).not.toHaveBeenCalled();
       } finally {
         fetcher.close(); cache.close();
