@@ -13,6 +13,8 @@ import { openGuardedBrowserContext } from "../security/browser-egress-proxy.js";
 
 const BODY = `<html><head><title>Real Chromium Budget</title></head><body><article><p>${"Real renderer acceptance content. ".repeat(90)}</p></article></body></html>`;
 const LIMIT = 512;
+const UNICODE_BODY = `<html><head><title>Multilingual article</title></head><body><article><p>${"İstanbul — 日本語 — Ελληνικά — 🌍 ".repeat(80)}</p></article></body></html>`;
+const RESOURCES_BODY = `<html><head><title>Resource isolation</title><script src="/large-script"></script></head><body><article><p>${"Main document with an external script and an iframe. ".repeat(75)}</p></article><iframe src="/large-iframe"></iframe></body></html>`;
 
 function fetcherFor(context: BrowserContext, budget: number, readerUrl?: string) {
   const cache = new SemanticCache(
@@ -39,8 +41,16 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
       if (path === "/redirect") {
         res.writeHead(302, { location: "/small" }); res.end(); return;
       }
+      if (path === "/large-script") {
+        res.writeHead(200, { "content-type": "application/javascript" });
+        res.end("/* " + "script-data ".repeat(5000) + " */"); return;
+      }
       const html = path === "/small"
         ? BODY
+        : path === "/unicode"
+          ? UNICODE_BODY
+          : path === "/with-resources"
+            ? RESOURCES_BODY
         : path === "/short"
           ? "<html><title>Small</title><body>plain</body></html>"
           : BODY + "x".repeat(8192);
@@ -64,6 +74,8 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
     try {
       const cases = [
         { path: "/small", budget: Buffer.byteLength(BODY), success: true },
+        { path: "/unicode", budget: Buffer.byteLength(UNICODE_BODY), success: true },
+        { path: "/with-resources", budget: Buffer.byteLength(RESOURCES_BODY), success: true },
         { path: "/large-chunked", budget: LIMIT, success: false },
         { path: "/large-gzip-chunked", budget: LIMIT, success: false },
         { path: "/large-brotli-chunked", budget: LIMIT, success: false },
@@ -82,7 +94,11 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
           const result = await fetcher.fetchContent(origin + check.path, true);
           if (check.success) {
             expect(result.kind, check.path).toBe("content");
-            if (result.kind === "content") expect(result.source).toBe("playwright");
+            if (result.kind === "content") {
+              expect(result.source).toBe("playwright");
+              if (check.path === "/unicode") expect(result.text).toContain("İstanbul");
+              if (check.path === "/with-resources") expect(result.text).toContain("Main document");
+            }
           } else {
             expect(result, check.path).toEqual({ kind: "error", reason: "fetch_failed" });
           }
