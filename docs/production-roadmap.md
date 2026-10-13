@@ -1,5 +1,7 @@
 # Üretime geçiş roadmap'i
 
+> **13 Ekim 2026 durum uzlaştırması:** [P0 kanıt matrisi ve kalan public-hosted kabul kapıları](research/2026-10-13-p0-evidence-reconciliation.md). Aşağıdaki 2 Ekim planı ve risk gözlemleri tarihsel başlangıçtır; tamamlanan P0-03 byte-cap ve yerel SQLite/Docker alt kapsamlarını yeniden açık iş saymayın. Bu bağlantı L3 yayına hazır onayı değildir.
+
 Tarih: 2 Ekim 2026. Durum: araştırma ve kod incelemesine dayalı öneri; bu dosyadaki işler uygulanmış sayılmaz. Kaynaklı sektör karşılaştırması: [araştırma notu](research/2026-10-02-production-benchmark.md).
 
 Uygulama kaydı: ilk geliştirme dalında P0-01'in domain/date cache doğruluğu alt kapsamı TDD ile uygulandı. Namespace filtrelemesi vector-store limiti öncesine alındı; filtered/unfiltered ve deep-hit senaryoları için regression testleri eklendi. Tenant-aware cache/storage ve public auth/isolation bu değişikliğin kapsamına dahil değildir; P0-01'in tamamı bitmiş sayılmaz.
