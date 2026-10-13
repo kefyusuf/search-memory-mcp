@@ -221,6 +221,22 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     expect(big.detach).toHaveBeenCalledOnce();
   });
 
+  it("bounds a stalled Playwright newCDPSession before browser navigation", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture([]);
+      const context = {
+        newCDPSession: vi.fn(() => new Promise<CDPSession>(() => {})),
+      } as unknown as BrowserContext;
+      const initialization = interceptBoundedMainDocument(context, f.page, 100);
+      // Assert rejection before firing the timer to avoid unhandled-rejection noise.
+      const rejected = expect(initialization).rejects.toThrow("CDP newCDPSession stalled");
+      await vi.advanceTimersByTimeAsync(15_001);
+      await rejected;
+      expect(context.newCDPSession).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
   for (const method of ["Page.getFrameTree", "Fetch.enable"] as const) {
     it(`bounds stalled CDP initialization at ${method} and detaches the page session`, async () => {
       vi.useFakeTimers();
