@@ -104,7 +104,22 @@ export async function interceptBoundedMainDocument(
   context: BrowserContext, page: Page, maxBytes: number,
 ): Promise<BoundedDocumentInterceptor> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error("Invalid document byte budget");
-  const session = await withDeadline(context.newCDPSession(page), "newCDPSession", CDP_SETTLE_TIMEOUT_MS);
+  const sessionCreation = context.newCDPSession(page);
+  let session: CDPSession;
+  try {
+    session = await withDeadline(sessionCreation, "newCDPSession", CDP_SETTLE_TIMEOUT_MS);
+  } catch (error) {
+    // A timed-out Playwright operation may still create a session later.
+    // Reclaim that late result rather than leaving an untracked CDP session.
+    // A broken browser connection can make detach impossible: best effort.
+    void sessionCreation.then(
+      lateSession => withDeadline(
+        lateSession.detach(), "late session detach", CDP_SETTLE_TIMEOUT_MS,
+      ).catch(() => {}),
+      () => {},
+    );
+    throw error;
+  }
   let enabled = false;
   let disposed = false;
   let failure: DocumentBudgetFailure | null = null;
