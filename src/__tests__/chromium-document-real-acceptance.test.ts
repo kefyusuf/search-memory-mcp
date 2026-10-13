@@ -32,7 +32,7 @@ function fetcherFor(context: BrowserContext, budget: number, readerUrl?: string)
   return { fetcher, cache };
 }
 
-describe("P0-03C ContentFetcher real Chromium acceptance (one-off final implementation acceptance)", () => {
+describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher real Chromium acceptance", () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it("enforces the main document budget through actual Chromium for plain, chunked, gzip, Brotli and redirect", async () => {
