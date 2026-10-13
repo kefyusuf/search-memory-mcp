@@ -1,5 +1,7 @@
 # Development status
 
+> **Current evidence (2026-10-13):** [P0 scope/evidence reconciliation](research/2026-10-13-p0-evidence-reconciliation.md) on main `b444df1`. The 2026-10-06 integration/test counts and the historical checkpoint sections below are retained as snapshots, **not** the current CI baseline or public-hosted launch approval. P0-03 body-budget #61 is closed, while other P0 launch gates remain partial.
+
 Updated: 2026-10-06.
 
 Integration checkpoint: the implementation developed in PRs #10 through #26 is consolidated into `main` through sequential merge commits. Each PR is retargeted to `main`, incorporates the preceding main revision, and must pass fresh current-head CI before merging. The dependency security patches are also carried by the first PR so intermediate integration revisions retain patched proxy-addr/source-map-js resolutions. Resume development from verified `main`; the branch/PR checkpoints below describe historical increments rather than an outstanding development stack. The combined verification baseline is 551 unit/regression tests, 30 real PostgreSQL checks, build/typecheck, compiled MCP smoke, dependency audit and package qualification. Check live Git/CI state before relying on this record.
