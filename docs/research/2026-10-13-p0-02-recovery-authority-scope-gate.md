@@ -62,6 +62,6 @@ Birleşen [P0-02 kanıt envanteri](2026-10-13-p0-02-hosted-recovery-evidence-gat
 
 **PASS (yalnızca D1 kapsam kararı belgesi):** D1'in yalnızca pilot kabul kapsamını sınırladığı, R-A/R-B farkı, D2–D4 açık durumu ve TR senaryolarının NOT RUN olduğu kaynaklarla doğrulanır; bağlantılar ve exact-head CI kontrol edilir, bağımsız review tamamlanır.
 
-**HOLD:** D1 planlama kapsamını belirler, fakat **D2–D4 henüz OPEN**. Operasyon/security yetki ve gereksinimleri ayrı onay alana kadar test uygulaması, depolama migration'ı, restore aracı, tenant export, hosted pilot veya yeni altyapı çalışması başlatılmaz.
+**HOLD:** D1 planlama kapsamını belirler, fakat **D2–D4 henüz OPEN**. Operasyon/security yetki ve gereksinimleri ayrı onay alana kadar P0-02 restore test uygulaması, depolama migration'ı, restore aracı, **R-B kapsamındaki seçmeli tenant export/restore**, hosted pilot veya yeni P0-02 altyapı çalışması başlatılmaz. Bu HOLD, P0-06 kullanıcı verisi silme/export, retention ve graph temizliği yükümlülüklerini kapsamaz; bu işler kendi ayrı kabul kapılarına tabidir.
 
 **P0-02 / L3 sonucu:** **NO-GO değişmedi.** Bu dosyanın birleşmesi P0-02 tamamlandı, DR sertifikalandı veya public L3 yetkilendirildi anlamına gelmez.
