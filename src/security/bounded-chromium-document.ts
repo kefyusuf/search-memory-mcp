@@ -32,9 +32,11 @@ function isRedirect(code: number): boolean {
 }
 
 /**
- * CDP IO.read may yield a plain UTF-8 string instead of original octets.
- * We can safely reconstruct ASCII; for non-ASCII plain strings fail closed
- * rather than miscounting an unknown original charset. Base64 preserves bytes.
+ * CDP IO.read returns either base64 for binary chunks or a Unicode string
+ * representing a UTF-8 chunk. Count UTF-8 octets (not JS string length).
+ * Fail closed if a plain chunk includes replacement characters or malformed
+ * surrogate sequences, because its original bytes cannot be proven intact.
+ * A legacy/non-UTF-8 body must arrive as base64 to be accepted byte-for-byte.
  */
 function decodeChunk(result: { data: string; base64Encoded?: boolean }): Buffer {
   if (result.base64Encoded) {
@@ -43,10 +45,11 @@ function decodeChunk(result: { data: string; base64Encoded?: boolean }): Buffer 
     }
     return Buffer.from(result.data, "base64");
   }
-  if (/[^\x00-\x7f]/.test(result.data)) {
-    throw new Error("Non-ASCII CDP text cannot be reconstructed losslessly");
+  const bytes = Buffer.from(result.data, "utf8");
+  if (result.data.includes("\uFFFD") || bytes.toString("utf8") !== result.data) {
+    throw new Error("CDP text chunk cannot be round-tripped as UTF-8");
   }
-  return Buffer.from(result.data, "ascii");
+  return bytes;
 }
 
 function safeReplayHeaders(original: Header[] | undefined, length: number): Header[] {
