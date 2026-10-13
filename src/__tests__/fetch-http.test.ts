@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EventEmitter } from "node:events";
 import { promises as dns } from "node:dns";
 import type { BrowserContext } from "playwright";
 import { ContentFetcher } from "../fetch-module.js";
@@ -495,15 +496,29 @@ describe("ContentFetcher", () => {
   });
 
   it("falls back to Playwright when HTTP fetch cannot produce an article", async () => {
+    const html = `<html><head><title>Rendered</title></head><body><article><p>${"rendered ".repeat(80)}</p></article></body></html>`;
+    const events = new EventEmitter();
+    const send = vi.fn(async (method: string) => {
+      if (method === "Page.getFrameTree") return { frameTree: { frame: { id: "main" } } };
+      if (method === "Fetch.takeResponseBodyAsStream") return { stream: "s" };
+      if (method === "IO.read") return { data: Buffer.from(html).toString("base64"), base64Encoded: true, eof: true };
+      return {};
+    });
+    const session = Object.assign(events, { send, detach: vi.fn(async () => {}) });
     const page = {
       route: vi.fn().mockResolvedValue(undefined),
-      goto: vi.fn().mockResolvedValue({
-        body: async () => Buffer.from(`<html><head><title>Rendered</title></head><body><article><p>${"rendered ".repeat(80)}</p></article></body></html>`),
+      goto: vi.fn(async () => {
+        events.emit("Fetch.requestPaused", {
+          requestId: "main-response", frameId: "main", resourceType: "Document",
+          responseStatusCode: 200, responseHeaders: [{ name: "content-type", value: "text/html" }],
+        });
+        return { status: () => 200 };
       }),
       close: vi.fn().mockResolvedValue(undefined),
     };
     const browserContext = {
       newPage: vi.fn().mockResolvedValue(page),
+      newCDPSession: vi.fn(async () => session),
     } as unknown as BrowserContext;
     const { fetcher } = createFetcher({
       getBrowserContext: async () => browserContext,
