@@ -199,6 +199,38 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     expect(big.detach).toHaveBeenCalledOnce();
   });
 
+  for (const method of ["Page.getFrameTree", "Fetch.enable"] as const) {
+    it(`bounds stalled CDP initialization at ${method} and detaches the page session`, async () => {
+      vi.useFakeTimers();
+      try {
+        const f = fixture([], method);
+        const initialize = interceptBoundedMainDocument(f.context, f.page, 100);
+        // Allow async newCDPSession before advancing the protocol timeout.
+        await vi.advanceTimersByTimeAsync(15_001);
+        await expect(initialize).rejects.toThrow(`CDP ${method} stalled`);
+        expect(f.detach).toHaveBeenCalledOnce();
+      } finally { vi.useRealTimers(); }
+    });
+  }
+
+  for (const method of ["Fetch.fulfillRequest", "IO.close"] as const) {
+    it(`fails closed if ${method} remains stalled on an otherwise valid document`, async () => {
+      vi.useFakeTimers();
+      try {
+        const f = fixture([base64("OK")], method);
+        const gate = await interceptBoundedMainDocument(f.context, f.page, 2);
+        f.events.emit("Fetch.requestPaused", mainResponse());
+        const settlement = gate.settle();
+        await vi.advanceTimersByTimeAsync(15_001);
+        await settlement;
+        expect(gate.terminal()).toBe("interception_failed");
+        expect(gate.captured()).toBeNull();
+        await gate.close();
+        expect(f.detach).toHaveBeenCalledOnce();
+      } finally { vi.useRealTimers(); }
+    });
+  }
+
   it("does not claim a successful body when CDP never observes main-frame Document", async () => {
     const f = fixture([]);
     const gate = await interceptBoundedMainDocument(f.context, f.page, 10);
