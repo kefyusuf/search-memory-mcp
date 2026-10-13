@@ -22,12 +22,13 @@ const mainResponse = (requestId = "main", overrides: Partial<Paused> = {}): Paus
   responseStatusCode: 200, responseHeaders: headers, ...overrides,
 });
 
-function fixture(reads: Array<ReadReply | Error>) {
+function fixture(reads: Array<ReadReply | Error>, stalledMethod?: string) {
   const events = new EventEmitter();
   let readIndex = 0;
   const sent: Array<{ method: string; args: Record<string, unknown> }> = [];
   const send = vi.fn(async (method: string, args: Record<string, unknown> = {}): Promise<any> => {
     sent.push({ method, args });
+    if (method === stalledMethod) return new Promise<never>(() => {});
     if (method === "Page.getFrameTree") return { frameTree: { frame: { id: FRAME } } };
     if (method === "Fetch.takeResponseBodyAsStream") return { stream: "stream-1" };
     if (method === "IO.read") {
@@ -144,6 +145,58 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     expect(gate.terminal()).toBe("interception_failed");
     expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
     await gate.close();
+  });
+
+  it("fails closed if a non-document paused request never finishes continuing", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture([], "Fetch.continueResponse");
+      const gate = await interceptBoundedMainDocument(f.context, f.page, 10);
+      f.events.emit("Fetch.requestPaused", mainResponse("script", { resourceType: "Script" }));
+      const settlement = gate.settle();
+      await vi.advanceTimersByTimeAsync(15_001);
+      await settlement;
+      expect(gate.terminal()).toBe("interception_failed");
+      expect(gate.captured()).toBeNull();
+      await gate.close();
+      expect(f.detach).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("fails closed if Fetch.disable hangs, and still detaches the page-scoped session", async () => {
+    vi.useFakeTimers();
+    try {
+      const f = fixture([base64("OK")], "Fetch.disable");
+      const gate = await interceptBoundedMainDocument(f.context, f.page, 2);
+      f.events.emit("Fetch.requestPaused", mainResponse());
+      await gate.settle();
+      expect(gate.captured()?.body.toString()).toBe("OK");
+      const closing = gate.close();
+      await vi.advanceTimersByTimeAsync(15_001);
+      await closing;
+      expect(gate.terminal()).toBe("interception_failed");
+      expect(gate.captured()).toBeNull();
+      expect(f.detach).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("isolates captured bytes and oversize failures across concurrent page sessions", async () => {
+    const ok = fixture([base64("OK")]);
+    const big = fixture([{ data: "OVER", eof: true }]);
+    const [okGate, bigGate] = await Promise.all([
+      interceptBoundedMainDocument(ok.context, ok.page, 2),
+      interceptBoundedMainDocument(big.context, big.page, 2),
+    ]);
+    ok.events.emit("Fetch.requestPaused", mainResponse("ok"));
+    big.events.emit("Fetch.requestPaused", mainResponse("big"));
+    await Promise.all([okGate.settle(), bigGate.settle()]);
+    expect(okGate.captured()?.body.toString()).toBe("OK");
+    expect(okGate.terminal()).toBeNull();
+    expect(bigGate.captured()).toBeNull();
+    expect(bigGate.terminal()).toBe("oversize");
+    await Promise.all([okGate.close(), bigGate.close()]);
+    expect(ok.detach).toHaveBeenCalledOnce();
+    expect(big.detach).toHaveBeenCalledOnce();
   });
 
   it("does not claim a successful body when CDP never observes main-frame Document", async () => {
