@@ -30,7 +30,7 @@ Birleşen [P0-02 kanıt envanteri](2026-10-13-p0-02-hosted-recovery-evidence-gat
 
 **Seçim:** İlk hosted pilotun P0-02 kurtarma kabul hedefi **R-A: uygulama verisi ve ayrı identity/audit deposu için güvenli, boş ve yalıtılmış ortamda tam kurtarma senaryosudur**. Bu, teknik depolama mimarisi, iki bağımsız deponun atomik restore yöntemi veya tamamlanmış DR tatbikatı seçimi değildir.
 
-**Kapsam dışı / HOLD:** Tek tenant/workspace seçerek import, restore, export, silme/rollback UI veya yeni MCP tool'u ilk pilotun gerekli özelliği sayılmaz. Gelecekte doğrulanmış müşteri ihtiyacı, maliyet/fayda ve ayrı izinli iş birimi bulunursa D1 revize edilebilir.
+**Kapsam dışı / HOLD (yalnızca seçmeli restore özelliği):** Tek tenant/workspace için geçmiş backup/snapshot'tan seçmeli import/restore, bu işleme özgü rollback UI'si veya yeni restore MCP tool'u ilk pilotun gerekli özelliği sayılmaz. Bu HOLD, [roadmap'deki](../production-roadmap.md) **kullanıcı verisi silme/export, belge ve graph temizliği, retention/deletion** yükümlülüklerini ertelemez; bunlar D1'den ayrı kabul kapılarıdır. Gelecekte doğrulanmış müşteri ihtiyacı, maliyet/fayda ve ayrı izinli iş birimi bulunursa seçmeli restore kapsamı yeniden değerlendirilebilir.
 
 **Neden:** [Roadmap'in P0-02 kabulü](../production-roadmap.md) storage-aware backup ve **boş ortama restore** ispatı ister. Yerel [SQLite fiziksel prova](../sqlite-backup-restore.md) ise tüm scope'ları aynı dosyayla taşır ve hosted yetki/kimlik geri yüklemesi değildir. Tenant-seçmeli özelliği erken seçmek, bu eksikleri çözmeden yeni migration/authorization yüzeyi ekler.
 
