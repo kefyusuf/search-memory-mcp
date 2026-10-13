@@ -457,6 +457,12 @@ export class ContentFetcher {
       if (documentBudget.terminal()) {
         return { kind: "terminal_browser_failure", cause: documentBudget.terminal()! };
       }
+      // Complete CDP teardown before parsing/persisting. Teardown failure is
+      // terminal and must never leave a successful cached article behind.
+      await documentBudget.close();
+      if (documentBudget.terminal()) {
+        return { kind: "terminal_browser_failure", cause: documentBudget.terminal()! };
+      }
       const buffer = documentBudget.captured()?.body;
       if (!response || !buffer) {
         return { kind: "terminal_browser_failure", cause: "interception_failed" };
