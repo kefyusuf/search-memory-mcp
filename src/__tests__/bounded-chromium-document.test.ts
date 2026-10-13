@@ -205,9 +205,11 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
       try {
         const f = fixture([], method);
         const initialize = interceptBoundedMainDocument(f.context, f.page, 100);
-        // Allow async newCDPSession before advancing the protocol timeout.
+        // Attach the rejection assertion BEFORE advancing fake timers so
+        // an expected timeout is never reported as an unhandled rejection.
+        const rejected = expect(initialize).rejects.toThrow(`CDP ${method} stalled`);
         await vi.advanceTimersByTimeAsync(15_001);
-        await expect(initialize).rejects.toThrow(`CDP ${method} stalled`);
+        await rejected;
         expect(f.detach).toHaveBeenCalledOnce();
       } finally { vi.useRealTimers(); }
     });
