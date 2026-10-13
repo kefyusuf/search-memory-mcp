@@ -104,7 +104,7 @@ export async function interceptBoundedMainDocument(
   context: BrowserContext, page: Page, maxBytes: number,
 ): Promise<BoundedDocumentInterceptor> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error("Invalid document byte budget");
-  const session = await context.newCDPSession(page);
+  const session = await withDeadline(context.newCDPSession(page), "newCDPSession", CDP_SETTLE_TIMEOUT_MS);
   let enabled = false;
   let disposed = false;
   let failure: DocumentBudgetFailure | null = null;
