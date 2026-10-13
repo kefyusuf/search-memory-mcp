@@ -56,7 +56,7 @@ function setup(readChunks: Array<{ data: string; base64Encoded?: boolean; eof: b
     maxHtmlBytes,
     ...(readerFallbackUrl ? { readerFallbackUrl } : {}),
   });
-  return { page, session, send, cache, fetcher };
+  return { page, session, send, cache, fetcher, context };
 }
 
 describe("ContentFetcher Chromium CDP integration (offline)", () => {
@@ -118,6 +118,26 @@ describe("ContentFetcher Chromium CDP integration (offline)", () => {
     expect(f.page.goto).toHaveBeenCalledTimes(2);
     expect(reader).not.toHaveBeenCalled();
     expect(persist).not.toHaveBeenCalled();
+    f.fetcher.close(); f.cache.close();
+  });
+
+  it("fails closed when the page's CDP session cannot be created, without reader fallback", async () => {
+    const f = setup([], 2048, "https://markdown.new/");
+    vi.spyOn(f.context, "newCDPSession").mockRejectedValue(new Error("CDP unavailable"));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const reader = vi.spyOn(f.fetcher as never, "fetchViaReader" as never);
+    const persist = vi.spyOn(f.cache, "setCachedContent");
+
+    await expect(f.fetcher.fetchContent(URL, true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(f.context.newCDPSession).toHaveBeenCalledOnce();
+    expect(f.page.goto).not.toHaveBeenCalled();
+    expect(reader).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+    expect(f.page.close).toHaveBeenCalledOnce();
+
     f.fetcher.close(); f.cache.close();
   });
 
