@@ -10,7 +10,8 @@ const URL = "https://example.com/rendered";
 const HTML = `<html><head><title>Bounded</title></head><body><article><p>${"bounded content ".repeat(75)}</p></article></body></html>`;
 
 function setup(readChunks: Array<{ data: string; base64Encoded?: boolean; eof: boolean } | Error>,
-  maxHtmlBytes: number, readerFallbackUrl?: string) {
+  maxHtmlBytes: number, readerFallbackUrl?: string,
+  waitUntil: "domcontentloaded" | "networkidle" = "domcontentloaded") {
   const events = new EventEmitter();
   const cache = new SemanticCache(
     { getEmbedding: async () => new Array(384).fill(0.01), isAvailable: () => true },
@@ -50,7 +51,7 @@ function setup(readChunks: Array<{ data: string; base64Encoded?: boolean; eof: b
   const fetcher = new ContentFetcher({
     cache,
     getBrowserContext: async () => context,
-    fetchWaitUntil: "domcontentloaded",
+    fetchWaitUntil: waitUntil,
     forcePlaywright: () => true,
     maxHtmlBytes,
     ...(readerFallbackUrl ? { readerFallbackUrl } : {}),
@@ -96,6 +97,27 @@ describe("ContentFetcher Chromium CDP integration (offline)", () => {
     expect(f.send.mock.calls.some(([method]) => method === "Fetch.fulfillRequest")).toBe(false);
     expect(f.session.detach).toHaveBeenCalledOnce();
     expect(f.page.close).toHaveBeenCalledOnce();
+    f.fetcher.close(); f.cache.close();
+  });
+
+  it("does not reuse an earlier captured HTML body after a networkidle timeout and retry", async () => {
+    const f = setup([{ data: Buffer.from(HTML).toString("base64"), base64Encoded: true, eof: true }],
+      Buffer.byteLength(HTML), "https://markdown.new/", "networkidle");
+    const firstNavigation = f.page.goto.getMockImplementation()!;
+    f.page.goto.mockImplementationOnce(async () => {
+      await firstNavigation(); // First main frame was captured successfully.
+      const error = new Error("networkidle timeout");
+      error.name = "TimeoutError";
+      throw error;
+    }).mockImplementationOnce(async () => ({ status: () => 200 })); // No second Document!
+    const reader = vi.spyOn(f.fetcher as never, "fetchViaReader" as never);
+    const persist = vi.spyOn(f.cache, "setCachedContent");
+
+    await expect(f.fetcher.fetchContent(URL, true))
+      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    expect(f.page.goto).toHaveBeenCalledTimes(2);
+    expect(reader).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
     f.fetcher.close(); f.cache.close();
   });
 
