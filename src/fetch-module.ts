@@ -439,6 +439,9 @@ export class ContentFetcher {
         if (!shouldRetry) throw error;
 
         console.error(`Fetch navigation timed out with networkidle for ${url}, retrying with domcontentloaded`);
+        // Never parse the previous navigation's successfully intercepted
+        // bytes if a subsequent page.goto resolves without a captured body.
+        documentBudget.resetForNavigation();
         try {
           response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
         } catch (retryError) {
