@@ -54,6 +54,22 @@ Birleşen [P0-02 kanıt envanteri](2026-10-13-p0-02-hosted-recovery-evidence-gat
 
 **Sabit sınır:** D2 güven sınırının belgelenmesi, restore komutu, kontrol paneli, approval servisi, SQL/secret/role yaratımı, yeni MCP permission, aktif veri taşıma veya deployment izni değildir. P0-06 kullanıcı verisi silme/export yükümlülükleri bundan bağımsızdır. D2 operasyon akışı, D3 ve D4 kapıları açık kaldığından **P0-02 ve public L3 NO-GO**.
 
+## D2 operasyonel kanıt matrisi — kabul tasarımı, uygulanmış kontrol değil
+
+Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurtarma)** için asgari *kanıt ihtiyacını* tanımlar; ürün/operasyon yetkilisi, rol ayrımı, ticket/IAM, imza formatı veya restore mekanizması seçmez. Her satır **NOT RUN / D2 OPERATOR WORKFLOW OPEN**; bugünkü [membership audit](../hosted-membership-audit.md) veya başarılı genel CI bu kanıtları üretmez. Kayıtların kim tarafından, hangi güvenilen ve geri yüklemeden etkilenmeyen kanalda tutulacağı ayrı operatör kararıdır.
+
+| ID | Operasyon sınırı | İlerde doğrulanacak asgari kayıt / ilişki | Eksik veya tutarsızsa |
+| --- | --- | --- | --- |
+| D2-E1 | Talep | Kimliği doğrulanmış talep sahibi, gerekçe/olay referansı, etkilenen ortam ve **tam** backup kapsamı; ayrı hedef kimliğiyle eşleştirilmiş **restore öncesi boş hedef durumu doğrulama kanıtı** (ne zaman ve hangi hedef için doğrulandığı); gerçek müşteri verisi/sır içermeyen izlenebilir işlem referansı | Talep, hedef kimliği veya aynı hedefin restore öncesi boş olduğuna ilişkin kanıt yoksa recovery başlatılmaz |
+| D2-E2 | Yetki/onay | Güvenilen operasyon otoritesinin **o talep, backup ve hedefe özgü** onayı, onaylayan kimlik ve karar kaydı; onay sahibi/ikinci kişi zorunluluğu henüz seçilmedi | Onaysız, iptal edilmiş veya farklı hedefe taşınmış talep reddedilir |
+| D2-E3 | Yürütme | Kimliği doğrulanan yürütücü ve onay kaydına bağlanan işlem, seçilen backup/hedef, başlangıç, sonuç ve kısmi hata izi; yetki, mevcut MCP scope'larından/DB üyeliğinden türetilemez | Bağ koparsa işlem durdurulur; belirsiz sonuç başarı sayılmaz |
+| D2-E4 | Bağımsız doğrulama için devir | Restore edilen **yalıtılmış hedefe** ait bütünlük ve tenant sınırı bulgularının hangi kontrolcüye sunulduğu; **D3 güncel revocation kanıtının** ayrıca gerekli olduğu açıkça kaydedilir | Yalnızca restore logu veya geçmiş audit snapshot'ı yeterli değildir; hedef veri sunamaz |
+| D2-E5 | Aktivasyon talebi | D2 operasyon yetkisinin **D4'teki ayrı aktivasyon/fencing kararının yerine geçmediği**; varsa go/no-go kararı ile hedef/revizyon eşlemesi | D4 kanıtı ve yetkili aktivasyon kararı yoksa hedef üretim trafiğine bağlanmaz |
+
+**Negatif kabul kapısı (NOT RUN):** Normal hosted token, local trusted context, membership DB operator/owner rolü veya yalnızca `SESSION_USER` kaydı ile E1–E5 atlanamaz. Onay iptali, backup/hedef değişimi, sahte yetkili, eksik audit bağlantısı, kısmi yürütme ve otoriteye erişememe **deny/fail closed** gerektirir; aktif kaynak korunur. Bu ifadeler tasarlanmış test beklentileridir, bugünkü otomatik enforcement/operasyon prosedürü değildir.
+
+**Açık karar:** Güvenilen gerçek kişi/organizasyon, görev ayrımı, onay kanalı, kanıtın saklanması/retention, erişim iptali ve acil erişim (break-glass) prosedürü ayrıca kararlaştırılmalıdır. D2'nin bu matrisi D3'ün taze yetki otoritesini veya D4'ün atomik/yalıtılmış yayına alma sınırını çözmez; **TR-01–TR-05 NOT RUN, P0-02/public L3 NO-GO** devam eder.
+
 ## Ayrı ele alınması gereken iki senaryo
 
 **R-A — Tam ortam felaket kurtarması (ilk hedef adayı):** Tüm scope'ların aynı fiziksel imajda yer alması beklenebilir, ancak backup ve hedef yalnızca yetkili operatöre açık olmalıdır. Canlı trafiğe dönmeden önce veri bütünlüğü, cross-tenant isolation, identity/audit ile güvenli yetki uzlaştırması ve bozulmuş/eksik backup'ta fail-closed kanıtı gerekir. Bu senaryo **D1 kapsamında ilk pilot için hedeflenen kurtarma granülerliğidir**; henüz uygulanmış veya hosted ortamda yeterli şekilde test edilmiş değildir. D2–D4 çözülmeden restore yayımlanmaz.
