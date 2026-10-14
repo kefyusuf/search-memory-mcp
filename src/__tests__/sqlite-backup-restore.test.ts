@@ -165,6 +165,7 @@ it("TR-01: a physical SQLite backup retains every scope, not just tenant A", asy
       expect(restored.memory.list().map(note => note.text)).toEqual(["private-note-" + scope.label]);
       expect(restored.index.listDocs().map(doc => doc.title)).toEqual([scope.label]);
       expect(restored.graph.getStats().docCount).toBe(1);
+      expect(restored.graph.docsForEntity("Kubernetes").map(doc => doc.title)).toEqual([scope.label]);
     }
   } finally {
     for (const index of indexes) await index.flush();
