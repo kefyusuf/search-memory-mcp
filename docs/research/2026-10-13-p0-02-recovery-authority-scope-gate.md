@@ -60,7 +60,7 @@ Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurt
 
 | ID | Operasyon sınırı | İlerde doğrulanacak asgari kayıt / ilişki | Eksik veya tutarsızsa |
 | --- | --- | --- | --- |
-| D2-E1 | Talep | Kimliği doğrulanmış talep sahibi, gerekçe/olay referansı, etkilenen ortam ve **tam** backup kapsamı, ayrı hedef kimliği; gerçek müşteri verisi/sır içermeyen izlenebilir işlem referansı | Talep kanıtı yoksa recovery başlatılmaz |
+| D2-E1 | Talep | Kimliği doğrulanmış talep sahibi, gerekçe/olay referansı, etkilenen ortam ve **tam** backup kapsamı; ayrı hedef kimliğiyle eşleştirilmiş **restore öncesi boş hedef durumu doğrulama kanıtı** (ne zaman ve hangi hedef için doğrulandığı); gerçek müşteri verisi/sır içermeyen izlenebilir işlem referansı | Talep, hedef kimliği veya aynı hedefin restore öncesi boş olduğuna ilişkin kanıt yoksa recovery başlatılmaz |
 | D2-E2 | Yetki/onay | Güvenilen operasyon otoritesinin **o talep, backup ve hedefe özgü** onayı, onaylayan kimlik ve karar kaydı; onay sahibi/ikinci kişi zorunluluğu henüz seçilmedi | Onaysız, iptal edilmiş veya farklı hedefe taşınmış talep reddedilir |
 | D2-E3 | Yürütme | Kimliği doğrulanan yürütücü ve onay kaydına bağlanan işlem, seçilen backup/hedef, başlangıç, sonuç ve kısmi hata izi; yetki, mevcut MCP scope'larından/DB üyeliğinden türetilemez | Bağ koparsa işlem durdurulur; belirsiz sonuç başarı sayılmaz |
 | D2-E4 | Bağımsız doğrulama için devir | Restore edilen **yalıtılmış hedefe** ait bütünlük ve tenant sınırı bulgularının hangi kontrolcüye sunulduğu; **D3 güncel revocation kanıtının** ayrıca gerekli olduğu açıkça kaydedilir | Yalnızca restore logu veya geçmiş audit snapshot'ı yeterli değildir; hedef veri sunamaz |
