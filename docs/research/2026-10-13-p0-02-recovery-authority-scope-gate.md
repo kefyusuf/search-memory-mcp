@@ -70,6 +70,21 @@ Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurt
 
 **Açık karar:** Güvenilen gerçek kişi/organizasyon, görev ayrımı, onay kanalı, kanıtın saklanması/retention, erişim iptali ve acil erişim (break-glass) prosedürü ayrıca kararlaştırılmalıdır. D2'nin bu matrisi D3'ün taze yetki otoritesini veya D4'ün atomik/yalıtılmış yayına alma sınırını çözmez; **TR-01–TR-05 NOT RUN, P0-02/public L3 NO-GO** devam eder.
 
+## D2 operasyon otoritesi — karar fişi (henüz onay değil)
+
+[D2-E1–E5](#d2-operasyonel-kanıt-matrisi--kabul-tasarımı-uygulanmış-kontrol-değil) **hangi kanıtın** beklendiğini tanımlar; bu fiş ise R-A tam ortam kurtarma tatbikatından önce **kimin hangi yetkiyle** karar vereceğini netleştirmesi gereken açık seçimlerdir. **Önerilen en küçük değerlendirme adayı:** uygulama/MCP runtime'ının dışında, dağıtım tarafından güvenilen insan operatör ve talep-hedef-backup özelinde kayda alınmış manuel onay/doğrulama. Bu **seçilmiş veya işler durumda bir operasyon modeli değildir**; yeni onay servisi, admin paneli ya da IAM ürünü gerektirmez. Gereksinimler bunu karşılamazsa ayrı teknoloji ve güvenlik kararı gerekir.
+
+| ID | Onaylanmadan önce açıkça cevaplanacak karar | Kabul için gerekli ilişki (hepsi OPEN / NOT RUN) |
+| --- | --- | --- |
+| D2-K1 — Yetki sahipliği | Talep, onay, yürütme, bağımsız kontrol ve D4 aktivasyon kararının **sorumlu organizasyonu/rolü** kim; görevlerin aynı kişide birleşmesine izin var mı? | Güvenilen deployment otoritesi tarafından kayıtlı sorumluluk ve görev ayrımı gerekçesi; mevcut MCP scope'u, workspace üyeliği ve DB rolü sahiplik kanıtı olamaz |
+| D2-K2 — Onayın bağlayıcılığı | Onay hangi kanaldan, hangi süre/geçersizleşme kuralıyla, **talep + tam backup + boş hedef + revision** için verilir ve iptal edilir? | E1–E3 kanıtına bağlanan, hedef veya kapsam değiştiğinde geçersizleşen izlenebilir onay; işlem yalnızca onaydan sonra ve izole hedefte |
+| D2-K3 — Erişim ve iptal | Backup'a kim erişir; yürütme credential'ı, asgari yetki, erişim iptali ve insanın kimlik doğrulaması nasıl sağlanır? | Uygulama/identity restore sınırının dışında doğrulanabilir kaynak; tek başına `SESSION_USER`, local trusted context veya service token yeterli sayılmaz |
+| D2-K4 — Dış kanıt ve istisna | Talep, ret, backup erişimi, onay, yürütme/hata, doğrulama ve acil durum kararları kimce nerede, hangi erişim/retention ile saklanır? | Eski backup ile geri sarılmayan güvenilen kayıt ve belirli bir istisna sahibi; belirsiz veya erişilemez onay/kanıtta **deny**, kayıtsız break-glass yok |
+
+**Seçim kapısı:** Ürün/operasyon güvenlik sorumlusu D2-K1–K4 kararını ve kullanılacak güvenilen kanıt kanalını **ayrı olarak açıkça onaylamadıkça** D2 OPERATOR WORKFLOW **OPEN** kalır. Bu repo gerçek kişi adları, sırlar, credential değerleri, müşteri backup'ı veya üretim erişim kayıtları için karar arşivi değildir. D2'de onaylanacak restore yürütmesi, [D3 güncel yetki](#d3-güncel-yetki-otoritesi--karar-öncesi-kanıt-kapısı-seçim-değil) veya [D4 aktivasyon](#d4-güvenli-aktivasyonfencing--kabul-kanıtı-kapısı-uygulama-değil) onayı yerine geçmez.
+
+**Durum:** D2-K1–K4 **OPEN / NOT RUN**. Gerçek operatör atanmadı; manuel yol, görev ayrımı, istisna ya da kayıt sağlayıcısı seçilmedi. D3/D4 **OPEN**, TR-01–TR-05 **NOT RUN**, **P0-02/public L3 NO-GO**. **R-B seçmeli tenant restore HOLD**; bağımsız P0-06 silme/export/retention yükümlülükleri değişmez.
+
 ## D3 güncel yetki otoritesi — karar öncesi kanıt kapısı (seçim değil)
 
 Bu kapı yalnızca D1 kapsamındaki **R-A tam ortam kurtarması** için gelecekteki yetki doğrulamasını ölçülebilir kılar. [PostgreSQL membership read-model](../hosted-membership.md) geçerli bağlamla okuma/checkpoint yapabilir; ancak **geri yüklenmiş eski membership tablosunu** yeniden okumak sonradan verilmiş revocation veya grant azaltmalarını kendiliğinden korumaz. [Transaction-bound audit](../hosted-membership-audit.md) de eski identity yedeğiyle beraber geri alınabilir; tek başına güncel veya rollback-dışı yetki kaynağı değildir. Güvenilen güncel otoritenin **hangi kaynaktan, kimin işlettiği ve rollback sınırının dışında nasıl doğrulanacağı hâlâ OPEN**.
