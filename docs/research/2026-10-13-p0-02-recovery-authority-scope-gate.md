@@ -70,6 +70,21 @@ Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurt
 
 **Açık karar:** Güvenilen gerçek kişi/organizasyon, görev ayrımı, onay kanalı, kanıtın saklanması/retention, erişim iptali ve acil erişim (break-glass) prosedürü ayrıca kararlaştırılmalıdır. D2'nin bu matrisi D3'ün taze yetki otoritesini veya D4'ün atomik/yalıtılmış yayına alma sınırını çözmez; **TR-01–TR-05 NOT RUN, P0-02/public L3 NO-GO** devam eder.
 
+## D3 güncel yetki otoritesi — karar öncesi kanıt kapısı (seçim değil)
+
+Bu kapı yalnızca D1 kapsamındaki **R-A tam ortam kurtarması** için gelecekteki yetki doğrulamasını ölçülebilir kılar. [PostgreSQL membership read-model](../hosted-membership.md) geçerli bağlamla okuma/checkpoint yapabilir; ancak **geri yüklenmiş eski membership tablosunu** yeniden okumak sonradan verilmiş revocation veya grant azaltmalarını kendiliğinden korumaz. [Transaction-bound audit](../hosted-membership-audit.md) de eski identity yedeğiyle beraber geri alınabilir; tek başına güncel veya rollback-dışı yetki kaynağı değildir. Güvenilen güncel otoritenin **hangi kaynaktan, kimin işlettiği ve rollback sınırının dışında nasıl doğrulanacağı hâlâ OPEN**.
+
+| ID | Gelecekteki kanıt zorunluluğu (hepsi NOT RUN) | Kabul / ret sınırı |
+| --- | --- | --- |
+| D3-V1 — Kaynak | Restore edilen identity/audit snapshot'ından bağımsız biçimde **güncel yetki** sonucuna ulaşılabildiğini ve ilgili issuer, principal, tenant, workspace ile hedef kurtarma revizyonuna nasıl bağlandığını gösteren kaynak/provenance kanıtı | Yalnızca eski `workspace_memberships` satırı, eski audit kaydı, token claim'i veya backup zamanı **yeterli değil**; bağımsız otorite seçilmeden PASS yok |
+| D3-V2 — Geriye gitmeyen iptal | [TR-03](2026-10-13-p0-02-restore-authorization-test-design.md) sentetik `S0` eski-yedek/`S1` yeni-revocation durumunda; ayrıca `S1` grant azaltma, workspace disable ve tenant ownership değişiminde restore sonrası hem mevcut/stale hem yeni hosted isteklerin **yetkisiz erişim alamadığını** kanıtla | Eski snapshot'ın aktif üyeliği geri getirmesi, yetki genişletmesi veya cross-tenant erişim **FAIL** |
+| D3-V3 — Eksik/ulaşılamaz otorite | Güncel otoriteye ulaşılamayan, geçmiş ile güncel durum uzlaştırılamayan, issuer/scope tutarsız veya revocation kanıtı eksik senaryoda deny/fail-closed sonucu | Geçmiş backup'a ya da local trusted stdio context'ine fallback **yasak**; restore hedefi hosted erişime açılmaz |
+| D3-V4 — Ayrı aktivasyon kapısı | D3 yetki kanıtının restore edilmiş hedef ve denetlenen revision ile eşleştirilip D2 doğrulama devrine aktarılması; D4 fencing/aktivasyon koşullarının **ayrıca** karşılanması | Doğru membership checkpoint sonucu tek başına restore'u yayına almaya **yetmez** |
+
+**Gelecekteki seçim/kanıt ön koşulu:** Restore edilmeyen güvenilen otorite mi, güvenilir yeni değişikliklerle doğrulanabilir uzlaştırma mı, başka bir çözüm mü kullanılacak? Kaynak, yeniden oynatma/eksik kayıt davranışı, güncellik ölçütü, rollback/fencing sınırı ve bu kararın yetkili sahibi **henüz belirlenmedi**. Bu bölüm seçeneklerden hiçbirini seçmez; yeni servis, log deposu, event sourcing, migration, token politikası veya test implementasyonu istemez.
+
+**Durum:** **D3 OPEN; D2 OPERATOR WORKFLOW OPEN; D4 OPEN**. D3-V1–V4 **NOT RUN** ve [TR-03/TR-04](2026-10-13-p0-02-restore-authorization-test-design.md) **NOT RUN**. Mevcut `npm test`, PostgreSQL membership/audit regresyonu ve Docker image smoke, restore sonrası güncel yetki kanıtı yerine geçmez. **P0-02 ve public L3 NO-GO**; R-B tenant-seçmeli restore HOLD ve bağımsız P0-06 silme/export/retention sorumlulukları değişmez.
+
 ## Ayrı ele alınması gereken iki senaryo
 
 **R-A — Tam ortam felaket kurtarması (ilk hedef adayı):** Tüm scope'ların aynı fiziksel imajda yer alması beklenebilir, ancak backup ve hedef yalnızca yetkili operatöre açık olmalıdır. Canlı trafiğe dönmeden önce veri bütünlüğü, cross-tenant isolation, identity/audit ile güvenli yetki uzlaştırması ve bozulmuş/eksik backup'ta fail-closed kanıtı gerekir. Bu senaryo **D1 kapsamında ilk pilot için hedeflenen kurtarma granülerliğidir**; henüz uygulanmış veya hosted ortamda yeterli şekilde test edilmiş değildir. D2–D4 çözülmeden restore yayımlanmaz.
