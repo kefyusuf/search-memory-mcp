@@ -32,11 +32,11 @@ Bu, birleşen [P0-02 kanıt envanterindeki](2026-10-13-p0-02-hosted-recovery-evi
 - `alice` için `A1` üyeliği snapshot `S0` anında aktif, `S1` anında iptal edilmiş; `bob` için `B1` üyeliği aktif tutulur. Audit kayıtları ayrı PostgreSQL prototipindedir.
 - `S0` ve `S1` sentetik fixture isimleridir; ürünümüzde bugün çalışan snapshot koordinasyonu veya tenant import/export API'si bulunduğunu ima etmez. Fixture gerçek token, müşteri verisi, üretim DB'si veya sır içermez.
 
-## Henüz çalıştırılmamış kabul senaryoları
+## Kabul senaryoları — TR-01 yerel kanıt, TR-02–05 henüz çalıştırılmadı
 
 | ID | Test girişi / eylem taslağı | Zorunlu olumlu ve olumsuz kanıt | Durum |
 | --- | --- | --- | --- |
-| TR-01 | `A1`, `A2`, `B1` aynı dosyada iken bugünkü fiziksel SQLite backup'ını incele | Bütün scope'ların fiziksel imajda bulunabileceği açıkça kabul edilmeli; bunu tenant `A` export'u diye adlandıran tasarım **reddedilmeli** | Tek kaynaklı yerel fiziksel backup **VAR**; çok-scope TR-01 **NOT RUN**; tenant export **YOK** |
+| TR-01 | `A1`, `A2`, `B1` aynı dosyada iken bugünkü fiziksel SQLite backup'ını incele | Bütün scope'ların fiziksel imajda bulunabileceği açıkça kabul edilmeli; bunu tenant `A` export'u diye adlandıran tasarım **reddedilmeli** | **LOCAL PASS / PR #79** — A1/A2/B1 aynı SQLite fiziksel yedeğinden dört store ile geri okunur; [test](../../src/__tests__/sqlite-backup-restore.test.ts), [CI #38607983193](https://github.com/kefyusuf/search-memory-mcp/actions/runs/38607983193); tenant export ve hosted restore **YOK** |
 | TR-02 | Gelecekteki ayrı ve yetkili A1-restore işlemini A2/B1 ile çakışan cache/graph anahtarları ve ayrı knowledge/memory ID'leri üzerinde dene | Yalnızca A1 hedef verisinin beklenen restore sonucu değişir; A2/B1 içerikleri, sayımlar ve erişim görünürlüğü değişmez; A1 çağıranına yetkisiz veri ifşası veya yazım olmaz | **YOK — restore mekanizması tanımlı değil** |
 | TR-03 | `S0` eski identity/data snapshot'ı, `S1`'de iptal edilen `alice/A1` üyeliğiyle karşılaştır | Eski üyelik veya stale token access kazandıramaz; güncel yetki kontrolü deny verir; audit ve revocation tutarlılığı bağımsız doğrulanır | **YOK — otorite/fencing politikası tanımlı değil** |
 | TR-04 | Restore doğrulamasında identity otoritesini ulaşılamaz yap; ayrıca yarım/bozuk restore fixture'ı kullan | Belirsiz veya bozuk hedef etkin kullanıma açılmaz; erişim deny olur; orijinal aktif veri ve B1 etkilenmez | **YOK — publish/rollback sınırı tanımlı değil** |
@@ -47,10 +47,10 @@ Bu, birleşen [P0-02 kanıt envanterindeki](2026-10-13-p0-02-hosted-recovery-evi
 1. **Yetki sahibi ve kaynak:** Restore'u kim isteyebilir/onaylayabilir? Current membership/revocation için hangi kayıt *authoritative*? Audit'i kim doğrular? Bunlar kararlaştırılmadan TR-02–05 uygulanabilir test sayılamaz.
 2. **Veri geri yükleme sınırı:** Tenant/workspace düzeyinde restore gerçekten desteklenecek mi? Desteklenecekse scope mapping, tutarlı hedef ve çakışma davranışı ayrı kararda tanımlanmalı. Fiziksel dosya backup'ı bu ihtiyaç için otomatik çözüm değildir.
 3. **Sıralama ve kesintide davranış:** Ayrı identity ve uygulama depolarında restore sırası, read/write fencing, yarıda kalma/tekrar deneme ve yayına alma noktası tanımlanmalı. Teknik uygulama mekanizması bu belgede seçilmez.
-4. **Test kanıtı:** Daha sonra açılabilecek **ayrı, onaylı** sentetik test PR'ında her TR-ID için gerçek komut/test kimliği, hedef revizyon, expected/actual, CI bağlantısı ve failure-injection sonucu kaydedilmeli. Bu belgedeki çok-scope TR-01 dahil TR-01–05 senaryoları **NOT RUN**; önceden yürütülmüş tek kaynaklı fiziksel backup regresyonu bunların yerine geçmez.
+4. **Test kanıtı:** Daha sonra açılabilecek **ayrı, onaylı** sentetik test PR'ında her TR-ID için gerçek komut/test kimliği, hedef revizyon, expected/actual, CI bağlantısı ve failure-injection sonucu kaydedilmeli. Çok-scope **TR-01 yerel sentetik regresyonu** [PR #79](https://github.com/kefyusuf/search-memory-mcp/pull/79) üzerinde CI #38607983193 ile **PASS**; TR-02–TR-05 **NOT RUN**. TR-01, gerçek hosted recovery, ayrı PostgreSQL identity/audit restore'u veya güncel revocation kanıtı yerine geçmez.
 
 ## Bu PR'ın tamamlanması ve karar
 
 **PASS (yalnızca tasarım):** Bu tek Markdown dosyasının kaynakları, olumsuz iddiaları, test kapsamı ve göreli bağlantıları bağımsız incelenir; exact-head CI doğrulanır. Başka dosya, test, kod veya konfigürasyon değiştirilmez.
 
-**GO:** Ayrı bir karar aşamasında test otoritesi/scope gereksinimleri netleştirilebilir. **NO-GO:** P0-02 migration, hosted tenant restore, canlı DR garantisi, public L3 pilotu ve release **halen onaysızdır**. Bu PR merge edilse bile TR-01–05 geçmiş test olarak gösterilemez.
+**GO:** Ayrı bir karar aşamasında test otoritesi/scope gereksinimleri netleştirilebilir. **NO-GO:** P0-02 migration, hosted tenant restore, canlı DR garantisi, public L3 pilotu ve release **halen onaysızdır**. Bu tasarım belgesinin ilk merge'i TR-01–05 testlerinin çalıştırıldığı anlamına gelmiyordu; sonradan eklenen **TR-01 yerel test kanıtı** yalnızca fiziksel SQLite kapsamını doğrular. **TR-02–TR-05 NOT RUN** kalır.
