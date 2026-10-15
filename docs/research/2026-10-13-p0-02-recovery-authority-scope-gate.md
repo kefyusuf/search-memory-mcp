@@ -68,7 +68,7 @@ Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurt
 
 **Negatif kabul kapısı (NOT RUN):** Normal hosted token, local trusted context, membership DB operator/owner rolü veya yalnızca `SESSION_USER` kaydı ile E1–E5 atlanamaz. Onay iptali, backup/hedef değişimi, sahte yetkili, eksik audit bağlantısı, kısmi yürütme ve otoriteye erişememe **deny/fail closed** gerektirir; aktif kaynak korunur. Bu ifadeler tasarlanmış test beklentileridir, bugünkü otomatik enforcement/operasyon prosedürü değildir.
 
-**Açık karar:** Güvenilen gerçek kişi/organizasyon, görev ayrımı, onay kanalı, kanıtın saklanması/retention, erişim iptali ve acil erişim (break-glass) prosedürü ayrıca kararlaştırılmalıdır. D2'nin bu matrisi D3'ün taze yetki otoritesini veya D4'ün atomik/yalıtılmış yayına alma sınırını çözmez; **TR-01–TR-05 NOT RUN, P0-02/public L3 NO-GO** devam eder.
+**Açık karar:** Güvenilen gerçek kişi/organizasyon, görev ayrımı, onay kanalı, kanıtın saklanması/retention, erişim iptali ve acil erişim (break-glass) prosedürü ayrıca kararlaştırılmalıdır. D2'nin bu matrisi D3'ün taze yetki otoritesini veya D4'ün atomik/yalıtılmış yayına alma sınırını çözmez; **TR-01 LOCAL PASS (yalnızca yerel fiziksel SQLite); TR-02–TR-05 NOT RUN; P0-02/public L3 NO-GO** devam eder.
 
 ## D2 operasyon otoritesi — karar fişi (henüz onay değil)
 
@@ -83,7 +83,7 @@ Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurt
 
 **Seçim kapısı:** Ürün/operasyon güvenlik sorumlusu D2-K1–K4 kararını ve kullanılacak güvenilen kanıt kanalını **ayrı olarak açıkça onaylamadıkça** D2 OPERATOR WORKFLOW **OPEN** kalır. Bu repo gerçek kişi adları, sırlar, credential değerleri, müşteri backup'ı veya üretim erişim kayıtları için karar arşivi değildir. D2'de onaylanacak restore yürütmesi, [D3 güncel yetki](#d3-güncel-yetki-otoritesi--karar-öncesi-kanıt-kapısı-seçim-değil) veya [D4 aktivasyon](#d4-güvenli-aktivasyonfencing--kabul-kanıtı-kapısı-uygulama-değil) onayı yerine geçmez.
 
-**Durum:** D2-K1–K4 **OPEN / NOT RUN**. Gerçek operatör atanmadı; manuel yol, görev ayrımı, istisna ya da kayıt sağlayıcısı seçilmedi. D3/D4 **OPEN**, TR-01–TR-05 **NOT RUN**, **P0-02/public L3 NO-GO**. **R-B seçmeli tenant restore HOLD**; bağımsız P0-06 silme/export/retention yükümlülükleri değişmez.
+**Durum:** D2-K1–K4 **OPEN / NOT RUN**. Gerçek operatör atanmadı; manuel yol, görev ayrımı, istisna ya da kayıt sağlayıcısı seçilmedi. D3/D4 **OPEN**, TR-01 **LOCAL PASS** (yalnızca yerel fiziksel SQLite), TR-02–TR-05 **NOT RUN**, **P0-02/public L3 NO-GO**. **R-B seçmeli tenant restore HOLD**; bağımsız P0-06 silme/export/retention yükümlülükleri değişmez.
 
 ## D3 güncel yetki otoritesi — karar öncesi kanıt kapısı (seçim değil)
 
@@ -114,7 +114,7 @@ Bu kapı sadece D1'deki **R-A ayrı/boş hedefe tam ortam kurtarması** içindir
 
 **Henüz kararlaştırılmamış sınırlar:** Üretim trafik/yazma durdurma ve yönlendirme yöntemi, farklı store'lar arası tutarlı nokta, doğrulayıcı ve aktivasyon yetkilisi, cutover'ın güvenilir tekliği, rollback/recovery prosedürü ile RPO/RTO ölçütleri **OPEN**. Tablo herhangi bir router, queue, lock, yeni IAM/otorite, snapshot ürünü, ikinci aktif ortam veya otomatik failover tasarımı seçmez.
 
-**Durum:** **D4 OPEN**; D2 operatör/onay akışı ve D3 güncel revocation otoritesi de **OPEN**. D4-A1–A5 ve TR-01–TR-05 **NOT RUN**. İzole hedefte restore edilmiş verinin kullanılabilirliği veya genel CI/Docker başarısı hosted recovery kanıtı değildir. **P0-02 / public L3 NO-GO**; **R-B tenant/workspace-selective restore HOLD** ve bağımsız **P0-06 silme/export/retention** yükümlülükleri değişmez.
+**Durum:** **D4 OPEN**; D2 operatör/onay akışı ve D3 güncel revocation otoritesi de **OPEN**. D4-A1–A5 **NOT RUN**; TR-01 **LOCAL PASS** (yerel fiziksel SQLite), TR-02–TR-05 **NOT RUN**. İzole hedefte restore edilmiş verinin kullanılabilirliği veya genel CI/Docker başarısı hosted recovery kanıtı değildir. **P0-02 / public L3 NO-GO**; **R-B tenant/workspace-selective restore HOLD** ve bağımsız **P0-06 silme/export/retention** yükümlülükleri değişmez.
 
 ## Ayrı ele alınması gereken iki senaryo
 
@@ -124,9 +124,11 @@ Bu kapı sadece D1'deki **R-A ayrı/boş hedefe tam ortam kurtarması** içindir
 
 ## Kanıt eşlemesi ve durdurma koşulları
 
-| Kaynak kabul maddesi | Bu kapının yapacağı | Henüz yapılmayan |
+**Kanıt senkronizasyonu (2026-10-15, yalnızca durum kaydı):** [PR #79](https://github.com/kefyusuf/search-memory-mcp/pull/79) `362dd0ccd5834030f5e3c8039654a0f9f6e47ff7` ile `main` üzerine birleştirildi; [post-merge CI #38770708083](https://github.com/kefyusuf/search-memory-mcp/actions/runs/38770708083) **SUCCESS** ile TR-01'in çok-scope **yerel fiziksel SQLite** regresyon testi doğrulandı. Ayrı [Docker #38770707916](https://github.com/kefyusuf/search-memory-mcp/actions/runs/38770707916) **SUCCESS** yalnızca image build/smoke-test kanıtıdır; TR-01 testini çalıştırdığı veya doğruladığı anlamına gelmez. D2-E1–E5, D2-K1–K4, D3-V1–V4, D4-A1–A5 ve TR-02–TR-05 **NOT RUN / OPEN** kalır. Hosted boş hedefe tam kurtarma, güncel revocation otoritesi veya güvenli aktivasyon kanıtlanmış değildir. **R-B HOLD; P0-02/public L3 NO-GO; P0-06 yükümlülükleri bağımsız**.
+
+| Kaynak kabul maddesi | Bu kapının yapacağı | Kanıt / kalan boşluk |
 | --- | --- | --- |
-| [TR-01](2026-10-13-p0-02-restore-authorization-test-design.md) fiziksel backup/scope | R-A ile R-B farkını açık tutar | Çok-scope restore fixture'ı **NOT RUN** |
+| [TR-01](2026-10-13-p0-02-restore-authorization-test-design.md) fiziksel backup/scope | R-A ile R-B farkını açık tutar | **LOCAL PASS** — A1/A2/B1 içeren dört SQLite store'un bütün-scope fiziksel yedeği [PR #79](https://github.com/kefyusuf/search-memory-mcp/pull/79), [test](../../src/__tests__/sqlite-backup-restore.test.ts), [main CI #38770708083](https://github.com/kefyusuf/search-memory-mcp/actions/runs/38770708083) ile doğrulandı; hosted R-A recovery ve ayrı identity/audit restore'u **NOT RUN** |
 | TR-02 selective A1 restore | D1 kapsam kararıyla ilk pilot için **HOLD**; ancak doğrulanmış müşteri ihtiyacı ve ayrı onayla gündeme alınır | Tenant-selective API/restore testi **NOT RUN** |
 | TR-03 revocation geri gelmemesi | D3 için bağımsız güncel yetki kanıtını **zorunlu ön koşul** yapar | Restored PostgreSQL + application DB birlikte test edilmedi |
 | TR-04 bozuk/yarım restore, otorite erişilemiyor | D2/D4 fail-closed ve publish-onayı sınırını ister | Hosted failure injection **NOT RUN** |
@@ -138,8 +140,8 @@ Bu kapı sadece D1'deki **R-A ayrı/boş hedefe tam ortam kurtarması** içindir
 
 ## PASS / HOLD kararı
 
-**PASS (yalnızca D1/D2 kapsam belgesi):** D1 pilot kapsamı ve D2 güven sınırının yürütme yetkisi olmadığını, D2 operatör akışı ile D3–D4'ün açık kaldığını, R-A/R-B ayrımını ve TR senaryolarının NOT RUN olduğunu doğrulayın; bağlantılar, exact-head CI ve bağımsız doküman review tamamlanmalı.
+**PASS (yalnızca D1/D2 kapsam belgesi):** D1 pilot kapsamı ve D2 güven sınırının yürütme yetkisi olmadığını, D2 operatör akışı ile D3–D4'ün açık kaldığını, R-A/R-B ayrımını, TR-01'in yalnızca yerel **LOCAL PASS** olduğunu ve TR-02–TR-05'in **NOT RUN** kaldığını doğrulayın; bağlantılar, exact-head CI ve bağımsız doküman review tamamlanmalı.
 
-**HOLD:** D1 pilot kapsamı ve D2 güven sınırı belirlenmiştir; ancak **D2 operasyonel sorumluluk/kanıt ile D3–D4 hâlâ OPEN**. Operasyon/security yetki ve gereksinimleri ayrı onay alana kadar P0-02 restore test uygulaması, depolama migration'ı, restore aracı, **R-B kapsamındaki seçmeli tenant export/restore**, hosted pilot veya yeni P0-02 altyapı çalışması başlatılmaz. Bu HOLD, P0-06 kullanıcı verisi silme/export, retention ve graph temizliği yükümlülüklerini kapsamaz; bu işler kendi ayrı kabul kapılarına tabidir.
+**HOLD:** D1 pilot kapsamı ve D2 güven sınırı belirlenmiştir; ancak **D2 operasyonel sorumluluk/kanıt ile D3–D4 hâlâ OPEN**. Operasyon/security yetki ve gereksinimleri ayrı onay alana kadar P0-02 **hosted recovery/restore test uygulaması**, depolama migration'ı, restore aracı, **R-B kapsamındaki seçmeli tenant export/restore**, hosted pilot veya yeni P0-02 altyapı çalışması başlatılmaz. Bu HOLD, P0-06 kullanıcı verisi silme/export, retention ve graph temizliği yükümlülüklerini kapsamaz; bu işler kendi ayrı kabul kapılarına tabidir.
 
 **P0-02 / L3 sonucu:** **NO-GO değişmedi.** Bu dosyanın birleşmesi P0-02 tamamlandı, DR sertifikalandı veya public L3 yetkilendirildi anlamına gelmez.
