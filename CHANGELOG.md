@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 1.0.4 (release candidate — not published)
+## 1.0.4
 
 Maintenance update for the existing local-first stdio MCP server. No new hosted services or public L3 launch.
 
