@@ -2,12 +2,28 @@
 
 ## Unreleased
 
-- Optional `READER_FALLBACK_URL` (for example `https://markdown.new/`): when direct HTTP and the browser both fail to read a page, the reader service converts it to Markdown. Off by default because it sends the page URL to a third party.
-- Docs: the opt-in `yahoo` provider is documented as blocked (empty HTTP 500 for every non-browser request) and is no longer in the provider benchmark by default.
+## 1.0.4 (release candidate — not published)
 
-## 1.0.3 (pending release)
+Maintenance update for the existing local-first stdio MCP server. No new hosted services or public L3 launch.
+
+### Fetch reliability and security
+
+- Enforce decoded response-body byte limits for HTTP-first HTML, GitHub Raw and RSS, and optional reader fallback (PRs #62–#64).
+- Treat terminal browser errors as terminal instead of incorrectly invoking reader fallback (PR #67).
+- Bound Chromium main-document responses via CDP streaming and validate the read/error paths (PR #68).
+- Require real Chromium outbound socket-policy acceptance in CI, including attempted subresource and page-initiated fetch requests (PR #60).
+
+### Verification and scope
+
+- Test whole-file physical SQLite backup and restore for three synthetic tenant/workspace scopes across four local stores; not tenant-selective restore or hosted disaster recovery (PR #79).
+- Document P0-02 hosted recovery evidence without implementation. D2 operator authority, D3 current revocation authority and D4 activation remain OPEN; TR-02–TR-05 NOT RUN, R-B HOLD, public L3 NO-GO (PRs #69–#80).
+
+## 1.0.3 (2026-10-12)
 
 Security maintenance release for the existing `fetch_content` and browser-fetch paths.
+
+- Optional `READER_FALLBACK_URL` (for example `https://markdown.new/`): when direct HTTP and the browser both fail to read a page, the reader service converts it to Markdown. Off by default because it sends the page URL to a third party.
+- Docs: the opt-in `yahoo` provider is documented as blocked (empty HTTP 500 for every non-browser request) and is no longer in the provider benchmark by default.
 
 - HTTP-first fetches, document/feed fast paths, retries and optional reader fallback use a request-scoped Undici dispatcher. The socket's actual DNS answers are checked before connecting; private/reserved IP literals, mixed public/private answers, and DNS failures are rejected.
 - Chromium requests now use a loopback-only guarded HTTP/HTTPS CONNECT egress proxy with the same outbound socket policy. This covers tested navigation, redirects, subresources and WebSocket paths. Browser contexts cannot start without the proxy; service workers are blocked, QUIC is disabled and non-proxied WebRTC UDP is restricted.
