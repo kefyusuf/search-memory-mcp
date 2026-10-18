@@ -85,6 +85,22 @@ Aşağıdaki kapılar yalnızca D1'deki **R-A (ayrı/boş hedefte tam ortam kurt
 
 **Durum:** D2-K1–K4 **OPEN / NOT RUN**. Gerçek operatör atanmadı; manuel yol, görev ayrımı, istisna ya da kayıt sağlayıcısı seçilmedi. D3/D4 **OPEN**, TR-01 **LOCAL PASS** (yalnızca yerel fiziksel SQLite), TR-02–TR-05 **NOT RUN**, **P0-02/public L3 NO-GO**. **R-B seçmeli tenant restore HOLD**; bağımsız P0-06 silme/export/retention yükümlülükleri değişmez.
 
+
+## D2 karar devri — dış yetki kanıtı kabul koşulu (NOT RUN)
+
+[D2-K1–K4](#d2-operasyon-otoritesi--karar-fişi-henüz-onay-değil) açık sorularının yazılı olarak cevaplanması **tek başına** operasyonel yetki değildir. Ürün/operasyon güvenlik otoritesinin hangi kararı hangi güvenilir kayıtta onayladığının, geri alınabilirliğinin ve [D2-E1–E5](#d2-operasyonel-kanıt-matrisi--kabul-tasarımı-uygulanmış-kontrol-değil) ile ilişkisinin ayrıca doğrulanması gerekir. Bu bir **dış kararın değerlendirme girdisi** tanımıdır; burada bir operatör veya onay kanalı tayin edilmez.
+
+| Karar alanı | Yetkili incelemeden dönmesi gereken doğrulanabilir çıktı | Yoksa |
+| --- | --- | --- |
+| D2-K1 — Sahiplik | Yetkili organizasyonun karar sahibi, talep/onay/yürütme/bağımsız doğrulama/aktivasyon sorumluluklarının **rol bazlı** dağılımı ve görev ayrımı kararı; yetki dayanağının dış kayıt referansı | Görev/karar sahibi varsayılmaz; **OPEN** |
+| D2-K2 — Sınırlı onay | İlgili E1–E3 işlem referansına, **tam backup kimliğine ve kapsamına, restore öncesi boşluğu kanıtlanmış hedef kimliğine ve hedef revizyonuna** bağlanan kararın güvenilir kayıt referansı; geçerlilik, süre sonu, değişiklik ve iptal kuralı | Önceki/genel onay başka hedefe veya revizyona taşınamaz; **deny** |
+| D2-K3 — Erişim iptali | Operatör kimliği/yetki kaynağının rollback sınırı dışında nasıl doğrulandığı, en az yetki ve geçerli iptal kontrolünün sahibi ile bu kontrolün izlenebilir kanıt referansı | MCP token, membership/DB rolü veya restore edilmiş eski audit'e dayanarak **deny** |
+| D2-K4 — Bağımsız kayıt | Talep, ret, onay/iptal, backup erişimi, yürütme ve hata, doğrulama ve istisnaların **restore ile geri sarılmayan** kayıt sahibi, erişim/retention sınırı ve kayıt referansı; break-glass yetkilisi ve kayıt kuralı | Kayıtsız/erişilemez kanıt veya kayıtsız istisnada **deny** |
+
+**Değerlendirme sonucu:** Yetkili dış karar her K1–K4 maddesini ayrı ayrı **approved / rejected / unresolved** olarak, karar zamanı ve geri alınamayan/revize edilen kayıt referansıyla belirtmelidir. Eksik, iptal edilmiş veya farklı backup/hedef/revizyona ait bir kayıt **D2 PASS** sayılmaz. Repoya yalnızca hassas olmayan **karar durumu ve dış kanıt referansı** yansıtılabilir; gerçek kişi kimliği, müşteri backup'ı, sır veya production credential'ı aktarılmaz. GitHub PR review, CI sonucu veya bu şablonun merge edilmesi, bu dış onayın yerine geçmez.
+
+**Kalan bağımsız kapılar:** D2 kararı verilse dahi **D3** güncel revocation otoritesi ve **D4** izolasyon/fencing/aktivasyon kanıtı ayrıca sağlanmadan restore hedefi etkinleştirilemez. Bu bölümde hiçbir karar alınmadı veya test çalıştırılmadı: **D2-K1–K4 OPEN / NOT RUN; D3/D4 OPEN; TR-01 LOCAL PASS; TR-02–TR-05 NOT RUN; R-B HOLD; P0-02/public L3 NO-GO**.
+
 ## D3 güncel yetki otoritesi — karar öncesi kanıt kapısı (seçim değil)
 
 Bu kapı yalnızca D1 kapsamındaki **R-A tam ortam kurtarması** için gelecekteki yetki doğrulamasını ölçülebilir kılar. [PostgreSQL membership read-model](../hosted-membership.md) geçerli bağlamla okuma/checkpoint yapabilir; ancak **geri yüklenmiş eski membership tablosunu** yeniden okumak sonradan verilmiş revocation veya grant azaltmalarını kendiliğinden korumaz. [Transaction-bound audit](../hosted-membership-audit.md) de eski identity yedeğiyle beraber geri alınabilir; tek başına güncel veya rollback-dışı yetki kaynağı değildir. Güvenilen güncel otoritenin **hangi kaynaktan, kimin işlettiği ve rollback sınırının dışında nasıl doğrulanacağı hâlâ OPEN**.
