@@ -10,6 +10,8 @@ Integration does not enable a public listener, hosted built-in tools or producti
 
 Release-gate dependency update: the required audit detected GHSA-jqcg-44mw-7w3h and GHSA-68fv-2mgg-jv7q in the existing lockfile. Only the affected transitive resolutions changed: proxy-addr 2.0.7 to 2.0.8 and source-map-js 1.2.1 to 1.2.2. The subsequent audit reports zero vulnerabilities, and the 551-test suite and compiled MCP smoke pass with the patched dependencies. See the [proxy-addr advisory](https://github.com/advisories/GHSA-jqcg-44mw-7w3h) and [source-map-js advisory](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
 
+Dependency audit refresh (2026-10-25): new upstream advisories broke the required `npm audit` gate on every branch. Transitive resolutions inside existing ranges moved via `npm audit fix`: hono to 4.13.13, body-parser to 2.4.0, fast-uri to 3.1.9, ip-address to 10.7.4, and vitest/@vitest/mocker to 4.1.12 (GHSA-qxg6-89mg-rqv8, GHSA-xp26-3454-mjgp). Two direct dependencies required explicit version bumps: undici 6.29.0 to 6.29.1 (GHSA-4qv8-2p9j-2685, GHSA-xjj6-f33q-929c; DoS in the EventSource parser and content-encoding handling) and zod 3.25.76 to 4.6.7 (GHSA-mrhx-c7xc-m3w5; memory exhaustion on oversized constrained collections). The zod major upgrade changed no project code: tool input schemas use the compatible subset, and the MCP SDK, its zod-to-json-schema helper and the server now resolve a single shared zod 4.6.7. The audit reports zero vulnerabilities; the full suite, typecheck and compiled MCP smoke pass.
+
 ## Current implementation
 
 - TypeScript MCP server over stdio with 11 tools; orchestration lives in `src/index.ts`.
