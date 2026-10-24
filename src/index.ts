@@ -6,6 +6,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { chromium, Browser, BrowserContext } from "playwright";
 import { z } from "zod";
@@ -61,6 +62,10 @@ function getEnvBool(key: string, defaultVal: boolean): boolean {
 
 // --- Server Implementation ---
 
+// The MCP server identity follows the npm package version instead of a
+// hand-maintained literal that drifted across releases.
+export const SERVER_VERSION: string = createRequire(import.meta.url)("../package.json").version;
+
 export class WebSearchServer {
   private server: Server;
   private dispatcher: ToolDispatcher<ToolResult>;
@@ -95,7 +100,7 @@ export class WebSearchServer {
     this.server = new Server(
       {
         name: "search-memory-mcp",
-        version: "1.0.1",
+        version: SERVER_VERSION,
       },
       {
         capabilities: {
