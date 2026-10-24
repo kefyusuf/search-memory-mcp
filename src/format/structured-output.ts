@@ -11,6 +11,7 @@ export type SearchJsonPayload = {
     url: string;
     snippet: string;
     source: string;
+    publishedAt?: string;
     semanticScore?: number;
     fusionScore?: number;
   }>;
@@ -56,6 +57,7 @@ export function buildSearchJson(
         snippet: result.snippet,
         source: result.source,
       };
+      if (result.publishedAt !== undefined) entry.publishedAt = result.publishedAt;
       if (result.semanticScore !== undefined) entry.semanticScore = result.semanticScore;
       if (result.fusionScore !== undefined) entry.fusionScore = result.fusionScore;
       return entry;

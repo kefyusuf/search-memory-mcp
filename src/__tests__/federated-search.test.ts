@@ -23,6 +23,23 @@ function provider(name: string, urls: string[]): SearchProvider {
 }
 
 describe("federated search", () => {
+  it("keeps the first provider-reported publishedAt when fusing duplicate URLs", () => {
+    const fused = fuseSearchResults([
+      {
+        provider: "tavily",
+        results: [{ title: "Guide", url: "https://example.com/guide", snippet: "s", source: "tavily", publishedAt: "2026-10-01" }],
+      },
+      {
+        provider: "bing",
+        results: [{ title: "Guide", url: "https://example.com/guide", snippet: "s", source: "bing" }],
+      },
+    ]);
+
+    expect(fused).toHaveLength(1);
+    expect(fused[0].publishedAt).toBe("2026-10-01");
+    expect(fused[0].sources).toEqual(["tavily", "bing"]);
+  });
+
   it("normalizes tracking parameters, fragments, www, and trailing slashes for deduplication", () => {
     expect(normalizeSearchUrl("https://www.Example.com/docs/?utm_source=test&b=2&a=1#intro"))
       .toBe("https://example.com/docs?a=1&b=2");

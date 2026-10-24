@@ -225,15 +225,16 @@ export function formatSearchResults(query: string, results: SearchResultItem[]):
   }
 
   const formatted = results.map((result, i) => {
-    const freshnessHint = formatFreshnessHint(`${result.title} ${result.snippet}`);
+    const freshnessHint = formatFreshnessHint(`${result.title} ${result.snippet}`, result.publishedAt);
     return `${i + 1}. "${result.title}" - ${result.url}\n   ${result.snippet || "(no description)"}${freshnessHint ? `\n   ${freshnessHint}` : ""}`;
   }).join("\n\n");
 
   return summary + formatted;
 }
 
-function formatFreshnessHint(text: string): string {
-  const dateHint = extractDateHint(text);
+function formatFreshnessHint(text: string, publishedAt?: string): string {
+  // A provider-reported date is authoritative over dates found in snippet text.
+  const dateHint = publishedAt ?? extractDateHint(text);
   if (!dateHint) return "";
 
   const parsedDate = new Date(dateHint);

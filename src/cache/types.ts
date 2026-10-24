@@ -14,6 +14,8 @@ export interface SearchResultItem {
   url: string;
   snippet: string;
   source: string;
+  /** Provider-reported publication date (YYYY-MM-DD); authoritative over snippet heuristics. */
+  publishedAt?: string;
   sources?: string[];
   providerRanks?: Record<string, number>;
   fusionScore?: number;

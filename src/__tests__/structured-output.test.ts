@@ -14,6 +14,7 @@ const results: SearchResultItem[] = [
     url: "https://example.com/pgbouncer",
     snippet: "Connection pooler for PostgreSQL",
     source: "duckduckgo",
+    publishedAt: "2024-06-01",
     semanticScore: 0.91,
   },
   {
@@ -39,12 +40,14 @@ describe("buildSearchJson", () => {
       source: "duckduckgo",
     });
     expect(payload.results[0].semanticScore).toBeCloseTo(0.91);
+    expect(payload.results[0].publishedAt).toBe("2024-06-01");
     expect(payload.meta.strategy).toBe("fallback");
   });
 
   it("omits undefined optional fields cleanly", () => {
     const payload = buildSearchJson("q", [results[1]]);
     expect(payload.results[0].semanticScore).toBeUndefined();
+    expect(payload.results[0].publishedAt).toBeUndefined();
     expect(payload.meta).toEqual({});
   });
 });
