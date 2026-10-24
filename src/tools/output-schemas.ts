@@ -8,6 +8,7 @@ const searchResult = {
     url: { type: "string" },
     snippet: { type: "string" },
     source: { type: "string" },
+    publishedAt: { type: "string", description: "Publication date YYYY-MM-DD when the source reports one" },
     semanticScore: { type: "number" },
     fusionScore: { type: "number" },
   },

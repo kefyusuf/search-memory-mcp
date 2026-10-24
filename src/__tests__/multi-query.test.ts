@@ -7,6 +7,16 @@ function hit(url: string, source = "bing"): SearchResultItem {
 }
 
 describe("multi-query result fusion", () => {
+  it("keeps the first provider-reported publishedAt when queries share a URL", () => {
+    const dated = { ...hit("https://example.com/shared"), publishedAt: "2026-10-01" };
+    const undated = hit("https://example.com/shared", "brave");
+
+    const results = fuseQueryResults([[dated], [undated]]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].publishedAt).toBe("2026-10-01");
+  });
+
   it("promotes cross-query matches, normalizes duplicates, and keeps real providers", () => {
     const results = fuseQueryResults([
       [hit("https://example.com/first"), hit("https://example.com/shared?utm_source=search")],
