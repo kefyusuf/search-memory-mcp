@@ -62,7 +62,7 @@ The named volumes keep your cache, memory, knowledge base and downloaded models 
 **Search & fetch**
 
 - Browser context pooling with a persistent Playwright browser instance.
-- Web search through configurable providers with health tracking and ordered fallback. Supported scrapers: DuckDuckGo, Bing, Brave, Google, Yahoo, Marginalia. Optional SearXNG meta-search provider (self-hosted or trusted public instance) via `SEARXNG_BASE_URL`, and optional Brave Search API via `BRAVE_SEARCH_API_KEY`.
+- Web search through configurable providers with health tracking and ordered fallback. Supported scrapers: DuckDuckGo, Bing, Brave, Google, Yahoo, Marginalia. Optional SearXNG meta-search provider (self-hosted or trusted public instance) via `SEARXNG_BASE_URL`, optional Brave Search API via `BRAVE_SEARCH_API_KEY`, optional Tavily (news-topic search with publish dates) via `TAVILY_API_KEY`, and optional Exa (neural/semantic discovery) via `EXA_API_KEY`.
 - Search responses report which providers were tried and why any failed, were empty, or were skipped (`providerAttempts` in structured output, a short "Provider notes" line in text output).
 - Search-result cache lifetime follows the query type: news 15 minutes; shopping, local and general 1 hour; technical, research and navigational 24 hours.
 - `fetch_content` and `index_url` extract text from PDF, DOCX and EPUB responses (detected by content type, or by extension for generic binary responses), up to 25 MB per document, without opening a browser.
@@ -248,7 +248,7 @@ Search snippets with old detected dates include a short freshness warning so cli
 }
 ```
 
-`expand_query` defaults to `false`. When enabled, the server searches the original query plus up to two variants, then deduplicates URLs and combines query rankings with RRF before reranking. This can make up to three times as many provider requests. The original query determines intent and locale; every variant keeps the domain restriction and uses the same provider plan. Date filters apply to the combined results. Expanded searches use a separate cache namespace, and cache hits skip all provider requests.
+`expand_query` defaults to `false`. When enabled, the server searches the original query plus up to two variants, then deduplicates URLs and combines query rankings with RRF before reranking. This can make up to three times as many provider requests. With key-backed API providers (Brave, Tavily, Exa) that also multiplies billed requests; semantic cache hits never contact providers. The original query determines intent and locale; every variant keeps the domain restriction and uses the same provider plan. Date filters apply to the combined results. Expanded searches use a separate cache namespace, and cache hits skip all provider requests.
 
 ### Example: structured JSON output
 
@@ -292,9 +292,11 @@ Or explore the entity graph:
 | --- | --- | --- |
 | `RATE_LIMIT_SEARCH_PER_MIN` | `10` | Maximum `web_search` requests per minute. Invalid or non-positive values disable the limiter. |
 | `RATE_LIMIT_FETCH_PER_MIN` | `20` | Maximum `fetch_content` requests per minute. Invalid or non-positive values disable the limiter. |
-| `SEARCH_PROVIDERS` | `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`. |
+| `SEARCH_PROVIDERS` | `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`, `tavily`, `exa`. Key-backed providers (`brave`, `tavily`, `exa`) are dropped from the list when their key is unset. |
 | `READER_FALLBACK_URL` | unset | Optional reader service used by `fetch_content`, `index_url` and `research` when direct HTTP and the browser both fail, called as `<READER_FALLBACK_URL><page url>`, for example `https://markdown.new/`. The page URL is sent to that third party, so it is off by default. |
 | `BRAVE_SEARCH_API_KEY` | unset | Optional key for the [Brave Search API](https://api-dashboard.search.brave.com/). When set, the `brave` provider calls the official API instead of scraping the website, which avoids the rate limits that block scraping. |
+| `TAVILY_API_KEY` | unset | Optional key for the [Tavily Search API](https://app.tavily.com/). When set, the `tavily` provider adds news-topic search with publish dates; news-intent queries use Tavily's news topic. Billing is per request. |
+| `EXA_API_KEY` | unset | Optional key for the [Exa Search API](https://dashboard.exa.ai/). When set, the `exa` provider adds neural (semantic) web search through `type: auto`. Billing is per request. |
 | `SEARXNG_BASE_URL` | unset | Base URL of a SearXNG instance with the JSON format enabled (for example `https://searx.example.com`). Required for the `searxng` provider; no API key is used. |
 | `ENABLE_CROSSLINGUAL` | `false` | Enables language detection and cross-lingual search support. This can trigger first-run local model downloads. When disabled, query heuristics still infer supported locales such as Turkish. |
 | `ENABLE_RERANKER` | `false` | Enables optional cross-encoder reranking of `web_search` results using a local Transformers.js model. First use downloads the model. |
@@ -385,6 +387,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 - If the server says it could not load its SQLite module (`better-sqlite3`), follow the steps it prints: use Node 24 (the version in `.nvmrc`); if npm 11 skipped install scripts, run `npm install-scripts approve better-sqlite3`; then `npm rebuild better-sqlite3`. Or [run it in Docker](#run-in-docker-no-local-setup).
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.
 - If search returns no results, change `SEARCH_PROVIDERS` order/set or try a direct `fetch_content` URL.
+- If a key-backed provider answers `HTTP 401`, the key is invalid; `HTTP 429` (and Tavily's `432`) means rate limit or exhausted quota. The attempt is reported as a provider error, never as empty results, and other configured providers still answer.
 - Provider reliability varies by network. In a live run in October 2026 (`npm run benchmark:providers`), DuckDuckGo answered every query; Bing sometimes returned a "no results" page for ordinary queries, which looks like a soft block; Brave answered HTTP 429; and Google returned a JavaScript-required page to every request, which is now reported as an error. Keep `duckduckgo` first, and add a self-hosted SearXNG (`SEARXNG_BASE_URL`) if you need a second reliable source. Measure your own network with `npm run benchmark:providers`.
 - If aggregate mode is too slow or triggers provider blocking, use the default `fallback` strategy.
 - If `auto` chooses too broad a search plan for your use case, use explicit `fallback` or `aggregate`; explicit strategies bypass the auto planner.
@@ -395,6 +398,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 ## Known limitations
 
 - **Default search depends mostly on DuckDuckGo.** Search engines block scraping clients. In our measurements, Brave answers with HTTP 429 and Google serves a JavaScript-only page; both now show up as provider errors. When Bing blocks a client, it returns a normal-looking "no results" page that cannot be told apart from a real empty result. Yahoo answers every non-browser request with an empty HTTP 500, whatever the headers, so the opt-in `yahoo` provider rarely works. Marginalia sometimes asks clients to wait; the provider handles that, but it still answered only 3 of 4 queries. For dependable results, set a `BRAVE_SEARCH_API_KEY` or add a self-hosted [SearXNG](#optional-searxng) (`SEARXNG_BASE_URL`) as a second source; see [Troubleshooting](#troubleshooting).
+- **Scraped search cannot match neural discovery or guaranteed-fresh news.** Keyword indexes answer "docs for X" and "error Y" well, but vague semantic queries and very fresh reporting need an index built for them. The opt-in `TAVILY_API_KEY` (news topic, publish dates) and `EXA_API_KEY` (neural search) close that gap for users who accept a billed API; without keys, freshness still depends on scraped-engine indexes and best-effort date detection.
 - **Hidden-content filtering is best effort.** Elements hidden by the `hidden` attribute, `aria-hidden`, `<template>` or inline styles are removed. Content hidden by external stylesheets or scripts is not. Web content is wrapped in `<untrusted_web_content>` markers, but the client model must still treat it as data.
 - **Scanned PDFs are not read.** PDF text is extracted without OCR, so image-only pages produce no text.
 - **The first run downloads models and a browser.** The embedding model and Playwright Chromium are fetched on first use. Offline machines need them pre-installed, or the Docker image.

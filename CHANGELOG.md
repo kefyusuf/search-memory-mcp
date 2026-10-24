@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Search quality
+
+- Optional `TAVILY_API_KEY`: adds the opt-in `tavily` provider backed by the Tavily Search API. News-intent queries use Tavily's news topic for fresh reporting; results carry publish dates. Billed per request; never in the default provider order.
+- Optional `EXA_API_KEY`: adds the opt-in `exa` provider backed by the Exa Search API with `type: auto` neural/keyword retrieval for semantic discovery. Billed per request; never in the default provider order.
+- `web_search` results now carry an optional `publishedAt` (YYYY-MM-DD) when a provider reports one. Date filters prefer the provider-reported date over snippet text extraction, and the JSON output schema exposes the field.
+- API providers move a trailing `site:domain` query suffix into their native domain parameter instead of degrading the query text.
+- Key-backed providers named in `SEARCH_PROVIDERS` without a key are skipped with a startup note instead of failing per request.
+
 ## 1.0.4
 
 Maintenance update for the existing local-first stdio MCP server. No new hosted services or public L3 launch.

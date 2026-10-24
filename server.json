@@ -45,6 +45,18 @@
           "isSecret": true
         },
         {
+          "name": "TAVILY_API_KEY",
+          "description": "Optional Tavily API key; adds the tavily provider with news-topic search and publish dates",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "EXA_API_KEY",
+          "description": "Optional Exa API key; adds the exa provider with neural (semantic) web search",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "READER_FALLBACK_URL",
           "description": "Optional reader service (for example https://markdown.new/) used when a page cannot be fetched directly; sends the page URL to that service",
           "isRequired": false

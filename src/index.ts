@@ -219,7 +219,16 @@ export class WebSearchServer {
     // With a Brave Search API key, the API is the most reliable source, so it leads by default.
     const defaultOrder = process.env.BRAVE_SEARCH_API_KEY?.trim() ? "brave,duckduckgo,marginalia,bing" : "duckduckgo,marginalia,bing";
     const order = getEnvArray("SEARCH_PROVIDERS", defaultOrder);
-    this.providers = buildProviders(order);
+    this.providers = buildProviders(order.filter((name) => this.providerIsConfigurable(name)));
+  }
+
+  /** API-only providers cannot run without their key; dropping them here keeps executor attempts honest. */
+  private providerIsConfigurable(name: string): boolean {
+    const requiredKey: Record<string, string> = { tavily: "TAVILY_API_KEY", exa: "EXA_API_KEY" };
+    const envKey = requiredKey[name];
+    if (!envKey || process.env[envKey]?.trim()) return true;
+    console.error(`Search provider skipped: ${name} requires ${envKey}`);
+    return false;
   }
 
   private async getBrowser() {
