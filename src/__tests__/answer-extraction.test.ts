@@ -33,6 +33,34 @@ describe("formatSearchResults", () => {
 
     expect(text).toContain("Freshness: possibly stale (2019-01-01).");
   });
+
+  it("uses a provider-reported publishedAt even when the snippet carries no date", () => {
+    const text = formatSearchResults("old docs", [
+      {
+        title: "Legacy Reference",
+        url: "https://example.com/legacy",
+        snippet: "Complete reference without any date signal.",
+        source: "test",
+        publishedAt: "2019-01-01",
+      },
+    ]);
+
+    expect(text).toContain("Freshness: possibly stale (2019-01-01).");
+  });
+
+  it("prefers a recent publishedAt over a stale date inside the snippet", () => {
+    const text = formatSearchResults("fresh docs", [
+      {
+        title: "Current Guide",
+        url: "https://example.com/current",
+        snippet: "Supersedes the 2019-01-01 edition.",
+        source: "test",
+        publishedAt: "2026-09-15",
+      },
+    ]);
+
+    expect(text).not.toContain("Freshness:");
+  });
 });
 
 describe("extractAnswerFromDocuments", () => {

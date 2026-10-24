@@ -85,4 +85,27 @@ describe("filterResultsByDate", () => {
     ];
     expect(filterResultsByDate(results, undefined)).toHaveLength(2);
   });
+
+  it("prefers a provider-supplied publishedAt over snippet date extraction", () => {
+    const results = [
+      result({ snippet: "Old post from 2019-05-05", title: "ActuallyRecent", publishedAt: "2024-06-01" }),
+      result({ snippet: "Recent 2024-06-01 update", title: "ActuallyOld", publishedAt: "2019-01-01" }),
+    ];
+
+    const kept = filterResultsByDate(results, { from: "2024-01-01" });
+
+    expect(kept.map((r) => r.title)).toEqual(["ActuallyRecent"]);
+  });
+
+  it("falls back to snippet extraction when publishedAt is malformed", () => {
+    const results = [result({ snippet: "Written 2024-06-01", title: "Valid", publishedAt: "not-a-date" })];
+
+    expect(filterResultsByDate(results, { from: "2024-01-01" })).toHaveLength(1);
+  });
+
+  it("treats results with publishedAt as dated for keepUndated purposes", () => {
+    const results = [result({ snippet: "No date signal at all", title: "Dated", publishedAt: "2019-01-01" })];
+
+    expect(filterResultsByDate(results, { from: "2024-01-01" }, { keepUndated: true })).toHaveLength(0);
+  });
 });

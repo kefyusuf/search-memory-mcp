@@ -113,7 +113,10 @@ export function filterResultsByDate(
   if (!range || (!range.from && !range.to)) return results;
 
   return results.filter((item) => {
-    const date = extractPublishDate(`${item.title} ${item.snippet}`);
+    // A provider-reported date is authoritative; snippet extraction is only a fallback.
+    const date = item.publishedAt && ISO_DATE.test(item.publishedAt)
+      ? item.publishedAt
+      : extractPublishDate(`${item.title} ${item.snippet}`);
     return isWithinDateRange(date, range, options);
   });
 }
