@@ -28,4 +28,24 @@ describe("default search providers", () => {
     vi.stubEnv("BRAVE_SEARCH_API_KEY", "key");
     expect(await configuredProviders()).toEqual(["duckduckgo"]);
   });
+
+  it("keeps tavily when configured with its key", async () => {
+    vi.stubEnv("SEARCH_PROVIDERS", "tavily,duckduckgo");
+    vi.stubEnv("TAVILY_API_KEY", "key");
+    expect(await configuredProviders()).toEqual(["tavily", "duckduckgo"]);
+  });
+
+  it("drops tavily from SEARCH_PROVIDERS when the key is missing", async () => {
+    vi.stubEnv("SEARCH_PROVIDERS", "tavily,duckduckgo");
+    vi.stubEnv("TAVILY_API_KEY", "");
+    expect(await configuredProviders()).toEqual(["duckduckgo"]);
+  });
+
+  it("does not add key-backed providers to the default order", async () => {
+    vi.stubEnv("SEARCH_PROVIDERS", "");
+    vi.stubEnv("BRAVE_SEARCH_API_KEY", "");
+    vi.stubEnv("TAVILY_API_KEY", "key");
+    vi.stubEnv("EXA_API_KEY", "key");
+    expect(await configuredProviders()).toEqual(["duckduckgo", "marginalia", "bing"]);
+  });
 });

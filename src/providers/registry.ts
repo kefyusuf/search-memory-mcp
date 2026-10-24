@@ -4,9 +4,11 @@ import type { SearchProvider } from "./base.js";
 import { searchBing } from "./bing.js";
 import { searchBrave } from "./brave.js";
 import { searchDDG } from "./duckduckgo.js";
+import { searchExa } from "./exa.js";
 import { searchGoogle } from "./google.js";
 import { searchMarginalia } from "./marginalia.js";
 import { searchSearXng } from "./searxng.js";
+import { searchTavily } from "./tavily.js";
 import { searchYahoo } from "./yahoo.js";
 
 type ProviderExecutor = (query: string, locale: SearchLocale) => Promise<SearchResultItem[]>;
@@ -20,6 +22,8 @@ export function buildProviders(order: string[]): SearchProvider[] {
     searxng: searchSearXng,
     yahoo: searchYahoo,
     marginalia: searchMarginalia,
+    tavily: searchTavily,
+    exa: searchExa,
   };
 
   const providers: SearchProvider[] = [];
