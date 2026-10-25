@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-25",
+  "queries": [
+    {
+      "query": "node.js 22 release notes",
+      "intent": "technical"
+    },
+    {
+      "query": "postgres connection pooling pgbouncer configuration",
+      "intent": "technical"
+    },
+    {
+      "query": "react useEffect cleanup function",
+      "intent": "technical"
+    },
+    {
+      "query": "docker compose healthcheck example",
+      "intent": "technical"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1898
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2441
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 817
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1541
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1263
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 790
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2148
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 5,
+      "durationMs": 1262
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 734
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1847
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1706
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 988
+    }
+  ],
+  "summary": [
+    {
+      "provider": "duckduckgo",
+      "attempts": 4,
+      "ok": 4,
+      "empty": 0,
+      "error": 0,
+      "backoff": 0,
+      "successRate": 1,
+      "p50Ms": 790,
+      "p95Ms": 988,
+      "avgResults": 10,
+      "topErrors": []
+    },
+    {
+      "provider": "exa",
+      "attempts": 4,
+      "ok": 4,
+      "empty": 0,
+      "error": 0,
+      "backoff": 0,
+      "successRate": 1,
+      "p50Ms": 1263,
+      "p95Ms": 2441,
+      "avgResults": 8.75,
+      "topErrors": []
+    },
+    {
+      "provider": "tavily",
+      "attempts": 4,
+      "ok": 4,
+      "empty": 0,
+      "error": 0,
+      "backoff": 0,
+      "successRate": 1,
+      "p50Ms": 1847,
+      "p95Ms": 2148,
+      "avgResults": 10,
+      "topErrors": []
+    }
+  ]
+}
