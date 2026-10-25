@@ -1,0 +1,1160 @@
+{
+  "date": "2026-10-25",
+  "queries": [
+    {
+      "query": "kubernetes pod crashloopbackoff debugging",
+      "intent": "technical"
+    },
+    {
+      "query": "react server components data fetching best practices",
+      "intent": "technical"
+    },
+    {
+      "query": "typescript generic type inference edge cases",
+      "intent": "technical"
+    },
+    {
+      "query": "nginx reverse proxy websocket timeout configuration",
+      "intent": "technical"
+    },
+    {
+      "query": "docker compose healthcheck depends_on ordering",
+      "intent": "technical"
+    },
+    {
+      "query": "redis cluster resharding downtime",
+      "intent": "technical"
+    },
+    {
+      "query": "python asyncio task cancellation semantics",
+      "intent": "technical"
+    },
+    {
+      "query": "git rebase vs merge conflict resolution workflow",
+      "intent": "technical"
+    },
+    {
+      "query": "rust lifetime errors with closures",
+      "intent": "technical"
+    },
+    {
+      "query": "graphql n+1 query problem dataloader",
+      "intent": "technical"
+    },
+    {
+      "query": "postgres bağlantı havuzu yapılandırma hatası",
+      "intent": "technical",
+      "locale": "tr"
+    },
+    {
+      "query": "react sunucu bileşenleri veri çekme en iyi uygulamalar",
+      "intent": "technical",
+      "locale": "tr"
+    },
+    {
+      "query": "docker compose healthcheck yapılandırma",
+      "intent": "technical",
+      "locale": "tr"
+    },
+    {
+      "query": "federal reserve interest rate decision this week",
+      "intent": "news"
+    },
+    {
+      "query": "european union ai act enforcement timeline",
+      "intent": "news"
+    },
+    {
+      "query": "javascript framework news this month",
+      "intent": "news"
+    },
+    {
+      "query": "semiconductor export restrictions latest announcement",
+      "intent": "news"
+    },
+    {
+      "query": "turkey inflation report this week",
+      "intent": "news"
+    },
+    {
+      "query": "openai announcement today",
+      "intent": "news"
+    },
+    {
+      "query": "node.js en son sürüm duyurusu",
+      "intent": "news",
+      "locale": "tr"
+    },
+    {
+      "query": "türkiye enflasyon raporu bu hafta",
+      "intent": "news",
+      "locale": "tr"
+    },
+    {
+      "query": "retrieval augmented generation evaluation benchmarks",
+      "intent": "research"
+    },
+    {
+      "query": "transformer attention alternatives survey",
+      "intent": "research"
+    },
+    {
+      "query": "vector database vendors market share",
+      "intent": "research"
+    },
+    {
+      "query": "evidence based intermittent fasting meta analysis",
+      "intent": "research"
+    },
+    {
+      "query": "developer productivity ai copilots study",
+      "intent": "research"
+    },
+    {
+      "query": "sqlite wal mode performance benchmarks",
+      "intent": "research"
+    },
+    {
+      "query": "yapay zeka destekli kod asistanları pazar payı",
+      "intent": "research",
+      "locale": "tr"
+    },
+    {
+      "query": "vektör veritabanı karşılaştırma sektör analizi",
+      "intent": "research",
+      "locale": "tr"
+    },
+    {
+      "query": "enterprise api gateway vendors comparison",
+      "intent": "commercial"
+    },
+    {
+      "query": "competitors of linear project management tool",
+      "intent": "commercial"
+    },
+    {
+      "query": "managed postgres providers enterprise pricing",
+      "intent": "commercial"
+    },
+    {
+      "query": "observability platform vendor landscape",
+      "intent": "commercial"
+    },
+    {
+      "query": "kurumsal api gateway tedarikçileri",
+      "intent": "commercial",
+      "locale": "tr"
+    },
+    {
+      "query": "best price mechanical keyboard 65 percent",
+      "intent": "shopping"
+    },
+    {
+      "query": "cheapest minecraft hosting in stock",
+      "intent": "shopping"
+    },
+    {
+      "query": "buy refurbished thinkpad deal",
+      "intent": "shopping"
+    },
+    {
+      "query": "noise cancelling headphones discount",
+      "intent": "shopping"
+    },
+    {
+      "query": "mekanik klavye fiyat indirim",
+      "intent": "shopping",
+      "locale": "tr"
+    },
+    {
+      "query": "nearest urgent care open now",
+      "intent": "local"
+    },
+    {
+      "query": "coffee roaster nearby with same day pickup",
+      "intent": "local"
+    },
+    {
+      "query": "closest bmw service center",
+      "intent": "local"
+    },
+    {
+      "query": "bike repair shop in my area",
+      "intent": "local"
+    },
+    {
+      "query": "yakınımdaki bisiklet tamiri",
+      "intent": "local",
+      "locale": "tr"
+    },
+    {
+      "query": "react official documentation page",
+      "intent": "navigational"
+    },
+    {
+      "query": "postgresql official docs",
+      "intent": "navigational"
+    },
+    {
+      "query": "kubernetes official website",
+      "intent": "navigational"
+    },
+    {
+      "query": "turborepo official site",
+      "intent": "navigational"
+    },
+    {
+      "query": "türkiye resmi e-devlet sitesi",
+      "intent": "navigational",
+      "locale": "tr"
+    },
+    {
+      "query": "oauth ile jwt arasındaki fark nedir",
+      "intent": "general",
+      "locale": "tr"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2490
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1888
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1104
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2262
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 8,
+      "durationMs": 1753
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 788
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1689
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2855
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 971
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1548
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1479
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 847
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1669
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 2369
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 904
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1534
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 2056
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 718
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1651
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 4082
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 805
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1670
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2137
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 814
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1955
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 916
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 733
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1515
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 1682
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 757
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1799
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 3733
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 711
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1781
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 2749
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 645
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2214
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1868
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 660
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1698
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1612
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 795
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1529
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2224
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 771
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1442
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 8,
+      "durationMs": 2832
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 749
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 8,
+      "durationMs": 1790
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2062
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 940
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1420
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1956
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 717
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2016
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1746
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 808
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1400
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1151
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 693
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1836
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 1871
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 708
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 1735
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2203
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 810
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2407
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2600
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 934
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1524
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1547
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 758
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1878
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2664
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 750
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 1831
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 2253
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 779
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1473
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1631
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 785
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1786
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2210
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 704
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1815
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 4218
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 972
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1807
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1817
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 801
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1824
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2141
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1129
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1720
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 2314
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 812
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2660
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 3490
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 701
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1702
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2366
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 677
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1863
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 3054
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 916
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1886
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2216
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 815
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2038
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 3184
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 746
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2140
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2511
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 697
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2417
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2620
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 716
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2444
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1978
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 764
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1924
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 9,
+      "durationMs": 3404
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 742
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 3965
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1279
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 720
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1525
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2121
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 706
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1333
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2270
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 672
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1769
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 3,
+      "durationMs": 2465
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 742
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2429
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1376
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 692
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2406
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1537
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 8,
+      "durationMs": 810
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2713
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2003
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 759
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1587
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1993
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 682
+    },
+    {
+      "provider": "tavily",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 2573
+    },
+    {
+      "provider": "exa",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 1887
+    },
+    {
+      "provider": "duckduckgo",
+      "status": "ok",
+      "resultCount": 10,
+      "durationMs": 682
+    }
+  ],
+  "summary": [
+    {
+      "provider": "duckduckgo",
+      "attempts": 50,
+      "ok": 50,
+      "empty": 0,
+      "error": 0,
+      "backoff": 0,
+      "successRate": 1,
+      "p50Ms": 757,
+      "p95Ms": 972,
+      "avgResults": 9.96,
+      "topErrors": []
+    },
+    {
+      "provider": "exa",
+      "attempts": 50,
+      "ok": 50,
+      "empty": 0,
+      "error": 0,
+      "backoff": 0,
+      "successRate": 1,
+      "p50Ms": 2137,
+      "p95Ms": 3733,
+      "avgResults": 9.62,
+      "topErrors": []
+    },
+    {
+      "provider": "tavily",
+      "attempts": 50,
+      "ok": 50,
+      "empty": 0,
+      "error": 0,
+      "backoff": 0,
+      "successRate": 1,
+      "p50Ms": 1799,
+      "p95Ms": 2660,
+      "avgResults": 9.92,
+      "topErrors": []
+    }
+  ]
+}
