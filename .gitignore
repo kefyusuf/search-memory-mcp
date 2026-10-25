@@ -28,3 +28,9 @@ REVIEW-FIX.md
 00-UAT.md
 conductor/
 security-report/
+
+# Local diagnostic captures and tool state
+dump/
+dumps/
+.mimosa/
+.zcode/
