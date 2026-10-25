@@ -35,7 +35,7 @@ describe("WebSearchServer diagnostics", () => {
       searchProviders: ["mock"],
       searchStrategyDefault: "fallback",
       autoRouting: "available",
-      routingProfileVersion: "v2",
+      routingProfileVersion: "v3",
       fetchWaitUntil: "domcontentloaded",
       forcePlaywright: true,
       cacheDbPath: ":memory:",

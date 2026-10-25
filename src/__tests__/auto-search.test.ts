@@ -29,7 +29,7 @@ function plan(overrides: Partial<SearchPlan> = {}): SearchPlan {
     strategy: "aggregate",
     primaryProviderNames: ["brave", "google"],
     fallbackProviderNames: ["bing", "duckduckgo"],
-    profileVersion: "v2",
+    profileVersion: "v3",
     ...overrides,
   };
 }
@@ -165,12 +165,12 @@ describe("WebSearchServer auto routing", () => {
     // Cache is now plan-aware: lookups/stores are namespaced by intent + profile + providers.
     expect(cacheGet).toHaveBeenCalledWith(
       "react server components domain:react.dev",
-      expect.stringContaining("auto:v2:technical:"),
+      expect.stringContaining("auto:v3:technical:"),
     );
     expect(cacheSet).toHaveBeenCalledWith(
       "react server components domain:react.dev",
       expect.any(Array),
-      expect.stringContaining("auto:v2:technical:"),
+      expect.stringContaining("auto:v3:technical:"),
       { ttlMs: 24 * 60 * 60 * 1000 },
     );
 

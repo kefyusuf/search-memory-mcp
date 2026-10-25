@@ -185,20 +185,20 @@ Domain and date bounds are exact cache constraints, isolated from semantic query
 
 For aggregate auto profiles, secondary configured providers are contacted only if **all** selected primary providers return no usable result. A partial primary success is accepted instead of widening the request just to increase result count. This limits scraping load and reduces unnecessary blocking/CAPTCHA exposure.
 
-Current routing profile: `v2`.
+Current routing profile: `v3`.
 
 | Intent | Execution | Preferred order | Primary target |
 | --- | --- | --- | ---: |
 | `technical` | aggregate | searxng, brave, duckduckgo, bing, google | 2 |
-| `research` | aggregate | searxng, brave, duckduckgo, bing, google | 3 |
-| `news` | aggregate | searxng, duckduckgo, brave, bing, google | 3 |
+| `research` | aggregate | exa, tavily, searxng, duckduckgo, brave, bing, google | 3 |
+| `news` | aggregate | tavily, duckduckgo, searxng, brave, bing, google | 3 |
 | `commercial` | aggregate | searxng, brave, duckduckgo, bing, google | 3 |
 | `shopping` | aggregate | searxng, duckduckgo, brave, bing, google | 2 |
 | `local` | aggregate | searxng, duckduckgo, brave, bing, google | 2 |
 | `navigational` | fallback | searxng, duckduckgo, brave, bing, google | all configured |
 | `general` | fallback | existing configured order | all configured |
 
-Profile `v2` orders providers by measured reliability (`npm run benchmark:providers`, October 2026). Self-hosted SearXNG and the Brave Search API answered reliably, and DuckDuckGo was the only scraper that answered consistently. Bing and Google mostly blocked scraping clients, so they come last. These preferences are not permanent quality claims. They are versioned so later releases can tune them from deterministic and live evaluation evidence without scattering routing conditionals through the server.
+Profile `v3` places the opt-in official APIs where their capability is measured (P1-04 three-day live matrix, October 2026: 449/450 attempts — see `evals/providers/` and [ADR 0003](docs/adr/0003-routing-profile-v3.md)): Tavily's news topic and provider-reported publish dates lead `news`, and Exa's neural retrieval leads `research`. Every other row keeps the v2 reliability ordering, where self-hosted SearXNG and the Brave Search API answered reliably and DuckDuckGo was the only scraper that answered consistently, while Bing and Google mostly blocked scraping clients. These preferences are not permanent quality claims. They are versioned so later releases can tune them from deterministic and live evaluation evidence without scattering routing conditionals through the server. The planner intersects preferences with `SEARCH_PROVIDERS`, so providers without keys never activate and keyless behavior is unchanged.
 
 ### Example: intent-aware search
 
