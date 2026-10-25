@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Search routing
+
+- Routing profile `v3` ([ADR 0003](docs/adr/0003-routing-profile-v3.md)): with `TAVILY_API_KEY`/`EXA_API_KEY` configured, intent-aware `auto` search leads `news` with Tavily (news topic, provider-reported publish dates) and `research` with Exa (neural retrieval), based on the P1-04 three-day live matrix (449/450 attempts; `evals/providers/`). Keyless configurations resolve exactly as before; cache namespaces are versioned, so no v2-era entries are reused.
+
 ## 1.1.0 (2026-10-25)
 
 Feature release for the existing local-first stdio MCP server: two opt-in official search APIs close the fresh-news and semantic-discovery gaps, and search results now carry provider-reported publish dates. No new hosted services or public L3 launch.
