@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-10-25)
+
+Feature release for the existing local-first stdio MCP server: two opt-in official search APIs close the fresh-news and semantic-discovery gaps, and search results now carry provider-reported publish dates. No new hosted services or public L3 launch.
 
 ### Search quality
 
