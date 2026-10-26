@@ -63,6 +63,7 @@
     "e2e": "node scripts/e2e.mjs",
     "test:postgres": "node scripts/verify-membership-postgres.mjs",
     "test:postgres:shutdown": "node scripts/verify-membership-shutdown.mjs",
+    "test:restore-authorization": "node scripts/verify-restore-authorization.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "benchmark:providers": "node scripts/benchmark-providers.mjs",
     "prepack": "npm run build",
