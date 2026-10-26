@@ -9,7 +9,7 @@ import { generateKeyPair, SignJWT } from "jose";
 import Database from "better-sqlite3";
 import { PostgresMembershipResolver } from "../build/identity/postgres-membership.js";
 import { JwtAuthorizationAdapter } from "../build/runtime/jwt-authorization.js";
-import { createHostedRequestContext } from "../build/runtime/request-context.js";
+import { assertRequestAuthorization, createHostedRequestContext } from "../build/runtime/request-context.js";
 import { SessionMemory } from "../build/memory/session-memory.js";
 import { KnowledgeIndex } from "../build/knowledge/index-store.js";
 import { EntityGraph } from "../build/graph/entity-graph.js";
