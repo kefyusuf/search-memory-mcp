@@ -211,5 +211,7 @@ try {
   if (createdOwner) await admin.query(`DROP ROLE ${ownerRole}`).catch(() => {});
   await admin.end();
   if (appDir) rmSync(appDir, { recursive: true, force: true });
-  if (restoreDir) rmSync(restoreDir, { recursive: true, force: true });
+  // Windows can briefly hold SQLite sidecar handles after close(); a leftover
+  // OS-temp directory is harmless, so a refused removal must not fail the run.
+  if (restoreDir) { try { rmSync(restoreDir, { recursive: true, force: true }); } catch { /* retained in OS temp */ } }
 }
