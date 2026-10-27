@@ -133,6 +133,8 @@ Bu kapı sadece D1'deki **R-A ayrı/boş hedefe tam ortam kurtarması** içindir
 
 **Durum:** **D4 OPEN**; D2 operatör/onay akışı ve D3 güncel revocation otoritesi de **OPEN**. D4-A1–A5 **NOT RUN**; TR-01 **LOCAL PASS** (yerel fiziksel SQLite), TR-02–TR-05 **NOT RUN**. İzole hedefte restore edilmiş verinin kullanılabilirliği veya genel CI/Docker başarısı hosted recovery kanıtı değildir. **P0-02 / public L3 NO-GO**; **R-B tenant/workspace-selective restore HOLD** ve bağımsız **P0-06 silme/export/retention** yükümlülükleri değişmez.
 
+**Durum güncellemesi (2026-10-27):** D2 operatör kararı [onaylandı](https://github.com/kefyusuf/search-memory-mcp/issues/83#issuecomment-6425870367); TR-03/04/05 [SYNTHETIC PASS](https://github.com/kefyusuf/search-memory-mcp/pull/100); D4-A1–A5 için **aktivasyon/fencing kabul tasarımı** yayınlandı — [D4 tasarım dokümanı](2026-10-27-p0-02-d4-activation-fencing-design.md) (DESIGN-ONLY; TA-01…TA-07 sentetik matrisi; uygulama ayrı onaylı PR'da). D4-A1–A5 **NOT RUN** kalır; gerçek cutover/deployment NO-GO.
+
 ## Ayrı ele alınması gereken iki senaryo
 
 **R-A — Tam ortam felaket kurtarması (ilk hedef adayı):** Tüm scope'ların aynı fiziksel imajda yer alması beklenebilir, ancak backup ve hedef yalnızca yetkili operatöre açık olmalıdır. Canlı trafiğe dönmeden önce veri bütünlüğü, cross-tenant isolation, identity/audit ile güvenli yetki uzlaştırması ve bozulmuş/eksik backup'ta fail-closed kanıtı gerekir. Bu senaryo **D1 kapsamında ilk pilot için hedeflenen kurtarma granülerliğidir**; henüz uygulanmış veya hosted ortamda yeterli şekilde test edilmiş değildir. D2–D4 çözülmeden restore yayımlanmaz.
