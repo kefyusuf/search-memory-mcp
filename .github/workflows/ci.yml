@@ -46,6 +46,9 @@ jobs:
 
       - run: npm run smoke:mcp
 
+      - name: Offline quality set (P1-03, FTS baseline)
+        run: npm run eval:quality
+
       - name: Verify membership against real PostgreSQL
         run: npm run test:postgres
         env:

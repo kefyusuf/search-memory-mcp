@@ -71,6 +71,25 @@ export function meanReciprocalRank(retrievedIds: string[], relevantIds: string[]
   return 0;
 }
 
+/** Binary-relevance nDCG@k over unique retrieved ids. */
+export function ndcgAtK(retrievedIds: string[], relevantIds: string[], k: number): number {
+  if (k <= 0) return 0;
+  const relevant = new Set(relevantIds);
+  if (relevant.size === 0) return 0;
+  const seen = new Set<string>();
+  const gains: number[] = [];
+  for (const id of retrievedIds.slice(0, k)) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    gains.push(relevant.has(id) ? 1 : 0);
+  }
+  const dcg = gains.reduce((sum, gain, index) => sum + gain / Math.log2(index + 2), 0);
+  const idealLength = Math.min(relevant.size, k);
+  const idcg = Array.from({ length: idealLength }, (_, index) => 1 / Math.log2(index + 2))
+    .reduce((sum, value) => sum + value, 0);
+  return idcg === 0 ? 0 : dcg / idcg;
+}
+
 export function evaluateRetrieval(cases: EvalCase[], options?: EvalOptions): RetrievalReport {
   const ks = [...new Set(options?.ks ?? [1, 3, 5, 10])].sort((a, b) => a - b);
   const perQuery: RetrievalReport["perQuery"] = [];

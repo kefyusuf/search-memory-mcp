@@ -1,0 +1,120 @@
+{"id": "q-local-001", "kind": "local", "query": "PgBouncer transaction pooling pool_size tuning", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-pgbouncer-en"], "top1DocId": "d-pgbouncer-en"}
+{"id": "q-local-002", "kind": "local", "query": "prepared statements max_prepared_statements transaction pooling", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-pgbouncer-en"], "top1DocId": "d-pgbouncer-en"}
+{"id": "q-local-003", "kind": "local", "query": "cl_waiting queue server_idle_timeout pooler", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-pgbouncer-en"], "top1DocId": "d-pgbouncer-en"}
+{"id": "q-local-004", "kind": "local", "query": "autovacuum vacuum_cost_limit bloat", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-postgres-vacuum-en"], "top1DocId": "d-postgres-vacuum-en"}
+{"id": "q-local-005", "kind": "local", "query": "n_dead_tup wraparound xmin horizon", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-postgres-vacuum-en"], "top1DocId": "d-postgres-vacuum-en"}
+{"id": "q-local-006", "kind": "local", "query": "autovacuum_vacuum_scale_factor hot tables", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-postgres-vacuum-en"], "top1DocId": "d-postgres-vacuum-en"}
+{"id": "q-local-007", "kind": "local", "query": "React Server Components RSC payload hydration", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-react-rsc-en"], "top1DocId": "d-react-rsc-en"}
+{"id": "q-local-008", "kind": "local", "query": "use client boundary serializable props", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-react-rsc-en"], "top1DocId": "d-react-rsc-en"}
+{"id": "q-local-009", "kind": "local", "query": "server actions data mutations", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-react-rsc-en"], "top1DocId": "d-react-rsc-en"}
+{"id": "q-local-010", "kind": "local", "query": "useEffect cleanup function subscription leak", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-react-hooks-en"], "top1DocId": "d-react-hooks-en"}
+{"id": "q-local-011", "kind": "local", "query": "AbortController fetch unmount", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-react-hooks-en"], "top1DocId": "d-react-hooks-en"}
+{"id": "q-local-012", "kind": "local", "query": "stale closure dependency array custom hooks", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-react-hooks-en"], "top1DocId": "d-react-hooks-en"}
+{"id": "q-local-013", "kind": "local", "query": "CrashLoopBackOff exit code previous logs", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-k8s-crashloop-en"], "top1DocId": "d-k8s-crashloop-en"}
+{"id": "q-local-014", "kind": "local", "query": "restartCount lastState ephemeral container", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-k8s-crashloop-en"], "top1DocId": "d-k8s-crashloop-en"}
+{"id": "q-local-015", "kind": "local", "query": "readiness probe Service endpoints rolling update", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-k8s-probes-en"], "top1DocId": "d-k8s-probes-en"}
+{"id": "q-local-016", "kind": "local", "query": "startup probe slow initialization failureThreshold", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-k8s-probes-en"], "top1DocId": "d-k8s-probes-en"}
+{"id": "q-local-017", "kind": "local", "query": "Redis AOF appendfsync everysec durability", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-redis-persistence-en"], "top1DocId": "d-redis-persistence-en"}
+{"id": "q-local-018", "kind": "local", "query": "RDB snapshot crash loss interval", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-redis-persistence-en"], "top1DocId": "d-redis-persistence-en"}
+{"id": "q-local-019", "kind": "local", "query": "Node.js backpressure highWaterMark drain", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-node-streams-en"], "top1DocId": "d-node-streams-en"}
+{"id": "q-local-020", "kind": "local", "query": "pipeline API forwards errors cleanup", "intent": "technical", "locale": "en", "split": "tuning", "relevantDocIds": ["d-node-streams-en"], "top1DocId": "d-node-streams-en"}
+{"id": "q-local-021", "kind": "local", "query": "TypeScript conditional types infer keyword", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-ts-generics-en"], "top1DocId": "d-ts-generics-en"}
+{"id": "q-local-022", "kind": "local", "query": "distributive conditional union members Omit Extract", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-ts-generics-en"], "top1DocId": "d-ts-generics-en"}
+{"id": "q-local-023", "kind": "local", "query": "template literal types mapped keys route tables", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-ts-generics-en"], "top1DocId": "d-ts-generics-en"}
+{"id": "q-local-024", "kind": "local", "query": "Docker Compose depends_on service_healthy healthcheck", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-docker-compose-en"], "top1DocId": "d-docker-compose-en"}
+{"id": "q-local-025", "kind": "local", "query": "interval timeout retries database ready", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-docker-compose-en"], "top1DocId": "d-docker-compose-en"}
+{"id": "q-local-026", "kind": "local", "query": "compose watch profiles disabled services", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-docker-compose-en"], "top1DocId": "d-docker-compose-en"}
+{"id": "q-local-027", "kind": "local", "query": "btree indeks Seq Scan büyük tablo", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-index"], "top1DocId": "d-tr-postgres-index"}
+{"id": "q-local-028", "kind": "local", "query": "kısmi indeks boyut yazma", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-index"], "top1DocId": "d-tr-postgres-index"}
+{"id": "q-local-029", "kind": "local", "query": "GIN indeksi jsonb tam metin arama", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-index"], "top1DocId": "d-tr-postgres-index"}
+{"id": "q-local-030", "kind": "local", "query": "React durum yönetimi sunucu önbelleği", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-state"], "top1DocId": "d-tr-react-state"}
+{"id": "q-local-031", "kind": "local", "query": "context api global istemci durumu", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-state"], "top1DocId": "d-tr-react-state"}
+{"id": "q-local-032", "kind": "local", "query": "zustand gereksiz render url parametreleri", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-state"], "top1DocId": "d-tr-react-state"}
+{"id": "q-local-033", "kind": "local", "query": "Kubernetes ağ politikası ingress egress", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-k8s-ag"], "top1DocId": "d-tr-k8s-ag"}
+{"id": "q-local-034", "kind": "local", "query": "NetworkPolicy etiket seçicileri DNS 53", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-k8s-ag"], "top1DocId": "d-tr-k8s-ag"}
+{"id": "q-local-035", "kind": "local", "query": "Calico Cilium katman 7 HTTP", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-k8s-ag"], "top1DocId": "d-tr-k8s-ag"}
+{"id": "q-local-036", "kind": "local", "query": "Redis önbellek TTL isabet", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-redis-cache"], "top1DocId": "d-tr-redis-cache"}
+{"id": "q-local-037", "kind": "local", "query": "cache aside geçersiz kılmada stampede", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-redis-cache"], "top1DocId": "d-tr-redis-cache"}
+{"id": "q-local-038", "kind": "local", "query": "allkeys lru volatile ttl tahliye", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-redis-cache"], "top1DocId": "d-tr-redis-cache"}
+{"id": "q-local-039", "kind": "local", "query": "unhandledRejection süreci dinleyici loglanmalı", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-node-errors"], "top1DocId": "d-tr-node-errors"}
+{"id": "q-local-040", "kind": "local", "query": "operasyonel programlama hataları süpervizör", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-node-errors"], "top1DocId": "d-tr-node-errors"}
+{"id": "q-local-041", "kind": "local", "query": "merkezi hata ara katmanı Express", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-node-errors"], "top1DocId": "d-tr-node-errors"}
+{"id": "q-local-042", "kind": "local", "query": "Docker güvenlik sertleştirme root olmayan", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-docker-guvenlik"], "top1DocId": "d-tr-docker-guvenlik"}
+{"id": "q-local-043", "kind": "local", "query": "read_only capabilities çok aşamalı derleme", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-docker-guvenlik"], "top1DocId": "d-tr-docker-guvenlik"}
+{"id": "q-local-044", "kind": "local", "query": "digest pinlenmiş tarama CI imaj", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-docker-guvenlik"], "top1DocId": "d-tr-docker-guvenlik"}
+{"id": "q-local-045", "kind": "local", "query": "TypeScript strict mod kademeli geçiş", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-ts-strict"], "top1DocId": "d-tr-ts-strict"}
+{"id": "q-local-046", "kind": "local", "query": "strictNullChecks noImplicitAny derleme hatası", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-ts-strict"], "top1DocId": "d-tr-ts-strict"}
+{"id": "q-local-047", "kind": "local", "query": "unknown daraltma güvenli sarmalayıcı taban çizgisi", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-ts-strict"], "top1DocId": "d-tr-ts-strict"}
+{"id": "q-local-048", "kind": "local", "query": "pg_dump mantıksal yedek sürüm bağımsız", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-backup"], "top1DocId": "d-tr-postgres-backup"}
+{"id": "q-local-049", "kind": "local", "query": "WAL arşiv archive_command noktasal kurtarma", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-backup"], "top1DocId": "d-tr-postgres-backup"}
+{"id": "q-local-050", "kind": "local", "query": "restore RPO hedef arşiv gecikmesi", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-backup"], "top1DocId": "d-tr-postgres-backup"}
+{"id": "q-local-051", "kind": "local", "query": "React Profiler gereksiz render ölçüm", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-performance"], "top1DocId": "d-tr-react-performance"}
+{"id": "q-local-052", "kind": "local", "query": "memoization useMemo useCallback sıcak yol", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-performance"], "top1DocId": "d-tr-react-performance"}
+{"id": "q-local-053", "kind": "local", "query": "sanallaştırma kod bölme başlangıç paketi", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-performance"], "top1DocId": "d-tr-react-performance"}
+{"id": "q-local-054", "kind": "local", "query": "rolling update maxSurge maxUnavailable readiness", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-k8s-deploy"], "top1DocId": "d-tr-k8s-deploy"}
+{"id": "q-local-055", "kind": "local", "query": "blue green canary yüzdesi ölçümler", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-k8s-deploy"], "top1DocId": "d-tr-k8s-deploy"}
+{"id": "q-local-056", "kind": "local", "query": "veri şeması tasarlanmalıdır iki kat kaynak", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-k8s-deploy"], "top1DocId": "d-tr-k8s-deploy"}
+{"id": "q-local-057", "kind": "local", "query": "kubernetes probe debugging", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-k8s-crashloop-en", "d-k8s-probes-en"], "top1DocId": "d-k8s-probes-en"}
+{"id": "q-local-058", "kind": "local", "query": "PostgreSQL", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-pgbouncer-en", "d-postgres-vacuum-en", "d-tr-postgres-index", "d-tr-postgres-backup"]}
+{"id": "q-local-059", "kind": "local", "query": "React", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-react-rsc-en", "d-react-hooks-en", "d-tr-react-state", "d-tr-react-performance"]}
+{"id": "q-local-060", "kind": "local", "query": "Redis", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-redis-persistence-en", "d-tr-redis-cache"], "top1DocId": "d-redis-persistence-en"}
+{"id": "q-local-061", "kind": "local", "query": "quantum qubits superconductor", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-062", "kind": "local", "query": "sourdough crumb levain", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-063", "kind": "local", "query": "kite surfing lessons", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-064", "kind": "local", "query": "orchid repotting bark mix", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-065", "kind": "local", "query": "formula pit stop strategy", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-066", "kind": "local", "query": "mars colony radiation shielding", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-067", "kind": "local", "query": "wine fermentation barrel", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-068", "kind": "local", "query": "violin bow rosin", "intent": "general", "locale": "en", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-069", "kind": "local", "query": "kestane toplama mevsimi", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-070", "kind": "local", "query": "deniz feneri turu", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-071", "kind": "local", "query": "ayran tarif", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-072", "kind": "local", "query": "karadeniz mısır ekimi", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-073", "kind": "local", "query": "halı yıkama makineleri", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-074", "kind": "local", "query": "kaplumbağa bakımı terraryum", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-075", "kind": "local", "query": "keçi sütü peynir", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-076", "kind": "local", "query": "zeytin hasadı", "intent": "general", "locale": "tr", "split": "test", "relevantDocIds": [], "expectEmpty": true}
+{"id": "q-local-077", "kind": "local", "query": "connection pooling guide", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-pgbouncer-en"], "top1DocId": "d-pgbouncer-en"}
+{"id": "q-local-078", "kind": "local", "query": "persistence durability", "intent": "technical", "locale": "en", "split": "test", "relevantDocIds": ["d-redis-persistence-en"], "top1DocId": "d-redis-persistence-en"}
+{"id": "q-local-079", "kind": "local", "query": "yedekleme stratejisi", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-postgres-backup"], "top1DocId": "d-tr-postgres-backup"}
+{"id": "q-local-080", "kind": "local", "query": "performans optimizasyonu", "intent": "technical", "locale": "tr", "split": "test", "relevantDocIds": ["d-tr-react-performance"], "top1DocId": "d-tr-react-performance"}
+{"id": "q-web-001", "kind": "web", "query": "node.js latest release announcement", "intent": "news", "locale": "en", "split": "test"}
+{"id": "q-web-002", "kind": "web", "query": "postgresql 18 release notes", "intent": "news", "locale": "en", "split": "test"}
+{"id": "q-web-003", "kind": "web", "query": "react 19 ecosystem news this month", "intent": "news", "locale": "en", "split": "test"}
+{"id": "q-web-004", "kind": "web", "query": "kubernetes security bulletin this week", "intent": "news", "locale": "en", "split": "test", "from_date": "2026-10-01"}
+{"id": "q-web-005", "kind": "web", "query": "redis open source licensing decision", "intent": "news", "locale": "en", "split": "test"}
+{"id": "q-web-006", "kind": "web", "query": "typescript compiler performance announcement", "intent": "news", "locale": "en", "split": "test"}
+{"id": "q-web-007", "kind": "web", "query": "node.js en son sürüm duyurusu", "intent": "news", "locale": "tr", "split": "test"}
+{"id": "q-web-008", "kind": "web", "query": "postgresql yeni sürüm duyurusu", "intent": "news", "locale": "tr", "split": "test"}
+{"id": "q-web-009", "kind": "web", "query": "pgbouncer connection pooling configuration guide", "intent": "technical", "locale": "en", "split": "test"}
+{"id": "q-web-010", "kind": "web", "query": "autovacuum tuning high write tables", "intent": "technical", "locale": "en", "split": "test"}
+{"id": "q-web-011", "kind": "web", "query": "react server components data fetching best practices", "intent": "technical", "locale": "en", "split": "test"}
+{"id": "q-web-012", "kind": "web", "query": "kubernetes crashloopbackoff debugging guide", "intent": "technical", "locale": "en", "split": "test", "domain": "kubernetes.io"}
+{"id": "q-web-013", "kind": "web", "query": "redis aof rewrite configuration reference", "intent": "technical", "locale": "en", "split": "test"}
+{"id": "q-web-014", "kind": "web", "query": "node.js streams backpressure pipeline", "intent": "technical", "locale": "en", "split": "test", "domain": "nodejs.org"}
+{"id": "q-web-015", "kind": "web", "query": "typescript conditional types infer documentation", "intent": "technical", "locale": "en", "split": "test", "domain": "typescriptlang.org"}
+{"id": "q-web-016", "kind": "web", "query": "docker compose healthcheck depends_on reference", "intent": "technical", "locale": "en", "split": "test", "domain": "docs.docker.com"}
+{"id": "q-web-017", "kind": "web", "query": "postgres bağlantı havuzu yapılandırma hatası", "intent": "technical", "locale": "tr", "split": "test"}
+{"id": "q-web-018", "kind": "web", "query": "react sunucu bileşenleri veri çekme en iyi uygulamalar", "intent": "technical", "locale": "tr", "split": "test"}
+{"id": "q-web-019", "kind": "web", "query": "kubernetes ağ politikası yapılandırma", "intent": "technical", "locale": "tr", "split": "test"}
+{"id": "q-web-020", "kind": "web", "query": "docker güvenlik sertleştirme rehberi", "intent": "technical", "locale": "tr", "split": "test"}
+{"id": "q-web-021", "kind": "web", "query": "retrieval augmented generation evaluation benchmarks 2026", "intent": "research", "locale": "en", "split": "test"}
+{"id": "q-web-022", "kind": "web", "query": "vector database market share analysis", "intent": "research", "locale": "en", "split": "test"}
+{"id": "q-web-023", "kind": "web", "query": "sqlite wal mode performance study", "intent": "research", "locale": "en", "split": "test"}
+{"id": "q-web-024", "kind": "web", "query": "ai code assistants developer productivity survey", "intent": "research", "locale": "en", "split": "test"}
+{"id": "q-web-025", "kind": "web", "query": "mcp protocol adoption analysis", "intent": "research", "locale": "en", "split": "test"}
+{"id": "q-web-026", "kind": "web", "query": "yapay zeka kod asistanları pazar payı araştırma", "intent": "research", "locale": "tr", "split": "test"}
+{"id": "q-web-027", "kind": "web", "query": "react developer documentation", "intent": "navigational", "locale": "en", "split": "test", "domain": "react.dev"}
+{"id": "q-web-028", "kind": "web", "query": "postgresql official documentation", "intent": "navigational", "locale": "en", "split": "test", "domain": "postgresql.org"}
+{"id": "q-web-029", "kind": "web", "query": "kubernetes official website", "intent": "navigational", "locale": "en", "split": "test", "domain": "kubernetes.io"}
+{"id": "q-web-030", "kind": "web", "query": "redis documentation page", "intent": "navigational", "locale": "en", "split": "test", "domain": "redis.io"}
+{"id": "q-web-031", "kind": "web", "query": "typescript resmi dokümantasyon sayfası", "intent": "navigational", "locale": "tr", "split": "test"}
+{"id": "q-web-032", "kind": "web", "query": "docker resmi web sitesi", "intent": "navigational", "locale": "tr", "split": "test"}
+{"id": "q-web-033", "kind": "web", "query": "enterprise managed postgres providers comparison", "intent": "commercial", "locale": "en", "split": "test"}
+{"id": "q-web-034", "kind": "web", "query": "observability platform vendor landscape", "intent": "commercial", "locale": "en", "split": "test"}
+{"id": "q-web-035", "kind": "web", "query": "redis hosting vendors competitors", "intent": "commercial", "locale": "en", "split": "test"}
+{"id": "q-web-036", "kind": "web", "query": "kurumsal veritabanı tedarikçileri karşılaştırma", "intent": "commercial", "locale": "tr", "split": "test"}
+{"id": "q-web-037", "kind": "web", "query": "how does connection pooling work", "intent": "general", "locale": "en", "split": "test"}
+{"id": "q-web-038", "kind": "web", "query": "wal journaling explained", "intent": "general", "locale": "en", "split": "test"}
+{"id": "q-web-039", "kind": "web", "query": "oauth ile jwt arasındaki fark nedir", "intent": "general", "locale": "tr", "split": "test"}
+{"id": "q-web-040", "kind": "web", "query": "bağlantı havuzu nedir", "intent": "general", "locale": "tr", "split": "test"}

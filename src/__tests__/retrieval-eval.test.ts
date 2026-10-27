@@ -4,6 +4,7 @@ import {
   recallAtK,
   precisionAtK,
   meanReciprocalRank,
+  ndcgAtK,
   formatEvalReport,
 } from "../eval/retrieval-eval.js";
 
@@ -32,6 +33,20 @@ describe("retrieval metrics", () => {
     expect(recallAtK([], ["a"], 5)).toBe(0);
     expect(precisionAtK([], ["a"], 5)).toBe(0);
     expect(meanReciprocalRank([], ["a"])).toBe(0);
+    expect(ndcgAtK([], ["a"], 5)).toBe(0);
+    expect(ndcgAtK(["b"], [], 5)).toBe(0);
+  });
+
+  it("computes binary nDCG@k with duplicate-id deduplication", () => {
+    // Both relevant found within k: binary gains make any order score 1.
+    expect(ndcgAtK(["a", "b", "c"], ["a", "b"], 5)).toBeCloseTo(1.0);
+    expect(ndcgAtK(["b", "a"], ["a", "b"], 5)).toBeCloseTo(1.0);
+    // Duplicated ids count once: a, a, b ranks like a, b.
+    expect(ndcgAtK(["a", "a", "b"], ["a", "b"], 5)).toBeCloseTo(1.0);
+    // Order matters when only part of the relevant set is found:
+    // relevant {a}: at rank 1 is ideal; at rank 2 loses to the ideal position.
+    expect(ndcgAtK(["a", "x"], ["a"], 5)).toBeCloseTo(1.0);
+    expect(ndcgAtK(["x", "a"], ["a"], 5)).toBeCloseTo(1 / Math.log2(3));
   });
 });
 
