@@ -47,6 +47,8 @@ const resolvers = [];
 const servers = [];
 const clients = [];
 let appDir;
+let keys;
+let appDb;
 let checks = 0;
 const rawSend = (port, path, headers = {}, method = "POST", body = "") =>
   new Promise((resolve, reject) => {
@@ -55,8 +57,8 @@ const rawSend = (port, path, headers = {}, method = "POST", body = "") =>
       res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, text }));
     }); req.on("error", reject); req.end(body);
   });
-async function startIngress({ connectionString, admission }) {
-  const resolver = new PostgresMembershipResolver({ connectionString, issuer, maxConcurrentLookups: 2, lookupTimeoutMs: 2000 });
+async function startIngress({ connectionString, admission, maxConcurrentLookups = 8 }) {
+  const resolver = new PostgresMembershipResolver({ connectionString, issuer, maxConcurrentLookups, lookupTimeoutMs: 2000 });
   resolvers.push(resolver);
   const dispatcher = new ToolDispatcher({
     remember_note: { permission: "memory:write", modes: ["hosted"], handler: async (args, context) => {
@@ -128,8 +130,8 @@ try {
   await fixture.query("INSERT INTO mcp_identity.workspace_memberships(issuer,principal_id,workspace_id,permissions) VALUES ($1,'alice','workspace-a1',$2),($1,'bob','workspace-b1',$2)", [issuer, GRANTS]);
 
   appDir = mkdtempSync(join(tmpdir(), "ingress-e2e-"));
-  const appDb = join(appDir, "app.db");
-  const keys = await generateKeyPair("ES256");
+  appDb = join(appDir, "app.db");
+  keys = await generateKeyPair("ES256");
   const mint = async (subject, scope = GRANTS.join(" ")) => `Bearer ${await new SignJWT({ sub: subject, iss: issuer, aud: resource, exp: Math.floor(Date.now() / 1000) + 600, scope })
     .setProtectedHeader({ alg: "ES256", typ: "at+jwt" }).sign(keys.privateKey)}`;
   const bobFull = await mint("bob");
@@ -178,10 +180,22 @@ try {
 
   // 7. Admission: principal concurrency cap rejects the third parallel slow call.
   const gatedPort = await startIngress({ connectionString: liveUrl.href, admission: new InMemoryInvocationAdmission({ global: 8, tenant: 8, workspace: 8, principal: 2 }) });
-  const slow = [callTool(gatedPort, aliceFull, "workspace-a1", "slow_probe", {}), callTool(gatedPort, aliceFull, "workspace-a1", "slow_probe", {})];
+  const slowPromises = [
+    callTool(gatedPort, aliceFull, "workspace-a1", "slow_probe", {}),
+    callTool(gatedPort, aliceFull, "workspace-a1", "slow_probe", {}),
+  ];
+  // Attach rejection guards immediately so an unexpected 5xx surfaces as a
+  // failed assertion below instead of an unhandled process crash.
+  const slowGuarded = slowPromises.map(promise => promise.then(
+    result => ({ rejected: null, result }),
+    error => ({ rejected: String(error?.message ?? error), result: null }),
+  ));
   await new Promise(resolve => setTimeout(resolve, 80));
   await assert.rejects(callTool(gatedPort, aliceFull, "workspace-a1", "slow_probe", {}), /concurrency_exceeded/); checks++;
-  assert.equal((await Promise.all(slow)).length, 2);
+  const slowResults = await Promise.all(slowGuarded);
+  for (const outcome of slowResults) {
+    assert.equal(outcome.rejected, null, `slow call must not fail under the admission cap: ${outcome.rejected}`);
+  }
 
   console.log(`Hosted ingress end-to-end passed: ${checks} checks (auth matrix, tenant isolation, revocation, fail-closed authority, admission)`);
 } finally {
