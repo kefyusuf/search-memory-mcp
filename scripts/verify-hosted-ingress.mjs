@@ -47,6 +47,8 @@ const resolvers = [];
 const servers = [];
 const clients = [];
 let appDir;
+let keys;
+let appDb;
 let checks = 0;
 const rawSend = (port, path, headers = {}, method = "POST", body = "") =>
   new Promise((resolve, reject) => {
@@ -128,8 +130,8 @@ try {
   await fixture.query("INSERT INTO mcp_identity.workspace_memberships(issuer,principal_id,workspace_id,permissions) VALUES ($1,'alice','workspace-a1',$2),($1,'bob','workspace-b1',$2)", [issuer, GRANTS]);
 
   appDir = mkdtempSync(join(tmpdir(), "ingress-e2e-"));
-  const appDb = join(appDir, "app.db");
-  const keys = await generateKeyPair("ES256");
+  appDb = join(appDir, "app.db");
+  keys = await generateKeyPair("ES256");
   const mint = async (subject, scope = GRANTS.join(" ")) => `Bearer ${await new SignJWT({ sub: subject, iss: issuer, aud: resource, exp: Math.floor(Date.now() / 1000) + 600, scope })
     .setProtectedHeader({ alg: "ES256", typ: "at+jwt" }).sign(keys.privateKey)}`;
   const bobFull = await mint("bob");
