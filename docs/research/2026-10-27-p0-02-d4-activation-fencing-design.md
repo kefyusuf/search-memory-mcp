@@ -1,6 +1,7 @@
 # P0-02 — D4 güvenli aktivasyon/fencing kabul tasarımı (uygulama değil)
 
 **Tarih:** 2026-10-27 · **Kaynak `main`:** [`ca50543`](https://github.com/kefyusuf/search-memory-mcp/commit/ca50543) · **Durum:** DESIGN-ONLY / HOSTED NO-GO
+**Durum güncellemesi (2026-10-27):** TA-01…TA-07 **uygulandı ve SYNTHETIC PASS** — [PR #105](https://github.com/kefyusuf/search-memory-mcp/pull/105), npm `test:activation-fencing` + CI adımı (8 checks; canlı PostgreSQL + restore edilmiş hedef üzerinde revizyon-tutarlı çift restore, uyuşmazlık/yarım-restore/onay-redleri fail-closed, kayıtlı aktivasyon, tek etkin veri yolu, otomatik geri dönüş yok). **Gerçek cutover, deployment, hosted handler'lar ve L3 NO-GO** değişmez.
 
 ## Karar sınırı
 
