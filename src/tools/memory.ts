@@ -20,6 +20,9 @@ const ForgetSchema = z.object({
   id: z.string().min(1).describe("Note id to delete."),
 });
 
+/** Shared with the hosted bootstrap so both paths validate identically. */
+export const MemorySchemas = { RememberSchema, RecallSchema, ForgetSchema };
+
 export function createMemoryHandlers({ sessionMemory }: { sessionMemory: SessionMemory }) {
   return {
     async remember(args: unknown): Promise<ToolResult> {

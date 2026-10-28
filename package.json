@@ -66,6 +66,7 @@
     "test:restore-authorization": "node scripts/verify-restore-authorization.mjs",
     "test:hosted-ingress": "node scripts/verify-hosted-ingress.mjs",
     "test:activation-fencing": "node scripts/verify-activation-fencing.mjs",
+    "test:hosted-bootstrap": "node scripts/verify-hosted-bootstrap.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "eval:quality": "node scripts/eval-quality.mjs",
     "benchmark:providers": "node scripts/benchmark-providers.mjs",
