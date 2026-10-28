@@ -200,10 +200,13 @@ try {
   const stillOnly = await callTool(port, bobFull, "workspace-b1", "recall", {});
   assert.doesNotMatch(JSON.stringify(stillOnly.content), /escalation/); checks++;
 
-  // 6. Disabled-tool fence: web_search is advertised but not hosted-enabled.
-  const disabled = await callTool(port, aliceFull, "workspace-a1", "web_search", { query: "test" });
-  assert.equal(disabled.isError, true);
-  assert.match(JSON.stringify(disabled.content), /execution_mode_unavailable/); checks++;
+  // 6. Rollout slice 2: web_search is hosted-enabled (no mode fence), while
+  // the knowledge tools remain fenced.
+  const webSearch = await callTool(port, aliceFull, "workspace-a1", "web_search", { query: "example" });
+  assert.doesNotMatch(JSON.stringify(webSearch), /execution_mode_unavailable/); checks++;
+  const fencedKnowledge = await callTool(port, aliceFull, "workspace-a1", "search_index", { query: "anything" });
+  assert.equal(fencedKnowledge.isError, true);
+  assert.match(JSON.stringify(fencedKnowledge.content), /execution_mode_unavailable/); checks++;
 
   // 7. HTTP-layer revocation: after the live authority revokes bob, 403 fail closed.
   await fixture.query("UPDATE mcp_identity.workspace_memberships SET revoked_at=now() WHERE issuer=$1 AND principal_id='bob' AND workspace_id='workspace-b1'", [issuer]);

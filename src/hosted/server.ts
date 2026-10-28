@@ -2,9 +2,10 @@
 /**
  * Hosted MCP server bootstrap (ADR-0005). Composes the HTTP auth boundary,
  * a real PostgreSQL membership resolver (the live authority), shared
- * admission and the tenant-scoped store cache, then serves the MCP tools
- * that are enabled for hosted execution (memory slice first). The local
- * stdio server (src/index.ts) is untouched.
+ * admission, shared search infrastructure and per-scope tenant caches, then
+ * serves the MCP tools enabled for hosted execution. Rollout slice 2 adds
+ * web_search and fetch_content next to the memory slice; the local stdio
+ * server (src/index.ts) is untouched.
  *
  * Requires explicit configuration; on missing pieces it prints the exact
  * setup instructions and exits instead of guessing.
@@ -12,6 +13,7 @@
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { importSPKI } from "jose";
+import { chromium, Browser, BrowserContext } from "playwright";
 import { Server as McpServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -20,10 +22,23 @@ import { InvocationError } from "../runtime/request-context.js";
 import { createHostedHttpAuthHandler } from "../runtime/hosted-http-auth.js";
 import { ToolDispatcher } from "../runtime/tool-dispatcher.js";
 import { InMemoryInvocationAdmission } from "../runtime/invocation-admission.js";
+import { TransformersEmbeddingProvider } from "../cache/embedding.js";
+import { SQLiteVectorStore } from "../cache/sqlite-store.js";
+import { SemanticCache } from "../cache/semantic-cache.js";
+import { createFetchRateLimiter, createSearchRateLimiter } from "../rate-limiter.js";
+import type { SearchProvider } from "../providers/base.js";
+import { buildProviders } from "../providers/registry.js";
+import { ProviderHealthTracker } from "../providers/health.js";
+import { SearchIntentDetector } from "../search/intent.js";
+import { SearchTraceHistory, createSearchHandler } from "../tools/search.js";
+import { createFetchHandler } from "../tools/fetch.js";
 import { TOOL_DEFINITIONS } from "../tools/definitions.js";
 import { MemorySchemas } from "../tools/memory.js";
 import { textResult, type ToolResult } from "../tools/types.js";
-import { TenantStoreCache } from "./tenant-stores.js";
+import { launchWithAutoInstall } from "../browser-launcher.js";
+import { openGuardedBrowserContext, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
+import { TenantStoreCache, ScopeCache } from "./tenant-stores.js";
+import { ContentFetcher } from "../fetch-module.js";
 
 function requireEnv(name: string, validate?: (value: string) => boolean): string {
   const value = (process.env[name] ?? "").trim();
@@ -43,6 +58,7 @@ function requireInt(name: string, min = 1): number {
 }
 
 const port = Number(process.env.HOSTED_HTTP_PORT ?? "8080");
+const bind = process.env.HOSTED_BIND ?? "0.0.0.0";
 const issuer = requireEnv("HOSTED_ISSUER", v => v.startsWith("https://"));
 const audience = requireEnv("HOSTED_AUDIENCE", v => v.startsWith("https://"));
 const allowedOrigins = requireEnv("HOSTED_ALLOWED_ORIGINS").split(",").map(origin => origin.trim()).filter(Boolean);
@@ -61,8 +77,55 @@ const admit = {
   principal: requireInt("HOSTED_ADMIT_PRINCIPAL"),
 };
 const maxTenantStores = Number(process.env.HOSTED_MAX_TENANT_STORES ?? "64");
+const maxScopeCaches = Number(process.env.HOSTED_MAX_SCOPE_CACHES ?? "64");
 const lookupConcurrency = Number(process.env.HOSTED_LOOKUP_CONCURRENCY ?? "8");
 const lookupTimeoutMs = Number(process.env.HOSTED_LOOKUP_TIMEOUT_MS ?? "2000");
+const fetchWaitUntil = process.env.HOSTED_FETCH_WAIT_UNTIL === "domcontentloaded" ? "domcontentloaded" : "networkidle";
+const readerFallbackUrl = process.env.HOSTED_READER_FALLBACK_URL;
+const searchLimiter = createSearchRateLimiter();
+const fetchLimiter = createFetchRateLimiter();
+const healthTracker = new ProviderHealthTracker();
+const traces = new SearchTraceHistory();
+const intentDetector = new SearchIntentDetector();
+const embeddingProvider = new TransformersEmbeddingProvider(undefined, { loadWaitMs: 0 });
+const defaultProviders = (process.env.BRAVE_SEARCH_API_KEY ?? "").trim() ? "brave,duckduckgo,marginalia,bing" : "duckduckgo,marginalia,bing";
+const sharedProviders: SearchProvider[] = buildProviders((process.env.SEARCH_PROVIDERS ?? defaultProviders).split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
+
+// Shared guarded browser, launched lazily only when a page needs it (same
+// pattern as the local server): Chromium + loopback egress proxy, no
+// direct-network fallback.
+let browser: Browser | null = null;
+let browserContext: BrowserContext | null = null;
+let browserContextLaunch: Promise<BrowserContext> | null = null;
+let browserLaunch: Promise<Browser> | null = null;
+let browserShuttingDown = false;
+let browserEgressProxy: BrowserEgressProxy | null = null;
+async function getBrowserContext(): Promise<BrowserContext> {
+  if (browserShuttingDown) throw new Error("Browser is shutting down");
+  if (browserContext) return browserContext;
+  browserLaunch ??= launchWithAutoInstall(() => chromium.launch({
+    headless: true,
+    args: ["--disable-quic", "--disable-background-networking", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
+  })).finally(() => { browserLaunch = null; });
+  browser = await browserLaunch;
+  browserContextLaunch ??= (async () => {
+    const launched = await getBrowser();
+    const { context, proxy } = await openGuardedBrowserContext(launched, {
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    });
+    if (browserShuttingDown) {
+      try { await context.close(); } finally { await proxy.close(); }
+      throw new Error("Browser is shutting down");
+    }
+    browserEgressProxy = proxy;
+    browserContext = context;
+    return context;
+  })().finally(() => { browserContextLaunch = null; });
+  return browserContextLaunch;
+}
+async function getBrowser(): Promise<Browser> {
+  return browser!;
+}
 
 const verificationKey = await importSPKI(keyPem, algorithm).catch((error: unknown) => {
   console.error(`HOSTED_PUBLIC_KEY_FILE is not a valid SPKI public key: ${error instanceof Error ? error.message : String(error)}`);
@@ -72,6 +135,28 @@ const verificationKey = await importSPKI(keyPem, algorithm).catch((error: unknow
 const resolver = new PostgresMembershipResolver({ connectionString: membershipUrl, issuer, maxConcurrentLookups: lookupConcurrency, lookupTimeoutMs });
 const storeCache = new TenantStoreCache({ appDbPath: appDb, maxStores: maxTenantStores });
 const admission = new InMemoryInvocationAdmission(admit);
+
+// Per-scope (tenant|workspace) search caches and content fetchers. The
+// semantic cache and its vector store bind tenancy at construction; the
+// browser, providers, health tracker and traces are process-wide by design.
+const scopeCaches = new ScopeCache<SemanticCache>({
+  maxEntries: maxScopeCaches,
+  onClose: cache => cache.close(),
+});
+const scopeFetchers = new ScopeCache<ContentFetcher>({
+  maxEntries: maxScopeCaches,
+  onClose: fetcher => fetcher.close(),
+});
+const searchCacheFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => scopeCaches.get(`${context.tenantId}|${context.workspaceId}`, () =>
+  new SemanticCache(embeddingProvider, new SQLiteVectorStore(appDb, { context }), 0.75, intentDetector));
+const fetcherFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => scopeFetchers.get(`${context.tenantId}|${context.workspaceId}`, () =>
+  new ContentFetcher({
+    cache: searchCacheFor(context),
+    getBrowserContext,
+    fetchWaitUntil,
+    readerFallbackUrl,
+    detectIntent: null,
+  }));
 
 const memoryHandlers = {
   async remember(args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]): Promise<ToolResult> {
@@ -96,18 +181,44 @@ const memoryHandlers = {
   },
 };
 
-// Hosted rollout slice 1: memory tools. The remaining nine names are
-// registered but disabled (modes: []) so callers get a precise
-// execution_mode_unavailable instead of an unknown-tool error.
+// Hosted rollout slice 2: web_search and fetch_content join the memory
+// slice. Per-request handlers resolve the caller's own per-scope cache and
+// fetcher; provider health, rate buckets, traces, models and the browser
+// stay process-wide by design (ADR-0005 split). server_status and the
+// knowledge tools remain fenced until their hosted slices.
+const searchTools = new ScopeCache<(args: unknown) => Promise<ToolResult>>({
+  maxEntries: maxScopeCaches,
+});
+const searchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => searchTools.get(`${context.tenantId}|${context.workspaceId}`, () =>
+  createSearchHandler({
+    searchLimiter,
+    cache: () => searchCacheFor(context),
+    providers: () => sharedProviders,
+    healthTracker: () => healthTracker,
+    intentDetector,
+    crossLingual: null,
+    reranker: null,
+    fetchPage: (url: string) => fetcherFor(context).fetchPage(url),
+    traces,
+  }));
+const fetchTools = new ScopeCache<(args: unknown) => Promise<ToolResult>>({
+  maxEntries: maxScopeCaches,
+});
+const fetchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => fetchTools.get(`${context.tenantId}|${context.workspaceId}`, () =>
+  createFetchHandler({
+    fetchLimiter,
+    fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
+  }));
+
 const hostedHandlers = {
   remember: { permission: "memory:write" as const, modes: ["hosted"] as const, handler: memoryHandlers.remember },
   recall: { permission: "memory:read" as const, modes: ["hosted"] as const, handler: memoryHandlers.recall },
   forget: { permission: "memory:write" as const, modes: ["hosted"] as const, handler: memoryHandlers.forget },
+  web_search: { permission: "search:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => searchToolFor(context)(args) },
+  fetch_content: { permission: "content:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => fetchToolFor(context)(args) },
 };
 const disabledHandler = async (): Promise<ToolResult> => textResult("");
 const dispatcher = new ToolDispatcher({
-  web_search: { permission: "search:read", modes: [], handler: disabledHandler },
-  fetch_content: { permission: "content:read", modes: [], handler: disabledHandler },
   research: { permission: "knowledge:write", modes: [], handler: disabledHandler },
   server_status: { permission: "status:read", modes: [], handler: disabledHandler },
   ingest_document: { permission: "knowledge:write", modes: [], handler: disabledHandler },
@@ -121,7 +232,7 @@ const dispatcher = new ToolDispatcher({
 const server = createServer(createHostedHttpAuthHandler({
   authorization: { issuer, audience, algorithm: algorithm as "ES256" | "RS256" | "EdDSA", verificationKey, resolveMembership: resolver.resolveMembership },
   allowedOrigins,
-  scopesSupported: ["memory:read", "memory:write"],
+  scopesSupported: ["memory:read", "memory:write", "search:read", "content:read"],
   requestTimeoutMs: Number(process.env.HOSTED_REQUEST_TIMEOUT_MS ?? "30000"),
   onAuthorized: async (req, res, context) => {
     const mcp = new McpServer({ name: "search-memory-hosted", version: process.env.npm_package_version ?? "hosted" }, { capabilities: { tools: {} } });
@@ -145,7 +256,15 @@ const server = createServer(createHostedHttpAuthHandler({
 
 const shuttingDown = async () => {
   console.error("Hosted MCP server shutting down...");
+  browserShuttingDown = true;
   await new Promise<void>(resolve => server.close(() => resolve()));
+  try { await browserContextLaunch; } catch { /* in-flight launch failed */ }
+  try { await browserLaunch; } catch { /* in-flight launch failed */ }
+  if (browserContext) { try { await browserContext.close(); } catch { /* already closed */ } browserContext = null; }
+  if (browserEgressProxy) { try { await browserEgressProxy.close(); } catch (error) { console.error("Error stopping browser egress proxy:", error); } browserEgressProxy = null; }
+  if (browser) { try { await browser.close(); } catch { /* already closed */ } browser = null; }
+  scopeFetchers.closeAll();
+  scopeCaches.closeAll();
   await resolver.close();
   storeCache.close();
   process.exit(0);
@@ -153,10 +272,10 @@ const shuttingDown = async () => {
 process.on("SIGINT", () => { void shuttingDown(); });
 process.on("SIGTERM", () => { void shuttingDown(); });
 
-server.listen(port, process.env.HOSTED_BIND ?? "0.0.0.0", () => {
+server.listen(port, bind, () => {
   const bound = server.address();
   const boundPort = bound && typeof bound === "object" ? bound.port : port;
-  console.error(`Hosted MCP server listening on ${process.env.HOSTED_BIND ?? "0.0.0.0"}:${boundPort}`);
-  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (memory slice).`);
+  console.error(`Hosted MCP server listening on ${bind}:${boundPort}`);
+  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (memory + web_search + fetch_content).`);
   console.error(`Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`);
 });

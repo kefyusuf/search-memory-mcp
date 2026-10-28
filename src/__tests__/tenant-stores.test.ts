@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TenantStoreCache } from "../hosted/tenant-stores.js";
+import { ScopeCache, TenantStoreCache } from "../hosted/tenant-stores.js";
 import { createHostedRequestContext, type RequestContext } from "../runtime/request-context.js";
 
 function context(tenantId = "tenant-a", workspaceId = "workspace-a"): RequestContext {
@@ -55,5 +55,36 @@ describe("TenantStoreCache", () => {
 
   it("rejects an invalid cap at construction", () => {
     expect(() => new TenantStoreCache({ appDbPath: ":memory:", maxStores: 0 })).toThrow();
+  });
+});
+
+describe("ScopeCache", () => {
+  it("reuses the same entry per key and refreshes LRU order", () => {
+    const cache = new ScopeCache({ maxEntries: 2 });
+    const first = cache.get("a", () => ({ id: "a" }));
+    expect(cache.get("a", () => ({ id: "new-a" }))).toBe(first); // factory runs on miss only
+    cache.get("b", () => ({ id: "b" }));
+    cache.get("a", () => ({ id: "ignored" })); // refresh a, evict b next
+    cache.get("c", () => ({ id: "c" }));
+    expect(cache.size).toBe(2);
+    expect(cache.get("a", () => ({ id: "x" })).id).toBe("a"); // a survived the eviction
+    expect(cache.get("b", () => ({ id: "new-b" })).id).toBe("new-b"); // b was evicted, factory re-ran
+  });
+
+  it("closes evicted entries via onClose and skips already-closed", () => {
+    const closed: string[] = [];
+    const cache = new ScopeCache<{ id: string }>({
+      maxEntries: 1,
+      onClose: item => { if (item?.id) closed.push(item.id); },
+    });
+    cache.get("a", () => ({ id: "a" }));
+    cache.get("b", () => ({ id: "b" })); // evicts a -> onClose("a")
+    expect(closed).toEqual(["a"]);
+    cache.closeAll(); // closes b
+    expect(closed).toEqual(["a", "b"]);
+  });
+
+  it("rejects an invalid cap at construction", () => {
+    expect(() => new ScopeCache({ maxEntries: 0 })).toThrow();
   });
 });
