@@ -1,10 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 (2026-10-27)
+
+Feature release for the existing local-first stdio MCP server: intent-aware routing places the opt-in official APIs where the P1-04 three-day live matrix measured them, and the recovery/quality verification layer moved into CI. No new hosted services or public L3 launch.
 
 ### Search routing
 
 - Routing profile `v3` ([ADR 0003](docs/adr/0003-routing-profile-v3.md)): with `TAVILY_API_KEY`/`EXA_API_KEY` configured, intent-aware `auto` search leads `news` with Tavily (news topic, provider-reported publish dates) and `research` with Exa (neural retrieval), based on the P1-04 three-day live matrix (449/450 attempts; `evals/providers/`). Keyless configurations resolve exactly as before; cache namespaces are versioned, so no v2-era entries are reused.
+
+### Verification and scope (repo-internal; no runtime change)
+
+- P1-03 offline quality set: 120 labeled TR/EN queries (80 local retrieval over a 20-doc fixture corpus, 16 negatives, 40 web-structural) with a deterministic FTS-baseline harness reporting recall/precision@1/3/5, MRR, nDCG@5, top1Accuracy and negative zero-hit checks as a CI step (`evals/quality/`, npm `eval:quality`; baseline nDCG@5 0.985).
+- Recovery-track synthetic acceptance joined CI: TR-03/TR-04/TR-05 restore authorization, hosted HTTP ingress end-to-end with live identity, and TA-01…TA-07 activation/fencing (`npm run test:restore-authorization`, `test:hosted-ingress`, `test:activation-fencing`). The D2 operator-authority decision is recorded (issue #83) and the D4 design (TA matrix) merged; gate docs updated (PRs #99–#106). D2-E1–E5, D3-V3/V4 and real-environment D4 counterparts remain OPEN; hosted restore, deployment and public L3 stay NO-GO.
 
 ## 1.1.0 (2026-10-25)
 
