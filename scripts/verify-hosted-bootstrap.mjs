@@ -201,12 +201,37 @@ try {
   assert.doesNotMatch(JSON.stringify(stillOnly.content), /escalation/); checks++;
 
   // 6. Rollout slice 2: web_search is hosted-enabled (no mode fence), while
-  // the knowledge tools remain fenced.
+  // server_status remains fenced.
   const webSearch = await callTool(port, aliceFull, "workspace-a1", "web_search", { query: "example" });
   assert.doesNotMatch(JSON.stringify(webSearch), /execution_mode_unavailable/); checks++;
-  const fencedKnowledge = await callTool(port, aliceFull, "workspace-a1", "search_index", { query: "anything" });
-  assert.equal(fencedKnowledge.isError, true);
-  assert.match(JSON.stringify(fencedKnowledge.content), /execution_mode_unavailable/); checks++;
+  const fencedStatus = await callTool(port, aliceFull, "workspace-a1", "server_status", {});
+  assert.equal(fencedStatus.isError, true);
+  assert.match(JSON.stringify(fencedStatus.content), /execution_mode_unavailable/); checks++;
+
+  // 8. Rollout slice 3: knowledge tools + research are hosted-enabled with
+  // per-scope stores; ingest_document's filesystem branch stays disabled.
+  const ingested = await callTool(port, aliceFull, "workspace-a1", "ingest_document", {
+    content: "Unique activation knowledge content about PgBouncer pooling internals.",
+    title: "A1 activation doc",
+    source: "https://example.com/a1-activation",
+  });
+  assert.doesNotMatch(JSON.stringify(ingested.content ?? ingested), /execution_mode_unavailable/); checks++;
+  const pathDenied = await callTool(port, aliceFull, "workspace-a1", "ingest_document", { path: "/etc/hostname" });
+  assert.match(JSON.stringify(pathDenied.content ?? pathDenied), /not permitted|allowed|denied|failed/i); checks++;
+  const aliceSearch = await callTool(port, aliceFull, "workspace-a1", "search_index", { query: "activation knowledge pooling" });
+  assert.match(JSON.stringify(aliceSearch.content ?? aliceSearch), /[Aa]ctivation doc/); checks++;
+  const bobSearch = await callTool(port, bobFull, "workspace-b1", "search_index", { query: "activation knowledge pooling" });
+  assert.doesNotMatch(JSON.stringify(bobSearch.content ?? bobSearch), /[Aa]ctivation doc/); checks++;
+  const aliceList = await callTool(port, aliceFull, "workspace-a1", "list_index", {});
+  assert.match(JSON.stringify(aliceList.content ?? aliceList), /[Aa]ctivation doc/); checks++;
+  const bobList = await callTool(port, bobFull, "workspace-b1", "list_index", {});
+  assert.doesNotMatch(JSON.stringify(bobList.content ?? bobList), /[Aa]ctivation doc/); checks++;
+  const related = await callTool(port, aliceFull, "workspace-a1", "find_related", { entity: "PgBouncer" });
+  assert.match(JSON.stringify(related.content ?? related), /example\.com\/a1-activation|activation doc/i); checks++;
+
+  // 9. Research fence lifted (structural: live web outcome is nondeterministic).
+  const research = await callTool(port, aliceFull, "workspace-a1", "research", { query: "example domain info" });
+  assert.doesNotMatch(JSON.stringify(research.content ?? research), /execution_mode_unavailable/); checks++;
 
   // 7. HTTP-layer revocation: after the live authority revokes bob, 403 fail closed.
   await fixture.query("UPDATE mcp_identity.workspace_memberships SET revoked_at=now() WHERE issuer=$1 AND principal_id='bob' AND workspace_id='workspace-b1'", [issuer]);

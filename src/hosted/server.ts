@@ -25,6 +25,8 @@ import { InMemoryInvocationAdmission } from "../runtime/invocation-admission.js"
 import { TransformersEmbeddingProvider } from "../cache/embedding.js";
 import { SQLiteVectorStore } from "../cache/sqlite-store.js";
 import { SemanticCache } from "../cache/semantic-cache.js";
+import { EntityGraph } from "../graph/entity-graph.js";
+import { KnowledgeIndex } from "../knowledge/index-store.js";
 import { createFetchRateLimiter, createSearchRateLimiter } from "../rate-limiter.js";
 import type { SearchProvider } from "../providers/base.js";
 import { buildProviders } from "../providers/registry.js";
@@ -32,6 +34,8 @@ import { ProviderHealthTracker } from "../providers/health.js";
 import { SearchIntentDetector } from "../search/intent.js";
 import { SearchTraceHistory, createSearchHandler } from "../tools/search.js";
 import { createFetchHandler } from "../tools/fetch.js";
+import { createKnowledgeHandlers } from "../tools/knowledge.js";
+import { createResearchHandler } from "../tools/research.js";
 import { TOOL_DEFINITIONS } from "../tools/definitions.js";
 import { MemorySchemas } from "../tools/memory.js";
 import { textResult, type ToolResult } from "../tools/types.js";
@@ -210,29 +214,69 @@ const fetchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => 
     fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
   }));
 
+// Hosted rollout slice 3: the knowledge tools and research. Each scope gets
+// its own KnowledgeIndex + EntityGraph (tenant-bound at construction); the
+// filesystem branch of ingest_document is disabled (allowedDirs is empty),
+// so hosted callers can only ingest inline content. Research reuses the
+// caller's per-scope web_search and fetch pipeline.
+const knowledgeScopes = new ScopeCache<{
+  knowledgeIndex: KnowledgeIndex;
+  entityGraph: EntityGraph;
+  handlers: ReturnType<typeof createKnowledgeHandlers>;
+  research: (args: unknown) => Promise<ToolResult>;
+}>({
+  maxEntries: maxScopeCaches,
+  onClose: bundle => {
+    try { bundle.knowledgeIndex.close(); } catch { /* already closed */ }
+    try { bundle.entityGraph.close(); } catch { /* already closed */ }
+  },
+});
+const knowledgeFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeScopes.get(`${context.tenantId}|${context.workspaceId}`, () => {
+  const knowledgeIndex = new KnowledgeIndex(appDb, { context, embeddingProvider });
+  const entityGraph = new EntityGraph(appDb, { context });
+  const embed = (text: string) => embeddingProvider.getEmbedding(text);
+  const handlers = createKnowledgeHandlers({
+    knowledgeIndex,
+    entityGraph,
+    embed,
+    fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
+    fetchLimiter,
+    allowedDirs: () => [],
+  });
+  const research = createResearchHandler({
+    search: async (innerArgs: unknown) => searchToolFor(context)(innerArgs),
+    fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
+    fetchLimiter,
+    knowledgeIndex,
+    entityGraph,
+    embed,
+  });
+  return { knowledgeIndex, entityGraph, handlers, research };
+});
+
 const hostedHandlers = {
   remember: { permission: "memory:write" as const, modes: ["hosted"] as const, handler: memoryHandlers.remember },
   recall: { permission: "memory:read" as const, modes: ["hosted"] as const, handler: memoryHandlers.recall },
   forget: { permission: "memory:write" as const, modes: ["hosted"] as const, handler: memoryHandlers.forget },
   web_search: { permission: "search:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => searchToolFor(context)(args) },
   fetch_content: { permission: "content:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => fetchToolFor(context)(args) },
+  search_index: { permission: "knowledge:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.search_index(args) },
+  list_index: { permission: "knowledge:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.list_index(args) },
+  find_related: { permission: "knowledge:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.find_related(args) },
+  ingest_document: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.ingest_document(args) },
+  index_url: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.index_url(args) },
+  research: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).research(args) },
 };
 const disabledHandler = async (): Promise<ToolResult> => textResult("");
 const dispatcher = new ToolDispatcher({
-  research: { permission: "knowledge:write", modes: [], handler: disabledHandler },
   server_status: { permission: "status:read", modes: [], handler: disabledHandler },
-  ingest_document: { permission: "knowledge:write", modes: [], handler: disabledHandler },
-  index_url: { permission: "knowledge:write", modes: [], handler: disabledHandler },
-  search_index: { permission: "knowledge:read", modes: [], handler: disabledHandler },
-  list_index: { permission: "knowledge:read", modes: [], handler: disabledHandler },
-  find_related: { permission: "knowledge:read", modes: [], handler: disabledHandler },
   ...hostedHandlers,
 }, { admission });
 
 const server = createServer(createHostedHttpAuthHandler({
   authorization: { issuer, audience, algorithm: algorithm as "ES256" | "RS256" | "EdDSA", verificationKey, resolveMembership: resolver.resolveMembership },
   allowedOrigins,
-  scopesSupported: ["memory:read", "memory:write", "search:read", "content:read"],
+  scopesSupported: ["memory:read", "memory:write", "search:read", "content:read", "knowledge:read", "knowledge:write"],
   requestTimeoutMs: Number(process.env.HOSTED_REQUEST_TIMEOUT_MS ?? "30000"),
   onAuthorized: async (req, res, context) => {
     const mcp = new McpServer({ name: "search-memory-hosted", version: process.env.npm_package_version ?? "hosted" }, { capabilities: { tools: {} } });
@@ -276,6 +320,6 @@ server.listen(port, bind, () => {
   const bound = server.address();
   const boundPort = bound && typeof bound === "object" ? bound.port : port;
   console.error(`Hosted MCP server listening on ${bind}:${boundPort}`);
-  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (memory + web_search + fetch_content).`);
+  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (memory + web + knowledge; server_status fenced).`);
   console.error(`Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`);
 });
