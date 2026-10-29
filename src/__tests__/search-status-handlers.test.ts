@@ -70,6 +70,19 @@ describe("web_search handler", () => {
     const result = await search({ query: "example topic", deep: true });
     expect(text(result)).toContain("https://a.example/1");
   });
+
+  it("appends a repeat-query note to text output when results come from cache", async () => {
+    const cache = new SemanticCache({ getEmbedding: async () => [], isAvailable: () => false }, new InMemoryVectorStore());
+    vi.spyOn(cache, "get").mockResolvedValue([hit("https://a.example/1")]);
+    const search = createSearchHandler(deps({ cache: () => cache }));
+
+    const textResult = await search({ query: "example" });
+    expect(text(textResult)).toContain("this exact query was answered before");
+
+    // The machine-readable payload stays clean: the note lives only in text.
+    const jsonResult = await search({ query: "example", format: "json" });
+    expect(text(jsonResult)).not.toContain("this exact query was answered before");
+  });
 });
 
 describe("SearchTraceHistory", () => {

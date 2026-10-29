@@ -22,7 +22,7 @@ export function rateLimitError(limiter: TokenBucket, toolName: string, envKey: s
   const { allowed, retryAfterMs } = limiter.tryConsume();
   if (allowed) return null;
   const seconds = Math.ceil(retryAfterMs / 1000);
-  return errorResult(`Rate limit exceeded: ${toolName} allows ${process.env[envKey] || defaultLimit} requests per minute. Retry in ${seconds} seconds.`);
+  return errorResult(`Rate limit exceeded: ${toolName} allows ${process.env[envKey] || defaultLimit} requests per minute. Retry in ${seconds} seconds. If you already have results, answer from them instead of retrying.`);
 }
 
 export function blockedUrlError(hostname: string): ToolResult {

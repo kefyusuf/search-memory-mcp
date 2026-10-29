@@ -383,6 +383,7 @@ Deterministic TR/EN routing fixtures live in `evals/search-routing/queries.jsonl
 
 ## Troubleshooting
 
+- **If your MCP client keeps calling the search tool in a loop:** this is model behavior, not a server fault — small local models (and some clients' automatic tool loops) keep re-issuing searches instead of answering. The server marks repeat queries in the text output ("this exact query was answered before") and rate-limits further calls with a wait hint. On the client side: use a model trained for tool calling, cap the tool-call rounds (LM Studio: per-model system prompt, e.g. "call web_search at most twice per question, then answer from the results"), and lower temperature. Repeats are cheap for the server: identical queries are served from the semantic cache without touching providers.
 - The server downloads Chromium automatically the first time a page needs a browser. If that download fails or stalls (for example offline or behind a proxy), it stops after `CHROMIUM_INSTALL_TIMEOUT_MS`; run `npx playwright install chromium` manually.
 - If the server says it could not load its SQLite module (`better-sqlite3`), follow the steps it prints: use Node 24 (the version in `.nvmrc`); if npm 11 skipped install scripts, run `npm install-scripts approve better-sqlite3`; then `npm rebuild better-sqlite3`. Or [run it in Docker](#run-in-docker-no-local-setup).
 - If the first model-backed request is slow, allow the Transformers.js model download to complete and retry.

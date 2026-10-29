@@ -202,9 +202,15 @@ export function createSearchHandler(deps: SearchToolDeps) {
       }
       const limitedResults = (await rankResults(query, cached, max_results)).slice(0, max_results);
       const payload = buildSearchJson(query, limitedResults, { strategy, cache: "hit" });
+      // Give looping clients a visible repeat signal: an identical query
+      // always returns these same cached results, so searching again cannot
+      // add information.
+      const cacheHitNote = outputFormat === "json"
+        ? ""
+        : "\n\nNote: this exact query was answered before — these are the same cached results. Answer from them, or change the query meaningfully instead of repeating it.";
       return textResult(outputFormat === "json"
         ? formatToolResult(payload, "json")
-        : wrapUntrusted(formatSearchResults(query, limitedResults)), payload);
+        : wrapUntrusted(formatSearchResults(query, limitedResults)) + cacheHitNote, payload);
     }
 
     trace.endStage("cache.lookup", { status: "empty", error: "miss" });
