@@ -12,7 +12,7 @@
  */
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { importSPKI } from "jose";
+import { importSPKI, importPKCS8, jwtVerify, SignJWT } from "jose";
 import { chromium, Browser, BrowserContext } from "playwright";
 import { Server as McpServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -42,6 +42,7 @@ import { textResult, type ToolResult } from "../tools/types.js";
 import { launchWithAutoInstall } from "../browser-launcher.js";
 import { openGuardedBrowserContext, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 import { TenantStoreCache, ScopeCache } from "./tenant-stores.js";
+import { startProvisioningServer } from "./provisioning.js";
 import { ContentFetcher } from "../fetch-module.js";
 
 function requireEnv(name: string, validate?: (value: string) => boolean): string {
@@ -131,7 +132,9 @@ async function getBrowser(): Promise<Browser> {
   return browser!;
 }
 
-const verificationKey = await importSPKI(keyPem, algorithm).catch((error: unknown) => {
+// Extractable import is required by the key-pair match check below; the key
+// is already process-readable from the PEM file, so this is not a weakening.
+const verificationKey = await importSPKI(keyPem, algorithm, { extractable: true }).catch((error: unknown) => {
   console.error(`HOSTED_PUBLIC_KEY_FILE is not a valid SPKI public key: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 });
@@ -316,9 +319,11 @@ const server = createServer(createHostedHttpAuthHandler({
   },
 }));
 
+const shuttingDownHooks: Array<() => Promise<void>> = [];
 const shuttingDown = async () => {
   console.error("Hosted MCP server shutting down...");
   browserShuttingDown = true;
+  server.closeAllConnections();
   await new Promise<void>(resolve => server.close(() => resolve()));
   try { await browserContextLaunch; } catch { /* in-flight launch failed */ }
   try { await browserLaunch; } catch { /* in-flight launch failed */ }
@@ -327,6 +332,7 @@ const shuttingDown = async () => {
   if (browser) { try { await browser.close(); } catch { /* already closed */ } browser = null; }
   scopeFetchers.closeAll();
   scopeCaches.closeAll();
+  for (const hook of shuttingDownHooks.splice(0)) { try { await hook(); } catch { /* already closed */ } }
   await resolver.close();
   storeCache.close();
   process.exit(0);
@@ -338,6 +344,34 @@ server.listen(port, bind, () => {
   const bound = server.address();
   const boundPort = bound && typeof bound === "object" ? bound.port : port;
   console.error(`Hosted MCP server listening on ${bind}:${boundPort}`);
-  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (memory + web + knowledge; server_status fenced).`);
+  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (all 12; tenant-safe server_status included).`);
   console.error(`Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`);
 });
+
+// Provisioning surface (Faz C, ADR-0006): a separate admin port with operator
+// token auth; disabled entirely when HOSTED_ADMIN_PORT is unset. The admin API
+// never accepts user JWTs and connects with the operator DSN (DML role).
+const adminPort = process.env.HOSTED_ADMIN_PORT ? Number(process.env.HOSTED_ADMIN_PORT) : null;
+if (adminPort !== null) {
+  const adminToken = requireEnv("HOSTED_ADMIN_TOKEN");
+  const adminDatabaseUrl = requireEnv("HOSTED_ADMIN_DATABASE_URL");
+  const privatePemFile = requireEnv("HOSTED_TOKEN_PRIVATE_KEY_FILE");
+  const tokenPrivateKey = await importPKCS8(readFileSync(privatePemFile, "utf8"), algorithm);
+  // Key-pair probe: a token signed by the mint key must verify with the
+  // hosted server's verification key; a mismatched pair is a startup error.
+  const probe = await new SignJWT({ probe: true })
+    .setProtectedHeader({ alg: algorithm, typ: "JWT" })
+    .setIssuedAt()
+    .setIssuer("keypair-probe")
+    .setExpirationTime("5m")
+    .sign(tokenPrivateKey);
+  try {
+    await jwtVerify(probe, verificationKey, { issuer: "keypair-probe", algorithms: [algorithm] });
+  } catch {
+    console.error("HOSTED_TOKEN_PRIVATE_KEY_FILE does not match HOSTED_PUBLIC_KEY_FILE.");
+    process.exit(1);
+  }
+  const provisioning = await startProvisioningServer({ adminPort, adminToken, operatorDatabaseUrl: adminDatabaseUrl, issuer, audience, tokenPrivateKey, tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA", bind });
+  shuttingDownHooks.push(async () => { try { await provisioning.close(); } catch { /* already closed */ } });
+  console.error(`Provisioning API listening on ${bind}:${provisioning.port} (operator token auth).`);
+}
