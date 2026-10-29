@@ -200,13 +200,20 @@ try {
   const stillOnly = await callTool(port, bobFull, "workspace-b1", "recall", {});
   assert.doesNotMatch(JSON.stringify(stillOnly.content), /escalation/); checks++;
 
-  // 6. Rollout slice 2: web_search is hosted-enabled (no mode fence), while
-  // server_status remains fenced.
+  // 6. Rollout slice 2+4: web_search and server_status are hosted-enabled.
   const webSearch = await callTool(port, aliceFull, "workspace-a1", "web_search", { query: "example" });
   assert.doesNotMatch(JSON.stringify(webSearch), /execution_mode_unavailable/); checks++;
-  const fencedStatus = await callTool(port, aliceFull, "workspace-a1", "server_status", {});
-  assert.equal(fencedStatus.isError, true);
-  assert.match(JSON.stringify(fencedStatus.content), /execution_mode_unavailable/); checks++;
+  // server_status is tenant-safe: own scope only, no process-wide leaks.
+  const status = await callTool(port, aliceFull, "workspace-a1", "server_status", {});
+  const statusPayload = status.structuredContent ?? {};
+  assert.equal(statusPayload.config?.workspaceId, "workspace-a1");
+  assert.equal(statusPayload.config?.mode, "hosted"); checks++;
+  const statusJson = JSON.stringify(status);
+  assert.doesNotMatch(statusJson, /recentSearches|cacheDbPath/); checks++;
+  const bobStatus = await callTool(port, bobFull, "workspace-b1", "server_status", {});
+  const bobStatusJson = JSON.stringify(bobStatus.structuredContent ?? bobStatus.content);
+  assert.match(bobStatusJson, /workspace-b1/);
+  assert.doesNotMatch(bobStatusJson, /workspace-a1/); checks++;
 
   // 8. Rollout slice 3: knowledge tools + research are hosted-enabled with
   // per-scope stores; ingest_document's filesystem branch stays disabled.
