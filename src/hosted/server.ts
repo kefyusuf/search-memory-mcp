@@ -266,12 +266,30 @@ const hostedHandlers = {
   ingest_document: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.ingest_document(args) },
   index_url: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.index_url(args) },
   research: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).research(args) },
+  server_status: { permission: "status:read" as const, modes: ["hosted"] as const, handler: async (_args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => hostedStatus(context) },
 };
-const disabledHandler = async (): Promise<ToolResult> => textResult("");
-const dispatcher = new ToolDispatcher({
-  server_status: { permission: "status:read", modes: [], handler: disabledHandler },
-  ...hostedHandlers,
-}, { admission });
+
+const dispatcher = new ToolDispatcher(hostedHandlers, { admission });
+
+// Tenant-safe status: every store stat comes from the caller's own scope;
+// process-wide fields (recent searches, cache path, browser internals) and
+// any cross-tenant detail are deliberately absent. Provider availability is
+// service-level information, reduced to name + available.
+const startedAt = Date.now();
+function hostedStatus(context: Parameters<TenantStoreCache["memoryFor"]>[0]): ToolResult {
+  const bundle = knowledgeFor(context);
+  const payload = {
+    providers: sharedProviders.map(provider => ({ name: provider.name, available: healthTracker.getSnapshot(provider.name).available })),
+    config: { mode: "hosted", tenantId: context.tenantId, workspaceId: context.workspaceId, principalId: context.principalId, hostedEnabledTools: Object.keys(hostedHandlers).length },
+    memory: storeCache.memoryFor(context).getStats(),
+    knowledgeIndex: bundle.knowledgeIndex.getStats(),
+    entityGraph: bundle.entityGraph.getStats(),
+    cache: searchCacheFor(context).getCacheStats(),
+    uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
+  };
+  const summary = `Hosted status for ${context.tenantId}/${context.workspaceId}: ${payload.memory.count} memory notes, ${payload.knowledgeIndex.docCount} knowledge docs, ${payload.entityGraph.linkCount} graph links; providers: ${payload.providers.map(p => `${p.name}=${p.available ? "up" : "down"}`).join(", ")}.`;
+  return textResult(summary, payload);
+}
 
 const server = createServer(createHostedHttpAuthHandler({
   authorization: { issuer, audience, algorithm: algorithm as "ES256" | "RS256" | "EdDSA", verificationKey, resolveMembership: resolver.resolveMembership },
