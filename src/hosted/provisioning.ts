@@ -2,6 +2,7 @@ import { timingSafeEqual, createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { SignJWT } from "jose";
 import { Pool } from "pg";
+import { panelHtml } from "./panel.js";
 
 export type ProvisioningOptions = {
   adminPort: number;
@@ -15,6 +16,8 @@ export type ProvisioningOptions = {
   tokenPrivateKey: CryptoKey;
   tokenAlgorithm: "ES256" | "RS256" | "EdDSA";
   bind?: string;
+  /** Number of hosted-enabled tools, shown in the panel header. */
+  hostedEnabledTools?: number;
 };
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -57,6 +60,14 @@ export async function startProvisioningServer(options: ProvisioningOptions): Pro
 
     const path = (request.url ?? "").split("?")[0];
     try {
+      // Operator panel (Faz D, minimal scope): token-protected, no external assets.
+      if (request.method === "GET" && path === "/admin/panel") {
+        if (response.writableEnded || response.destroyed) return;
+        response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+        response.end(panelHtml({ audience: options.audience, issuer: options.issuer, hostedEnabledTools: options.hostedEnabledTools ?? 0 }));
+        return;
+      }
+
       if (request.method === "GET" && path === "/admin/workspaces") {
         const workspaces = (await pool.query("SELECT workspace_id, tenant_id, disabled_at FROM mcp_identity.workspaces ORDER BY workspace_id")).rows;
         const memberships = (await pool.query("SELECT issuer, principal_id, workspace_id, permissions, revoked_at FROM mcp_identity.workspace_memberships ORDER BY principal_id")).rows;

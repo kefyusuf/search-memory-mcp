@@ -371,7 +371,7 @@ if (adminPort !== null) {
     console.error("HOSTED_TOKEN_PRIVATE_KEY_FILE does not match HOSTED_PUBLIC_KEY_FILE.");
     process.exit(1);
   }
-  const provisioning = await startProvisioningServer({ adminPort, adminToken, operatorDatabaseUrl: adminDatabaseUrl, issuer, audience, tokenPrivateKey, tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA", bind });
+  const provisioning = await startProvisioningServer({ adminPort, adminToken, operatorDatabaseUrl: adminDatabaseUrl, issuer, audience, tokenPrivateKey, tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA", bind, hostedEnabledTools: Object.keys(hostedHandlers).length });
   shuttingDownHooks.push(async () => { try { await provisioning.close(); } catch { /* already closed */ } });
   console.error(`Provisioning API listening on ${bind}:${provisioning.port} (operator token auth).`);
 }
