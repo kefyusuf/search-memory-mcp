@@ -190,13 +190,13 @@ try {
   assert.ok((auditByAction.UPDATE ?? 0) >= 1, "membership revocation is audited"); checks++;
 
   // 7. Faz D operator panel: token-protected HTML, no leaks without auth.
-  const panelAnonymous = await rawSend(adminPort, "/admin/panel", {});
+  const panelAnonymous = await rawSend(adminPort, "/admin/panel", {}, "GET");
   assert.equal(panelAnonymous.status, 401); checks++;
-  const panel = await rawSend(adminPort, "/admin/panel", { authorization: `Bearer ${adminToken}` });
+  const panel = await rawSend(adminPort, "/admin/panel", { authorization: `Bearer ${adminToken}` }, "GET");
   assert.equal(panel.status, 200); checks++;
   assert.match(panel.text, /Hosted Pilot Paneli/);
   assert.match(panel.text, /mcp\.example\.com/); checks++;
-  const panelWrongToken = await rawSend(adminPort, "/admin/panel", { authorization: "Bearer wrong" });
+  const panelWrongToken = await rawSend(adminPort, "/admin/panel", { authorization: "Bearer wrong" }, "GET");
   assert.equal(panelWrongToken.status, 401); checks++;
 
   console.log(`Provisioning verification passed: ${checks} checks (admin auth, provisioning, minted-token chain, revocation, audit, panel)`);
