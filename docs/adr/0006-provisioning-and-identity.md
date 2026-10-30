@@ -21,6 +21,8 @@ Proje açık kaynak ve tek bakımcılıdır; local stdio kullanıcıları için 
 - Şifre sıfırlama, kullanıcı self-servis kaydı, e-posta doğrulama, oturum devri — bunlar IdP kararına aittir.
 - Admin yüzeyinde rate limit — sonraki dilim (admin token gizliliği birincil kontroldür).
 
+**Durum güncellemesi (2026-10-30):** Faz D minimal panel bu ADR kapsamında uygulandı — `GET /admin/panel` (operator token korumalı, tek-dosya HTML, sıfır dış varlık): workspace listesi/oluşturma, üyelik verme/iptal, pilot token mint (bir-kez-gösterim) ve MCP bağlantı bilgisi. Kullanım sayaçları ve kullanıcı girişi sonraki dilimlerdedir.
+
 ## Güvenlik sınırı
 
 - Admin token repoya girmez; sızarsa rotasyon = env değişimi + yeniden başlatma.

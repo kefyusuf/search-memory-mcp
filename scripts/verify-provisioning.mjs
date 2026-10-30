@@ -189,7 +189,17 @@ try {
   assert.ok((auditByAction.INSERT ?? 0) >= 1, "membership grant is audited"); checks++;
   assert.ok((auditByAction.UPDATE ?? 0) >= 1, "membership revocation is audited"); checks++;
 
-  console.log(`Provisioning verification passed: ${checks} checks (admin auth, provisioning, minted-token chain, revocation, audit)`);
+  // 7. Faz D operator panel: token-protected HTML, no leaks without auth.
+  const panelAnonymous = await rawSend(adminPort, "/admin/panel", {}, "GET");
+  assert.equal(panelAnonymous.status, 401); checks++;
+  const panel = await rawSend(adminPort, "/admin/panel", { authorization: `Bearer ${adminToken}` }, "GET");
+  assert.equal(panel.status, 200); checks++;
+  assert.match(panel.text, /Hosted Pilot Paneli/);
+  assert.match(panel.text, /mcp\.example\.com/); checks++;
+  const panelWrongToken = await rawSend(adminPort, "/admin/panel", { authorization: "Bearer wrong" }, "GET");
+  assert.equal(panelWrongToken.status, 401); checks++;
+
+  console.log(`Provisioning verification passed: ${checks} checks (admin auth, provisioning, minted-token chain, revocation, audit, panel)`);
 } finally {
   if (childStderrLines.length > 0) console.error("child stderr tail:", childStderrLines.slice(-6).join(" | "));
   await stopChild();
