@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { SignJWT } from "jose";
 import { Pool } from "pg";
 import { panelHtml } from "./panel.js";
+import type { UsageSnapshot } from "./usage.js";
 
 export type ProvisioningOptions = {
   adminPort: number;
@@ -18,6 +19,8 @@ export type ProvisioningOptions = {
   bind?: string;
   /** Number of hosted-enabled tools, shown in the panel header. */
   hostedEnabledTools?: number;
+  /** Live usage counters from the hosted server (in-memory, since server start). */
+  usageSnapshot: () => UsageSnapshot;
 };
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -65,6 +68,11 @@ export async function startProvisioningServer(options: ProvisioningOptions): Pro
         if (response.writableEnded || response.destroyed) return;
         response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         response.end(panelHtml({ audience: options.audience, issuer: options.issuer, hostedEnabledTools: options.hostedEnabledTools ?? 0 }));
+        return;
+      }
+
+      if (request.method === "GET" && path === "/admin/usage") {
+        sendJson(response, 200, options.usageSnapshot());
         return;
       }
 
