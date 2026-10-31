@@ -42,6 +42,7 @@ import { textResult, type ToolResult } from "../tools/types.js";
 import { launchWithAutoInstall } from "../browser-launcher.js";
 import { openGuardedBrowserContext, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 import { TenantStoreCache, ScopeCache } from "./tenant-stores.js";
+import { UsageCounters } from "./usage.js";
 import { startProvisioningServer } from "./provisioning.js";
 import { ContentFetcher } from "../fetch-module.js";
 
@@ -142,6 +143,7 @@ const verificationKey = await importSPKI(keyPem, algorithm, { extractable: true 
 const resolver = new PostgresMembershipResolver({ connectionString: membershipUrl, issuer, maxConcurrentLookups: lookupConcurrency, lookupTimeoutMs });
 const storeCache = new TenantStoreCache({ appDbPath: appDb, maxStores: maxTenantStores });
 const admission = new InMemoryInvocationAdmission(admit);
+const usage = new UsageCounters();
 
 // Per-scope (tenant|workspace) search caches and content fetchers. The
 // semantic cache and its vector store bind tenancy at construction; the
@@ -306,9 +308,13 @@ const server = createServer(createHostedHttpAuthHandler({
     mcp.setRequestHandler(CallToolRequestSchema, async request => {
       // Mirror the local dispatcher UX: dispatcher rejections are tool errors
       // with the rejection code visible, not transport-level internal errors.
+      const tool = request.params.name;
       try {
-        return await dispatcher.call(request.params.name, request.params.arguments, context);
+        const result = await dispatcher.call(tool, request.params.arguments, context);
+        usage.record(context.tenantId, context.workspaceId, tool, true);
+        return result;
       } catch (error) {
+        usage.record(context.tenantId, context.workspaceId, tool, false);
         const code = error instanceof InvocationError ? error.code : "internal_error";
         return { content: [{ type: "text", text: `Request rejected: ${code}` }], isError: true };
       }
@@ -371,7 +377,7 @@ if (adminPort !== null) {
     console.error("HOSTED_TOKEN_PRIVATE_KEY_FILE does not match HOSTED_PUBLIC_KEY_FILE.");
     process.exit(1);
   }
-  const provisioning = await startProvisioningServer({ adminPort, adminToken, operatorDatabaseUrl: adminDatabaseUrl, issuer, audience, tokenPrivateKey, tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA", bind, hostedEnabledTools: Object.keys(hostedHandlers).length });
+  const provisioning = await startProvisioningServer({ adminPort, adminToken, operatorDatabaseUrl: adminDatabaseUrl, issuer, audience, tokenPrivateKey, tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA", bind, hostedEnabledTools: Object.keys(hostedHandlers).length, usageSnapshot: () => usage.snapshot() });
   shuttingDownHooks.push(async () => { try { await provisioning.close(); } catch { /* already closed */ } });
   console.error(`Provisioning API listening on ${bind}:${provisioning.port} (operator token auth).`);
 }

@@ -91,6 +91,10 @@ export function panelHtml(config: { audience: string; issuer: string; hostedEnab
     <p class="hint">Token bir kez gösterilir — davetli kullanıcıya güvenli bir kanaldan iletin.</p>
     <div class="tokenbox" id="tokenValue"></div>
   </div>
+  <h2>Kullanım <span class="hint" id="usageSince"></span></h2>
+  <button id="usageBtn" class="secondary">Kullanımı yenile</button>
+  <table id="usageTable"><thead><tr><th>Tenant</th><th>Workspace</th><th>Araç</th><th>Çağrı</th><th>Hata</th></tr></thead><tbody id="usageBody"></tbody></table>
+  <p class="hint" id="usageTotals"></p>
   <p id="appError" class="error"></p>
 </div>
 <script>
@@ -144,6 +148,25 @@ function enterApp() {
   document.getElementById("cfgAudience").textContent = AUDIENCE_PLACEHOLDER;
   document.getElementById("cfgIssuer").textContent = ISSUER_PLACEHOLDER;
   loadWorkspaces().catch(function (e) { fail("appError", e); });
+  loadUsage().catch(function (e) { fail("appError", e); });
+}
+function loadUsage() {
+  return api.call("GET", "/admin/usage").then(function (data) {
+    var body = document.getElementById("usageBody");
+    body.textContent = "";
+    data.scopes.forEach(function (s) {
+      var row = document.createElement("tr");
+      cell(row, s.tenantId); cell(row, s.workspaceId); cell(row, s.tool); cell(row, s.calls); cell(row, s.errors);
+      body.appendChild(row);
+    });
+    if (data.scopes.length === 0) {
+      var row = document.createElement("tr");
+      cell(row, "—"); cell(row, "—"); cell(row, "henüz çağrı yok"); cell(row, ""); cell(row, "");
+      body.appendChild(row);
+    }
+    document.getElementById("usageSince").textContent = "(saymaya başlama: " + data.since + ")";
+    document.getElementById("usageTotals").textContent = "Toplam: " + data.totals.calls + " çağrı, " + data.totals.errors + " hata. Sayaçlar sunucu yeniden başlayınca sıfırlanır.";
+  });
 }document.getElementById("loginBtn").addEventListener("click", function () {
   sessionStorage.setItem(TOKEN_KEY, document.getElementById("token").value.trim());
   document.getElementById("loginError").textContent = "";
@@ -155,7 +178,10 @@ function enterApp() {
     fail("loginError", e);
   });
 });
-document.getElementById("reloadBtn").addEventListener("click", function () { loadWorkspaces().catch(function (e) { fail("appError", e); }); });
+document.getElementById("reloadBtn").addEventListener("click", function () {
+  loadWorkspaces().catch(function (e) { fail("appError", e); });
+  loadUsage().catch(function (e) { fail("appError", e); });
+});
 document.getElementById("createWsBtn").addEventListener("click", function () {
   api.call("POST", "/admin/workspaces", { workspaceId: document.getElementById("newWs").value.trim(), tenantId: document.getElementById("newTenant").value.trim() || undefined })
     .then(function () { document.getElementById("newWs").value = ""; document.getElementById("newTenant").value = ""; return loadWorkspaces(); })
