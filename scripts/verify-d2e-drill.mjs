@@ -201,6 +201,9 @@ try {
   const aliceToken = await new SignJWT({ sub: "alice", iss: issuer, aud: "https://mcp.example.com/mcp", exp: Math.floor(Date.now() / 1000) + 600, scope: GRANTS.join(" ") })
     .setProtectedHeader({ alg: "ES256", typ: "at+jwt" }).sign(keys.privateKey);
   const readerUrl = new URL(fixtureUrl); readerUrl.username = role; readerUrl.password = password;
+  // --- S1: the LIVE authority revokes alice AFTER the backup; it is never restored ---
+  await fixture.query("UPDATE mcp_identity.workspace_memberships SET revoked_at=now() WHERE issuer=$1 AND principal_id='alice' AND workspace_id='workspace-a1'", [issuer]);
+  record("S1-divergence", { revoked: "alice@workspace-a1", note: "the restored S0 state must not resurrect this membership (I-2)" });
   const liveResolver = new PostgresMembershipResolver({ connectionString: readerUrl.href, issuer, maxConcurrentLookups: 4, lookupTimeoutMs: 2000 });
   resolvers.push(liveResolver);
   const liveAdapter = new JwtAuthorizationAdapter({ issuer, audience: "https://mcp.example.com/mcp", algorithm: "ES256", verificationKey: keys.publicKey, resolveMembership: liveResolver.resolveMembership });
