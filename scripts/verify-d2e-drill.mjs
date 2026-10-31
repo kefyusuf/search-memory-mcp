@@ -103,8 +103,8 @@ try {
   await admin.query(`CREATE DATABASE ${database}`); createdDatabase = true;
   const fixtureUrl = new URL(base); fixtureUrl.pathname = `/${database}`;
   fixture = new Pool({ connectionString: fixtureUrl.href, connectionTimeoutMillis: 2000 });
-  await fixture.query(await readFileAsync(new URL("../migrations/0001-hosted-membership.sql", import.meta.url), "utf8"));
-  await fixture.query(await readFileAsync(new URL("../migrations/0002-hosted-membership-audit.sql", import.meta.url), "utf8"));
+  await fixture.query(await readFile(new URL("../migrations/0001-hosted-membership.sql", import.meta.url), "utf8"));
+  await fixture.query(await readFile(new URL("../migrations/0002-hosted-membership-audit.sql", import.meta.url), "utf8"));
   await admin.query(`CREATE ROLE ${ownerRole} NOLOGIN`); createdOwner = true;
   await fixture.query(`ALTER SCHEMA mcp_identity OWNER TO ${ownerRole}`);
   for (const table of ["workspaces", "workspace_memberships", "membership_audit"])
