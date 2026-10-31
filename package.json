@@ -67,6 +67,7 @@
     "test:hosted-ingress": "node scripts/verify-hosted-ingress.mjs",
     "test:activation-fencing": "node scripts/verify-activation-fencing.mjs",
     "test:hosted-bootstrap": "node scripts/verify-hosted-bootstrap.mjs",
+    "test:d2e-drill": "node scripts/verify-d2e-drill.mjs",
     "test:provisioning": "node scripts/verify-provisioning.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
     "eval:quality": "node scripts/eval-quality.mjs",

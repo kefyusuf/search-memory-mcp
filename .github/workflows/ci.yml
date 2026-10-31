@@ -79,6 +79,11 @@ jobs:
         env:
           MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
 
+      - name: Verify D2-E operational drill (synthetic)
+        run: npm run test:d2e-drill
+        env:
+          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
+
       - name: Verify provisioning API (Faz C, synthetic)
         run: npm run test:provisioning
         env:
