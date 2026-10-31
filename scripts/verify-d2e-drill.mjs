@@ -58,6 +58,9 @@ let checks = 0;
 // --- D2-K1 roles (issue #83 decision record): requester/executor = agent
 // session; approver/activation = repository owner account; independent
 // verification = CI + verifier scripts. SoD: a requester can never approve.
+const appRequest = (workspaceId) => ({
+  issuer, workspaceId, requestId: "d2e-r", deadlineAt: Date.now() + 60_000, signal: new AbortController().signal,
+});
 const ROLES = { requester: "agent-session", approver: "repository-owner", executor: "agent-session", verifier: "ci-verifiers", activation: "repository-owner" };
 if (ROLES.requester === ROLES.approver) throw new Error("D2-K1 SoD violated: requester must not approve");
 
