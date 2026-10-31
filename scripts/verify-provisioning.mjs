@@ -189,6 +189,16 @@ try {
   assert.ok((auditByAction.INSERT ?? 0) >= 1, "membership grant is audited"); checks++;
   assert.ok((auditByAction.UPDATE ?? 0) >= 1, "membership revocation is audited"); checks++;
 
+  // 6b. Usage counters: the minted-token chain's dispatcher calls are recorded.
+  const usage = JSON.parse((await adminSend(adminPort, "/admin/usage", adminToken, "GET")).text);
+  assert.equal(usage.totals.calls, 2); // carol remember + recall via the minted token
+  assert.equal(usage.totals.errors, 0);
+  const rememberUsage = usage.scopes.find(s => s.workspaceId === "ws-pilot" && s.tool === "remember");
+  assert.equal(rememberUsage.calls, 1);
+  assert.equal(rememberUsage.errors, 0);
+  const recallUsage = usage.scopes.find(s => s.workspaceId === "ws-pilot" && s.tool === "recall");
+  assert.equal(recallUsage.calls, 1); checks++;
+
   // 7. Faz D operator panel: token-protected HTML, no leaks without auth.
   const panelAnonymous = await rawSend(adminPort, "/admin/panel", {}, "GET");
   assert.equal(panelAnonymous.status, 401); checks++;
