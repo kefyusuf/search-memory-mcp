@@ -189,6 +189,17 @@ try {
   assert.ok((auditByAction.INSERT ?? 0) >= 1, "membership grant is audited"); checks++;
   assert.ok((auditByAction.UPDATE ?? 0) >= 1, "membership revocation is audited"); checks++;
 
+  // 6b. Usage counters: every dispatcher attempt above is recorded per scope.
+  const usage = JSON.parse((await adminSend(adminPort, "/admin/usage", adminToken, "GET")).text);
+  assert.equal(usage.totals.calls, 7); // bob remember/recall, alice remember/recall, bobRO remember (denied), carol remember/recall
+  assert.equal(usage.totals.errors, 1);
+  const pilotUsage = usage.scopes.find(s => s.workspaceId === "ws-pilot" && s.tool === "remember");
+  assert.equal(pilotUsage.calls, 1);
+  assert.equal(pilotUsage.errors, 0);
+  const readOnlyUsage = usage.scopes.find(s => s.workspaceId === "workspace-b1" && s.tool === "remember");
+  assert.equal(readOnlyUsage.calls, 1);
+  assert.equal(readOnlyUsage.errors, 1); checks++;
+
   // 7. Faz D operator panel: token-protected HTML, no leaks without auth.
   const panelAnonymous = await rawSend(adminPort, "/admin/panel", {}, "GET");
   assert.equal(panelAnonymous.status, 401); checks++;
