@@ -239,9 +239,10 @@ try {
   checks++;
 
   // --- Negative scenarios: denials are evidence (fail closed) ---
-  // Execution without an approval record for THIS backup.
+  // Bound-approval rejections on a verified fence (per the TA machine).
   const fence = createFence();
   fence.stage = "restored";
+  fence.verify({ revision: "rev-S0", appBackupSha256: backupSha });
   assert.throws(() => fence.activate({ revision: "rev-S0", backupSha256: "0".repeat(64), validUntil: Date.now() + 86_400_000, scope: "R-A" }), /fence_backup_mismatch/); checks++;
   // Expired approval.
   assert.throws(() => fence.activate({ revision: "rev-S0", backupSha256, validUntil: Date.now() - 1, scope: "R-A" }), /fence_approval_expired/); checks++;
