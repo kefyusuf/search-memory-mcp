@@ -77,7 +77,22 @@ function sha256File(path) {
 // Synthetic activation fence (same machine as the TA matrix): records the
 // workflow's activation REQUEST without executing activation (D4 OPEN).
 function createFence() {
-  return { stage: "empty", verified: false, activated: false, activationRequest: null };
+  return {
+    stage: "empty", verified: false, activated: false, activationRequest: null,
+    verify(manifest) {
+      if (this.verified || this.activated) throw new Error("fence_already_processed");
+      if (this.stage !== "restored") throw new Error("fence_target_not_restored");
+      this.manifest = manifest; this.verified = true; this.stage = "verified";
+    },
+    activate(approval) {
+      if (!this.verified || this.activated) throw new Error("fence_not_verified");
+      if (approval.revision !== this.manifest.revision) throw new Error("fence_revision_mismatch");
+      if (approval.backupSha256 !== this.manifest.appBackupSha256) throw new Error("fence_backup_mismatch");
+      if (approval.validUntil < Date.now()) throw new Error("fence_approval_expired");
+      if (approval.scope !== "R-A") throw new Error("fence_scope_mismatch");
+      this.activated = true; this.stage = "activated"; this.activationRequest = { ...approval };
+    },
+  };
 }
 
 import { generateKeyPair, SignJWT } from "jose";
