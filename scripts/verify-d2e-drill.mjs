@@ -243,9 +243,9 @@ try {
   const fence = createFence();
   fence.stage = "restored";
   fence.verify({ revision: "rev-S0", appBackupSha256: backupSha });
-  assert.throws(() => fence.activate({ revision: "rev-S0", backupSha: "0".repeat(64), validUntil: Date.now() + 86_400_000, scope: "R-A" }), /fence_backup_mismatch/); checks++;
+  assert.throws(() => fence.activate({ revision: "rev-S0", backupSha256: "0".repeat(64), validUntil: Date.now() + 86_400_000, scope: "R-A" }), /fence_backup_mismatch/); checks++;
   // Expired approval.
-  assert.throws(() => fence.activate({ revision: "rev-S0", backupSha, validUntil: Date.now() - 1, scope: "R-A" }), /fence_approval_expired/); checks++;
+  assert.throws(() => fence.activate({ revision: "rev-S0", backupSha256: backupSha, validUntil: Date.now() - 1, scope: "R-A" }), /fence_approval_expired/); checks++;
   checks++;
 
   // --- E5 ACTIVATION REQUEST: recorded, never executed (D4 OPEN) ---
