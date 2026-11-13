@@ -28,26 +28,41 @@ describe("web search query expansion", () => {
     const detector = { detect: vi.fn(async () => ({ intent: "technical" as const, source: "heuristic" as const })) };
     const server = new WebSearchServer(detector);
     const executedQueries: string[] = [];
-    server.overrideSearchProvidersForTesting([{
-      name: "bing",
-      execute: async (query) => {
-        executedQueries.push(query);
-        return query.includes("database") ? [{
-          title: "Database backup", url: "https://docs.example/backup", snippet: "Backup guide", source: "bing",
-        }] : [];
+    server.overrideSearchProvidersForTesting([
+      {
+        name: "bing",
+        execute: async (query) => {
+          executedQueries.push(query);
+          return query.includes("database")
+            ? [
+                {
+                  title: "Database backup",
+                  url: "https://docs.example/backup",
+                  snippet: "Backup guide",
+                  source: "bing",
+                },
+              ]
+            : [];
+        },
       },
-    }]);
+    ]);
     const internals = server as unknown as Internals;
     const get = vi.spyOn(internals.cache, "get").mockResolvedValue(null);
     vi.spyOn(internals.cache, "set").mockResolvedValue();
-    vi.spyOn(internals.cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
+    vi.spyOn(internals.cache, "reRankResults").mockImplementation(async (_query, results, limit) =>
+      results.slice(0, limit),
+    );
     return { internals, detector, get, executedQueries };
   }
 
   it("recovers results through expansion while retaining domain and original intent input", async () => {
     const { internals, detector, executedQueries } = setup();
     const response = await internals.handleSearch({
-      query: "db backup", strategy: "auto", expand_query: true, domain: "docs.example", format: "json",
+      query: "db backup",
+      strategy: "auto",
+      expand_query: true,
+      domain: "docs.example",
+      format: "json",
     });
     expect(response.isError).not.toBe(true);
     const payload = JSON.parse(response.content[0].text);
@@ -78,9 +93,14 @@ describe("web search query expansion", () => {
 
   it("serves expanded cache hits without contacting providers", async () => {
     const { internals, get, executedQueries } = setup();
-    get.mockResolvedValue([{
-      title: "Cached", url: "https://docs.example/backup", snippet: "Cached backup guide", source: "bing",
-    }]);
+    get.mockResolvedValue([
+      {
+        title: "Cached",
+        url: "https://docs.example/backup",
+        snippet: "Cached backup guide",
+        source: "bing",
+      },
+    ]);
     const response = await internals.handleSearch({ query: "db backup", expand_query: true, format: "json" });
     expect(JSON.parse(response.content[0].text).meta.cache).toBe("hit");
     expect(executedQueries).toEqual([]);

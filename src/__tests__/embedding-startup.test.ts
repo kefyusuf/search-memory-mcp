@@ -11,10 +11,19 @@ describe("embedding model startup", () => {
   let finish!: (extractor: unknown) => void;
   beforeEach(() => {
     model.extract.mockReset().mockResolvedValue({ data: vector });
-    model.load.mockReset().mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    model.load.mockReset().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
   });
   const closers: Array<{ close(): void }> = [];
-  afterEach(() => { closers.splice(0).forEach((item) => item.close()); });
+  afterEach(() => {
+    closers.splice(0).forEach((item) => {
+      item.close();
+    });
+  });
 
   it("answers a query without waiting while the model is still loading", async () => {
     const provider = new TransformersEmbeddingProvider("test", { loadWaitMs: 0 });
@@ -33,7 +42,11 @@ describe("embedding model startup", () => {
   });
 
   it("does not hold the inference slot while a query skips a loading model", async () => {
-    const provider = new TransformersEmbeddingProvider("test", { maxConcurrentInferences: 1, maxQueuedInferences: 0, loadWaitMs: 0 });
+    const provider = new TransformersEmbeddingProvider("test", {
+      maxConcurrentInferences: 1,
+      maxQueuedInferences: 0,
+      loadWaitMs: 0,
+    });
     const background = provider.getEmbedding("chunk", { waitForModel: true });
     await turn();
     expect(await provider.getEmbedding("query")).toEqual([]);
@@ -46,7 +59,11 @@ describe("embedding model startup", () => {
     const shared = vi.spyOn(provider, "getEmbedding");
     const index = new KnowledgeIndex(":memory:", { embeddingProvider: provider });
     closers.push(index);
-    index.ingest({ content: "PgBouncer pools PostgreSQL connections for Kubernetes services.", title: "Pooling", source: "notes.md" });
+    index.ingest({
+      content: "PgBouncer pools PostgreSQL connections for Kubernetes services.",
+      title: "Pooling",
+      source: "notes.md",
+    });
     await turn();
     finish(model.extract);
     await index.flush();

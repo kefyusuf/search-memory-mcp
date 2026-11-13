@@ -5,11 +5,21 @@ import { BlockList, isIP, type LookupFunction } from "node:net";
 // The allow/deny policy must be independently reviewed before wiring this into fetch.
 const blockedIpv4 = new BlockList();
 for (const [address, prefix] of [
-  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10],
-  ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12],
-  ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.88.99.0", 24],
-  ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24],
-  ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4],
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.0.2.0", 24],
+  ["192.88.99.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["198.51.100.0", 24],
+  ["203.0.113.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
 ] as const) {
   blockedIpv4.addSubnet(address, prefix, "ipv4");
 }
@@ -56,25 +66,30 @@ function blockedLookupError(): NodeJS.ErrnoException {
  * unsafe literals (and unsupported protocols) before using this hook.
  * This primitive is not yet wired into ContentFetcher.
  */
-export function createGuardedLookup(
-  resolver: typeof systemLookup = systemLookup,
-): LookupFunction {
+export function createGuardedLookup(resolver: typeof systemLookup = systemLookup): LookupFunction {
   return (hostname, options, callback) => {
-    resolver(hostname, { all: true, family: options.family, hints: options.hints }, (error, addresses: LookupAddress[]) => {
-      if (error) {
-        callback(error, "", 0);
-        return;
-      }
-      if (!Array.isArray(addresses) || addresses.length === 0 ||
-          addresses.some(({ address, family }) => isIP(address) !== family || !isPublicConnectionAddress(address))) {
-        callback(blockedLookupError(), "", 0);
-        return;
-      }
+    resolver(
+      hostname,
+      { all: true, family: options.family, hints: options.hints },
+      (error, addresses: LookupAddress[]) => {
+        if (error) {
+          callback(error, "", 0);
+          return;
+        }
+        if (
+          !Array.isArray(addresses) ||
+          addresses.length === 0 ||
+          addresses.some(({ address, family }) => isIP(address) !== family || !isPublicConnectionAddress(address))
+        ) {
+          callback(blockedLookupError(), "", 0);
+          return;
+        }
 
-      // Honor the form the socket requested: auto-family selection needs
-      // an array; single-address selection needs an address and family.
-      if (options.all) callback(null, addresses);
-      else callback(null, addresses[0].address, addresses[0].family);
-    });
+        // Honor the form the socket requested: auto-family selection needs
+        // an array; single-address selection needs an address and family.
+        if (options.all) callback(null, addresses);
+        else callback(null, addresses[0].address, addresses[0].family);
+      },
+    );
   };
 }

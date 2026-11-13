@@ -7,15 +7,31 @@ import { createHostedRequestContext, type RequestContext } from "../runtime/requ
 
 function context(tenantId = "tenant-a", workspaceId = "workspace-a"): RequestContext {
   return createHostedRequestContext({
-    authorization: { subject: "alice", audiences: ["mcp"], scopes: ["memory:read", "memory:write"], expiresAt: Date.now() + 60_000 },
+    authorization: {
+      subject: "alice",
+      audiences: ["mcp"],
+      scopes: ["memory:read", "memory:write"],
+      expiresAt: Date.now() + 60_000,
+    },
     membership: { principalId: "alice", tenantId, workspaceId, permissions: ["memory:read", "memory:write"] },
-    expectedAudience: "mcp", requestId: `r-${tenantId}-${workspaceId}`, deadlineAt: Date.now() + 60_000, signal: new AbortController().signal,
+    expectedAudience: "mcp",
+    requestId: `r-${tenantId}-${workspaceId}`,
+    deadlineAt: Date.now() + 60_000,
+    signal: new AbortController().signal,
   });
 }
 
 describe("TenantStoreCache", () => {
   let dir: string;
-  afterEach(() => { if (dir) { try { rmSync(dir, { recursive: true, force: true }); } catch { /* OS temp */ } } });
+  afterEach(() => {
+    if (dir) {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+        /* OS temp */
+      }
+    }
+  });
 
   it("opens one store per scope and isolates notes by tenant/workspace", () => {
     dir = mkdtempSync(join(tmpdir(), "tenant-cache-"));
@@ -24,9 +40,21 @@ describe("TenantStoreCache", () => {
     const b = cache.memoryFor(context("tenant-b", "workspace-b1"));
     a.remember("A1 note", { session: "s" });
     b.remember("B1 note", { session: "s" });
-    expect(cache.memoryFor(context("tenant-a", "workspace-a1")).list().map(n => n.text)).toEqual(["A1 note"]);
-    expect(cache.memoryFor(context("tenant-b", "workspace-b1")).list().map(n => n.text)).toEqual(["B1 note"]);
-    expect(cache.memoryFor(context("tenant-a", "workspace-a1"))).toBe(cache.memoryFor(context("tenant-a", "workspace-a1")));
+    expect(
+      cache
+        .memoryFor(context("tenant-a", "workspace-a1"))
+        .list()
+        .map((n) => n.text),
+    ).toEqual(["A1 note"]);
+    expect(
+      cache
+        .memoryFor(context("tenant-b", "workspace-b1"))
+        .list()
+        .map((n) => n.text),
+    ).toEqual(["B1 note"]);
+    expect(cache.memoryFor(context("tenant-a", "workspace-a1"))).toBe(
+      cache.memoryFor(context("tenant-a", "workspace-a1")),
+    );
     expect(cache.size).toBe(2);
     cache.close();
   });
@@ -49,7 +77,7 @@ describe("TenantStoreCache", () => {
     expect(() => first.getStats()).toThrow(); // closed on eviction
     // Reopening after eviction restores the persisted notes (same file).
     const reopened = cache.memoryFor(context("tenant-a", "workspace-a1"));
-    expect(reopened.list().map(n => n.text)).toEqual(["A1 note"]);
+    expect(reopened.list().map((n) => n.text)).toEqual(["A1 note"]);
     cache.close();
   });
 
@@ -60,7 +88,7 @@ describe("TenantStoreCache", () => {
 
 describe("ScopeCache", () => {
   it("reuses the same entry per key and refreshes LRU order", () => {
-    const cache = new ScopeCache({ maxEntries: 2 });
+    const cache = new ScopeCache<{ id: string }>({ maxEntries: 2 });
     const first = cache.get("a", () => ({ id: "a" }));
     expect(cache.get("a", () => ({ id: "new-a" }))).toBe(first); // factory runs on miss only
     cache.get("b", () => ({ id: "b" }));
@@ -75,7 +103,9 @@ describe("ScopeCache", () => {
     const closed: string[] = [];
     const cache = new ScopeCache<{ id: string }>({
       maxEntries: 1,
-      onClose: item => { if (item?.id) closed.push(item.id); },
+      onClose: (item) => {
+        if (item?.id) closed.push(item.id);
+      },
     });
     cache.get("a", () => ({ id: "a" }));
     cache.get("b", () => ({ id: "b" })); // evicts a -> onClose("a")

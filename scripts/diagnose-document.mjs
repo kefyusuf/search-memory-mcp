@@ -16,12 +16,16 @@ if (!url) {
 
 // Same as BROWSER_HEADERS in src/fetch-module.ts (the server retries with plain headers on 403/503).
 const SERVER_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.9",
 };
 
-for (const [label, headers] of [["default headers", {}], ["server headers", SERVER_HEADERS]]) {
+for (const [label, headers] of [
+  ["default headers", {}],
+  ["server headers", SERVER_HEADERS],
+]) {
   console.log(`--- ${label}`);
   await diagnose(headers);
 }
@@ -32,7 +36,9 @@ async function diagnose(headers) {
   const data = new Uint8Array(await response.arrayBuffer());
   const head = new TextDecoder("latin1").decode(data.slice(0, 16)).replace(/[^\x20-\x7e]/g, ".");
   console.log(`HTTP ${response.status} in ${Date.now() - started} ms  final URL: ${response.url}`);
-  console.log(`content-type: ${response.headers.get("content-type")}  bytes: ${data.byteLength}  starts with: ${JSON.stringify(head)}`);
+  console.log(
+    `content-type: ${response.headers.get("content-type")}  bytes: ${data.byteLength}  starts with: ${JSON.stringify(head)}`,
+  );
 
   try {
     const filename = decodeURIComponent(new URL(response.url).pathname.split("/").pop() ?? "");

@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { importSPKI, importPKCS8, jwtVerify, SignJWT } from "jose";
-import { chromium, Browser, BrowserContext } from "playwright";
+import { chromium, type Browser, type BrowserContext } from "playwright";
 import { Server as McpServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -65,16 +65,22 @@ function requireInt(name: string, min = 1): number {
 
 const port = Number(process.env.HOSTED_HTTP_PORT ?? "8080");
 const bind = process.env.HOSTED_BIND ?? "0.0.0.0";
-const issuer = requireEnv("HOSTED_ISSUER", v => v.startsWith("https://"));
-const audience = requireEnv("HOSTED_AUDIENCE", v => v.startsWith("https://"));
-const allowedOrigins = requireEnv("HOSTED_ALLOWED_ORIGINS").split(",").map(origin => origin.trim()).filter(Boolean);
+const issuer = requireEnv("HOSTED_ISSUER", (v) => v.startsWith("https://"));
+const audience = requireEnv("HOSTED_AUDIENCE", (v) => v.startsWith("https://"));
+const allowedOrigins = requireEnv("HOSTED_ALLOWED_ORIGINS")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const algorithm = process.env.HOSTED_JWT_ALGORITHM ?? "ES256";
 if (!["ES256", "RS256", "EdDSA"].includes(algorithm)) {
   console.error("HOSTED_JWT_ALGORITHM must be one of ES256, RS256, EdDSA.");
   process.exit(1);
 }
 const keyPem = readFileSync(requireEnv("HOSTED_PUBLIC_KEY_FILE"), "utf8");
-const membershipUrl = requireEnv("HOSTED_MEMBERSHIP_DATABASE_URL", v => v.startsWith("postgres://") || v.startsWith("postgresql://"));
+const membershipUrl = requireEnv(
+  "HOSTED_MEMBERSHIP_DATABASE_URL",
+  (v) => v.startsWith("postgres://") || v.startsWith("postgresql://"),
+);
 const appDb = requireEnv("HOSTED_APP_DB");
 const admit = {
   global: requireInt("HOSTED_ADMIT_GLOBAL"),
@@ -94,8 +100,15 @@ const healthTracker = new ProviderHealthTracker();
 const traces = new SearchTraceHistory();
 const intentDetector = new SearchIntentDetector();
 const embeddingProvider = new TransformersEmbeddingProvider(undefined, { loadWaitMs: 0 });
-const defaultProviders = (process.env.BRAVE_SEARCH_API_KEY ?? "").trim() ? "brave,duckduckgo,marginalia,bing" : "duckduckgo,marginalia,bing";
-const sharedProviders: SearchProvider[] = buildProviders((process.env.SEARCH_PROVIDERS ?? defaultProviders).split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
+const defaultProviders = (process.env.BRAVE_SEARCH_API_KEY ?? "").trim()
+  ? "brave,duckduckgo,marginalia,bing"
+  : "duckduckgo,marginalia,bing";
+const sharedProviders: SearchProvider[] = buildProviders(
+  (process.env.SEARCH_PROVIDERS ?? defaultProviders)
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 // Shared guarded browser, launched lazily only when a page needs it (same
 // pattern as the local server): Chromium + loopback egress proxy, no
@@ -109,24 +122,39 @@ let browserEgressProxy: BrowserEgressProxy | null = null;
 async function getBrowserContext(): Promise<BrowserContext> {
   if (browserShuttingDown) throw new Error("Browser is shutting down");
   if (browserContext) return browserContext;
-  browserLaunch ??= launchWithAutoInstall(() => chromium.launch({
-    headless: true,
-    args: ["--disable-quic", "--disable-background-networking", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
-  })).finally(() => { browserLaunch = null; });
+  browserLaunch ??= launchWithAutoInstall(() =>
+    chromium.launch({
+      headless: true,
+      args: [
+        "--disable-quic",
+        "--disable-background-networking",
+        "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+      ],
+    }),
+  ).finally(() => {
+    browserLaunch = null;
+  });
   browser = await browserLaunch;
   browserContextLaunch ??= (async () => {
     const launched = await getBrowser();
     const { context, proxy } = await openGuardedBrowserContext(launched, {
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     });
     if (browserShuttingDown) {
-      try { await context.close(); } finally { await proxy.close(); }
+      try {
+        await context.close();
+      } finally {
+        await proxy.close();
+      }
       throw new Error("Browser is shutting down");
     }
     browserEgressProxy = proxy;
     browserContext = context;
     return context;
-  })().finally(() => { browserContextLaunch = null; });
+  })().finally(() => {
+    browserContextLaunch = null;
+  });
   return browserContextLaunch;
 }
 async function getBrowser(): Promise<Browser> {
@@ -136,11 +164,18 @@ async function getBrowser(): Promise<Browser> {
 // Extractable import is required by the key-pair match check below; the key
 // is already process-readable from the PEM file, so this is not a weakening.
 const verificationKey = await importSPKI(keyPem, algorithm, { extractable: true }).catch((error: unknown) => {
-  console.error(`HOSTED_PUBLIC_KEY_FILE is not a valid SPKI public key: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(
+    `HOSTED_PUBLIC_KEY_FILE is not a valid SPKI public key: ${error instanceof Error ? error.message : String(error)}`,
+  );
   process.exit(1);
 });
 
-const resolver = new PostgresMembershipResolver({ connectionString: membershipUrl, issuer, maxConcurrentLookups: lookupConcurrency, lookupTimeoutMs });
+const resolver = new PostgresMembershipResolver({
+  connectionString: membershipUrl,
+  issuer,
+  maxConcurrentLookups: lookupConcurrency,
+  lookupTimeoutMs,
+});
 const storeCache = new TenantStoreCache({ appDbPath: appDb, maxStores: maxTenantStores });
 const admission = new InMemoryInvocationAdmission(admit);
 const usage = new UsageCounters();
@@ -150,22 +185,29 @@ const usage = new UsageCounters();
 // browser, providers, health tracker and traces are process-wide by design.
 const scopeCaches = new ScopeCache<SemanticCache>({
   maxEntries: maxScopeCaches,
-  onClose: cache => cache.close(),
+  onClose: (cache) => cache.close(),
 });
 const scopeFetchers = new ScopeCache<ContentFetcher>({
   maxEntries: maxScopeCaches,
-  onClose: fetcher => fetcher.close(),
+  onClose: (fetcher) => fetcher.close(),
 });
-const searchCacheFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => scopeCaches.get(`${context.tenantId}|${context.workspaceId}`, () =>
-  new SemanticCache(embeddingProvider, new SQLiteVectorStore(appDb, { context }), 0.75, intentDetector));
-const fetcherFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => scopeFetchers.get(`${context.tenantId}|${context.workspaceId}`, () =>
-  new ContentFetcher({
-    cache: searchCacheFor(context),
-    getBrowserContext,
-    fetchWaitUntil,
-    readerFallbackUrl,
-    detectIntent: null,
-  }));
+const searchCacheFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+  scopeCaches.get(
+    `${context.tenantId}|${context.workspaceId}`,
+    () => new SemanticCache(embeddingProvider, new SQLiteVectorStore(appDb, { context }), 0.75, intentDetector),
+  );
+const fetcherFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+  scopeFetchers.get(
+    `${context.tenantId}|${context.workspaceId}`,
+    () =>
+      new ContentFetcher({
+        cache: searchCacheFor(context),
+        getBrowserContext,
+        fetchWaitUntil,
+        readerFallbackUrl,
+        detectIntent: null,
+      }),
+  );
 
 const memoryHandlers = {
   async remember(args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]): Promise<ToolResult> {
@@ -177,16 +219,23 @@ const memoryHandlers = {
     const { query, topic, session, limit = 10 } = MemorySchemas.RecallSchema.parse(args ?? {});
     const mem = storeCache.memoryFor(context);
     const filter = { topic, session, limit };
-    const notes = query && query.trim() ? mem.search(query, filter) : mem.list(filter);
+    const notes = query?.trim() ? mem.search(query, filter) : mem.list(filter);
     const stats = mem.getStats();
-    if (notes.length === 0) return textResult(`No memory notes matched. (${stats.count} notes stored across ${stats.sessions} sessions)`);
-    const lines = notes.map((note, index) => `${index + 1}. [${note.id}] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`);
+    if (notes.length === 0)
+      return textResult(`No memory notes matched. (${stats.count} notes stored across ${stats.sessions} sessions)`);
+    const lines = notes.map(
+      (note, index) =>
+        `${index + 1}. [${note.id}] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`,
+    );
     return textResult(`Session memory (${stats.count} notes total):\n\n${lines.join("\n")}`);
   },
   async forget(args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]): Promise<ToolResult> {
     const { id } = MemorySchemas.ForgetSchema.parse(args);
     const deleted = storeCache.memoryFor(context).delete(id);
-    return { content: [{ type: "text", text: deleted ? `Deleted note ${id}` : `No note found with id ${id}` }], isError: deleted ? undefined : true };
+    return {
+      content: [{ type: "text", text: deleted ? `Deleted note ${id}` : `No note found with id ${id}` }],
+      isError: deleted ? undefined : true,
+    };
   },
 };
 
@@ -198,26 +247,30 @@ const memoryHandlers = {
 const searchTools = new ScopeCache<(args: unknown) => Promise<ToolResult>>({
   maxEntries: maxScopeCaches,
 });
-const searchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => searchTools.get(`${context.tenantId}|${context.workspaceId}`, () =>
-  createSearchHandler({
-    searchLimiter,
-    cache: () => searchCacheFor(context),
-    providers: () => sharedProviders,
-    healthTracker: () => healthTracker,
-    intentDetector,
-    crossLingual: null,
-    reranker: null,
-    fetchPage: (url: string) => fetcherFor(context).fetchPage(url),
-    traces,
-  }));
+const searchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+  searchTools.get(`${context.tenantId}|${context.workspaceId}`, () =>
+    createSearchHandler({
+      searchLimiter,
+      cache: () => searchCacheFor(context),
+      providers: () => sharedProviders,
+      healthTracker: () => healthTracker,
+      intentDetector,
+      crossLingual: null,
+      reranker: null,
+      fetchPage: (url: string) => fetcherFor(context).fetchPage(url),
+      traces,
+    }),
+  );
 const fetchTools = new ScopeCache<(args: unknown) => Promise<ToolResult>>({
   maxEntries: maxScopeCaches,
 });
-const fetchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => fetchTools.get(`${context.tenantId}|${context.workspaceId}`, () =>
-  createFetchHandler({
-    fetchLimiter,
-    fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
-  }));
+const fetchToolFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+  fetchTools.get(`${context.tenantId}|${context.workspaceId}`, () =>
+    createFetchHandler({
+      fetchLimiter,
+      fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
+    }),
+  );
 
 // Hosted rollout slice 3: the knowledge tools and research. Each scope gets
 // its own KnowledgeIndex + EntityGraph (tenant-bound at construction); the
@@ -231,47 +284,100 @@ const knowledgeScopes = new ScopeCache<{
   research: (args: unknown) => Promise<ToolResult>;
 }>({
   maxEntries: maxScopeCaches,
-  onClose: bundle => {
-    try { bundle.knowledgeIndex.close(); } catch { /* already closed */ }
-    try { bundle.entityGraph.close(); } catch { /* already closed */ }
+  onClose: (bundle) => {
+    try {
+      bundle.knowledgeIndex.close();
+    } catch {
+      /* already closed */
+    }
+    try {
+      bundle.entityGraph.close();
+    } catch {
+      /* already closed */
+    }
   },
 });
-const knowledgeFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeScopes.get(`${context.tenantId}|${context.workspaceId}`, () => {
-  const knowledgeIndex = new KnowledgeIndex(appDb, { context, embeddingProvider });
-  const entityGraph = new EntityGraph(appDb, { context });
-  const embed = (text: string) => embeddingProvider.getEmbedding(text);
-  const handlers = createKnowledgeHandlers({
-    knowledgeIndex,
-    entityGraph,
-    embed,
-    fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
-    fetchLimiter,
-    allowedDirs: () => [],
+const knowledgeFor = (context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+  knowledgeScopes.get(`${context.tenantId}|${context.workspaceId}`, () => {
+    const knowledgeIndex = new KnowledgeIndex(appDb, { context, embeddingProvider });
+    const entityGraph = new EntityGraph(appDb, { context });
+    const embed = (text: string) => embeddingProvider.getEmbedding(text);
+    const handlers = createKnowledgeHandlers({
+      knowledgeIndex,
+      entityGraph,
+      embed,
+      fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
+      fetchLimiter,
+      allowedDirs: () => [],
+    });
+    const research = createResearchHandler({
+      search: async (innerArgs: unknown) => searchToolFor(context)(innerArgs),
+      fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
+      fetchLimiter,
+      knowledgeIndex,
+      entityGraph,
+      embed,
+    });
+    return { knowledgeIndex, entityGraph, handlers, research };
   });
-  const research = createResearchHandler({
-    search: async (innerArgs: unknown) => searchToolFor(context)(innerArgs),
-    fetchContent: (url: string, forceRefresh: boolean) => fetcherFor(context).fetchContent(url, forceRefresh),
-    fetchLimiter,
-    knowledgeIndex,
-    entityGraph,
-    embed,
-  });
-  return { knowledgeIndex, entityGraph, handlers, research };
-});
 
 const hostedHandlers = {
   remember: { permission: "memory:write" as const, modes: ["hosted"] as const, handler: memoryHandlers.remember },
   recall: { permission: "memory:read" as const, modes: ["hosted"] as const, handler: memoryHandlers.recall },
   forget: { permission: "memory:write" as const, modes: ["hosted"] as const, handler: memoryHandlers.forget },
-  web_search: { permission: "search:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => searchToolFor(context)(args) },
-  fetch_content: { permission: "content:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => fetchToolFor(context)(args) },
-  search_index: { permission: "knowledge:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.search_index(args) },
-  list_index: { permission: "knowledge:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.list_index(args) },
-  find_related: { permission: "knowledge:read" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.find_related(args) },
-  ingest_document: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.ingest_document(args) },
-  index_url: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).handlers.index_url(args) },
-  research: { permission: "knowledge:write" as const, modes: ["hosted"] as const, handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => knowledgeFor(context).research(args) },
-  server_status: { permission: "status:read" as const, modes: ["hosted"] as const, handler: async (_args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => hostedStatus(context) },
+  web_search: {
+    permission: "search:read" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      searchToolFor(context)(args),
+  },
+  fetch_content: {
+    permission: "content:read" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      fetchToolFor(context)(args),
+  },
+  search_index: {
+    permission: "knowledge:read" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      knowledgeFor(context).handlers.search_index(args),
+  },
+  list_index: {
+    permission: "knowledge:read" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      knowledgeFor(context).handlers.list_index(args),
+  },
+  find_related: {
+    permission: "knowledge:read" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      knowledgeFor(context).handlers.find_related(args),
+  },
+  ingest_document: {
+    permission: "knowledge:write" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      knowledgeFor(context).handlers.ingest_document(args),
+  },
+  index_url: {
+    permission: "knowledge:write" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      knowledgeFor(context).handlers.index_url(args),
+  },
+  research: {
+    permission: "knowledge:write" as const,
+    modes: ["hosted"] as const,
+    handler: async (args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) =>
+      knowledgeFor(context).research(args),
+  },
+  server_status: {
+    permission: "status:read" as const,
+    modes: ["hosted"] as const,
+    handler: async (_args: unknown, context: Parameters<TenantStoreCache["memoryFor"]>[0]) => hostedStatus(context),
+  },
 };
 
 const dispatcher = new ToolDispatcher(hostedHandlers, { admission });
@@ -284,74 +390,146 @@ const startedAt = Date.now();
 function hostedStatus(context: Parameters<TenantStoreCache["memoryFor"]>[0]): ToolResult {
   const bundle = knowledgeFor(context);
   const payload = {
-    providers: sharedProviders.map(provider => ({ name: provider.name, available: healthTracker.getSnapshot(provider.name).available })),
-    config: { mode: "hosted", tenantId: context.tenantId, workspaceId: context.workspaceId, principalId: context.principalId, hostedEnabledTools: Object.keys(hostedHandlers).length },
+    providers: sharedProviders.map((provider) => ({
+      name: provider.name,
+      available: healthTracker.getSnapshot(provider.name).available,
+    })),
+    config: {
+      mode: "hosted",
+      tenantId: context.tenantId,
+      workspaceId: context.workspaceId,
+      principalId: context.principalId,
+      hostedEnabledTools: Object.keys(hostedHandlers).length,
+    },
     memory: storeCache.memoryFor(context).getStats(),
     knowledgeIndex: bundle.knowledgeIndex.getStats(),
     entityGraph: bundle.entityGraph.getStats(),
     cache: searchCacheFor(context).getCacheStats(),
     uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
   };
-  const summary = `Hosted status for ${context.tenantId}/${context.workspaceId}: ${payload.memory.count} memory notes, ${payload.knowledgeIndex.docCount} knowledge docs, ${payload.entityGraph.linkCount} graph links; providers: ${payload.providers.map(p => `${p.name}=${p.available ? "up" : "down"}`).join(", ")}.`;
+  const summary = `Hosted status for ${context.tenantId}/${context.workspaceId}: ${payload.memory.count} memory notes, ${payload.knowledgeIndex.docCount} knowledge docs, ${payload.entityGraph.linkCount} graph links; providers: ${payload.providers.map((p) => `${p.name}=${p.available ? "up" : "down"}`).join(", ")}.`;
   return textResult(summary, payload);
 }
 
-const server = createServer(createHostedHttpAuthHandler({
-  authorization: { issuer, audience, algorithm: algorithm as "ES256" | "RS256" | "EdDSA", verificationKey, resolveMembership: resolver.resolveMembership },
-  allowedOrigins,
-  scopesSupported: ["memory:read", "memory:write", "search:read", "content:read", "knowledge:read", "knowledge:write"],
-  requestTimeoutMs: Number(process.env.HOSTED_REQUEST_TIMEOUT_MS ?? "30000"),
-  onAuthorized: async (req, res, context) => {
-    const mcp = new McpServer({ name: "search-memory-hosted", version: process.env.npm_package_version ?? "hosted" }, { capabilities: { tools: {} } });
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-    mcp.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOL_DEFINITIONS }));
-    mcp.setRequestHandler(CallToolRequestSchema, async request => {
-      // Mirror the local dispatcher UX: dispatcher rejections are tool errors
-      // with the rejection code visible, not transport-level internal errors.
-      const tool = request.params.name;
-      try {
-        const result = await dispatcher.call(tool, request.params.arguments, context);
-        usage.record(context.tenantId, context.workspaceId, tool, true);
-        return result;
-      } catch (error) {
-        usage.record(context.tenantId, context.workspaceId, tool, false);
-        const code = error instanceof InvocationError ? error.code : "internal_error";
-        return { content: [{ type: "text", text: `Request rejected: ${code}` }], isError: true };
-      }
-    });
-    res.once("close", () => { void mcp.close(); });
-    await mcp.connect(transport);
-    await transport.handleRequest(req, res);
-  },
-}));
+const server = createServer(
+  createHostedHttpAuthHandler({
+    authorization: {
+      issuer,
+      audience,
+      algorithm: algorithm as "ES256" | "RS256" | "EdDSA",
+      verificationKey,
+      resolveMembership: resolver.resolveMembership,
+    },
+    allowedOrigins,
+    scopesSupported: [
+      "memory:read",
+      "memory:write",
+      "search:read",
+      "content:read",
+      "knowledge:read",
+      "knowledge:write",
+    ],
+    requestTimeoutMs: Number(process.env.HOSTED_REQUEST_TIMEOUT_MS ?? "30000"),
+    onAuthorized: async (req, res, context) => {
+      const mcp = new McpServer(
+        { name: "search-memory-hosted", version: process.env.npm_package_version ?? "hosted" },
+        { capabilities: { tools: {} } },
+      );
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+      mcp.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOL_DEFINITIONS }));
+      mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
+        // Mirror the local dispatcher UX: dispatcher rejections are tool errors
+        // with the rejection code visible, not transport-level internal errors.
+        const tool = request.params.name;
+        try {
+          const result = await dispatcher.call(tool, request.params.arguments, context);
+          usage.record(context.tenantId, context.workspaceId, tool, true);
+          return result;
+        } catch (error) {
+          usage.record(context.tenantId, context.workspaceId, tool, false);
+          const code = error instanceof InvocationError ? error.code : "internal_error";
+          return { content: [{ type: "text", text: `Request rejected: ${code}` }], isError: true };
+        }
+      });
+      res.once("close", () => {
+        void mcp.close();
+      });
+      await mcp.connect(transport);
+      await transport.handleRequest(req, res);
+    },
+  }),
+);
 
 const shuttingDownHooks: Array<() => Promise<void>> = [];
 const shuttingDown = async () => {
   console.error("Hosted MCP server shutting down...");
   browserShuttingDown = true;
   server.closeAllConnections();
-  await new Promise<void>(resolve => server.close(() => resolve()));
-  try { await browserContextLaunch; } catch { /* in-flight launch failed */ }
-  try { await browserLaunch; } catch { /* in-flight launch failed */ }
-  if (browserContext) { try { await browserContext.close(); } catch { /* already closed */ } browserContext = null; }
-  if (browserEgressProxy) { try { await browserEgressProxy.close(); } catch (error) { console.error("Error stopping browser egress proxy:", error); } browserEgressProxy = null; }
-  if (browser) { try { await browser.close(); } catch { /* already closed */ } browser = null; }
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  try {
+    await browserContextLaunch;
+  } catch {
+    /* in-flight launch failed */
+  }
+  try {
+    await browserLaunch;
+  } catch {
+    /* in-flight launch failed */
+  }
+  if (browserContext) {
+    try {
+      await browserContext.close();
+    } catch {
+      /* already closed */
+    }
+    browserContext = null;
+  }
+  if (browserEgressProxy) {
+    try {
+      await browserEgressProxy.close();
+    } catch (error) {
+      console.error("Error stopping browser egress proxy:", error);
+    }
+    browserEgressProxy = null;
+  }
+  if (browser) {
+    try {
+      await browser.close();
+    } catch {
+      /* already closed */
+    }
+    browser = null;
+  }
   scopeFetchers.closeAll();
   scopeCaches.closeAll();
-  for (const hook of shuttingDownHooks.splice(0)) { try { await hook(); } catch { /* already closed */ } }
+  for (const hook of shuttingDownHooks.splice(0)) {
+    try {
+      await hook();
+    } catch {
+      /* already closed */
+    }
+  }
   await resolver.close();
   storeCache.close();
   process.exit(0);
 };
-process.on("SIGINT", () => { void shuttingDown(); });
-process.on("SIGTERM", () => { void shuttingDown(); });
+process.on("SIGINT", () => {
+  void shuttingDown();
+});
+process.on("SIGTERM", () => {
+  void shuttingDown();
+});
 
 server.listen(port, bind, () => {
   const bound = server.address();
   const boundPort = bound && typeof bound === "object" ? bound.port : port;
   console.error(`Hosted MCP server listening on ${bind}:${boundPort}`);
-  console.error(`Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (all 12; tenant-safe server_status included).`);
-  console.error(`Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`);
+  console.error(
+    `Tools: ${TOOL_DEFINITIONS.length} advertised, ${Object.keys(hostedHandlers).length} hosted-enabled (all 12; tenant-safe server_status included).`,
+  );
+  console.error(
+    `Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`,
+  );
 });
 
 // Provisioning surface (Faz C, ADR-0006): a separate admin port with operator
@@ -377,7 +555,24 @@ if (adminPort !== null) {
     console.error("HOSTED_TOKEN_PRIVATE_KEY_FILE does not match HOSTED_PUBLIC_KEY_FILE.");
     process.exit(1);
   }
-  const provisioning = await startProvisioningServer({ adminPort, adminToken, operatorDatabaseUrl: adminDatabaseUrl, issuer, audience, tokenPrivateKey, tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA", bind, hostedEnabledTools: Object.keys(hostedHandlers).length, usageSnapshot: () => usage.snapshot() });
-  shuttingDownHooks.push(async () => { try { await provisioning.close(); } catch { /* already closed */ } });
+  const provisioning = await startProvisioningServer({
+    adminPort,
+    adminToken,
+    operatorDatabaseUrl: adminDatabaseUrl,
+    issuer,
+    audience,
+    tokenPrivateKey,
+    tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA",
+    bind,
+    hostedEnabledTools: Object.keys(hostedHandlers).length,
+    usageSnapshot: () => usage.snapshot(),
+  });
+  shuttingDownHooks.push(async () => {
+    try {
+      await provisioning.close();
+    } catch {
+      /* already closed */
+    }
+  });
   console.error(`Provisioning API listening on ${bind}:${provisioning.port} (operator token auth).`);
 }

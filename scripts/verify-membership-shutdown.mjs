@@ -10,8 +10,11 @@ Client.prototype.end = function (...args) {
   }
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      try { Promise.resolve(originalEnd.apply(this, args)).then(resolve, reject); }
-      catch (error) { reject(error); }
+      try {
+        Promise.resolve(originalEnd.apply(this, args)).then(resolve, reject);
+      } catch (error) {
+        reject(error);
+      }
     }, 100);
   });
 };

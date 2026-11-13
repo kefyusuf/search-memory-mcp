@@ -43,10 +43,7 @@ export class SearchTrace {
     this.running.set(name, { name, startedAt: Date.now() });
   }
 
-  endStage(
-    name: string,
-    outcome?: { status?: StageStatus; resultCount?: number; error?: string },
-  ): void {
+  endStage(name: string, outcome?: { status?: StageStatus; resultCount?: number; error?: string }): void {
     const running = this.running.get(name);
     const durationMs = running ? Date.now() - running.startedAt : 0;
     this.running.delete(name);
@@ -88,7 +85,9 @@ export function formatTraceSummary(trace: SearchTrace): string {
     const extras = [
       stage.resultCount !== undefined ? `results=${stage.resultCount}` : null,
       stage.error ? `err=${stage.error}` : null,
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     return `  ${stage.name}: ${stage.status} ${stage.durationMs}ms${extras ? ` ${extras}` : ""}`;
   });
 

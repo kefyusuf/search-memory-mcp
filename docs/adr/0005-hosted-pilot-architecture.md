@@ -34,13 +34,13 @@ HTTP listen (HOSTED_HTTP_PORT)
 
 ## Süreç-geneli / tenant-bağlı kaynak ayrımı
 
-| Kaynak | Kapsam | Gerekçe |
-| --- | --- | --- |
-| Search providers, health tracker, token bucket'lar | Süreç-geneli | Motor engellenmesi/yavaşlığı tenant verisi taşımaz; servis düzeyi korumadır |
-| Chromium + egress proxy, ContentFetcher | Süreç-geneli | Tenant verisi content cache'te değil; cache hosted diliminde tenant-scoped instance ile değişir |
-| Embedding/intent/rerank modelleri | Süreç-geneli | Paylaşımlı çıkarım; girdi çıktısı tenant etiketli değildir |
-| SessionMemory / KnowledgeIndex / EntityGraph / SQLiteVectorStore | **Tenant-bağlı** | Veri izolasyonu construction-bound |
-| SearchTraceHistory, server_status | Süreç-geneli (bu dilimde hosted'a açılmaz) | Tenant kırılımı olmayan istatistik; hosted'a açılım sonraki dilim |
+| Kaynak                                                           | Kapsam                                     | Gerekçe                                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Search providers, health tracker, token bucket'lar               | Süreç-geneli                               | Motor engellenmesi/yavaşlığı tenant verisi taşımaz; servis düzeyi korumadır                     |
+| Chromium + egress proxy, ContentFetcher                          | Süreç-geneli                               | Tenant verisi content cache'te değil; cache hosted diliminde tenant-scoped instance ile değişir |
+| Embedding/intent/rerank modelleri                                | Süreç-geneli                               | Paylaşımlı çıkarım; girdi çıktısı tenant etiketli değildir                                      |
+| SessionMemory / KnowledgeIndex / EntityGraph / SQLiteVectorStore | **Tenant-bağlı**                           | Veri izolasyonu construction-bound                                                              |
+| SearchTraceHistory, server_status                                | Süreç-geneli (bu dilimde hosted'a açılmaz) | Tenant kırılımı olmayan istatistik; hosted'a açılım sonraki dilim                               |
 
 ## Güvenlik ve kapı sınırı
 

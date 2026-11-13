@@ -64,11 +64,13 @@ Historical plan: routing shipped in commit `f2b0979`. The unchecked steps below 
 ### Task 1: Search-Domain Intent Detection
 
 **Files:**
+
 - Create: `src/search/heuristics.ts`
 - Create: `src/search/intent.ts`
 - Create: `src/__tests__/search-intent.test.ts`
 
 **Interfaces:**
+
 - Produces: `SearchIntent`, `IntentDetection`, `IntentClassifier`, `SearchIntentClassifier`, `SearchIntentDetector`, `detectHeuristicIntent(query)`.
 - Later tasks consume `SearchIntentDetector.detect(query)` and `SearchIntent`.
 
@@ -79,10 +81,7 @@ Create `src/__tests__/search-intent.test.ts` with deterministic cases that do no
 ```ts
 import { describe, expect, it, vi } from "vitest";
 import { detectHeuristicIntent } from "../search/heuristics.js";
-import {
-  SearchIntentDetector,
-  type IntentClassifier,
-} from "../search/intent.js";
+import { SearchIntentDetector, type IntentClassifier } from "../search/intent.js";
 
 describe("search intent detection", () => {
   it.each([
@@ -100,8 +99,7 @@ describe("search intent detection", () => {
   });
 
   it("defers mixed strong signals instead of using first-match priority", () => {
-    expect(detectHeuristicIntent("PostgreSQL vs CockroachDB enterprise adoption benchmark"))
-      .toBeNull();
+    expect(detectHeuristicIntent("PostgreSQL vs CockroachDB enterprise adoption benchmark")).toBeNull();
   });
 
   it("uses the classifier only when heuristics defer", async () => {
@@ -177,10 +175,7 @@ const RULES: HeuristicRule[] = [
   },
   {
     intent: "local",
-    patterns: [
-      /\b(near me|nearby|closest|in my area)\b/i,
-      /\b(yakınımda|yakınımdaki|yakındaki|en yakın)\b/i,
-    ],
+    patterns: [/\b(near me|nearby|closest|in my area)\b/i, /\b(yakınımda|yakınımdaki|yakındaki|en yakın)\b/i],
   },
   {
     intent: "navigational",
@@ -209,9 +204,9 @@ const RULES: HeuristicRule[] = [
 ];
 
 export function detectHeuristicIntent(query: string): SearchIntent | null {
-  const matches = RULES
-    .filter((rule) => rule.patterns.some((pattern) => pattern.test(query)))
-    .map((rule) => rule.intent);
+  const matches = RULES.filter((rule) => rule.patterns.some((pattern) => pattern.test(query))).map(
+    (rule) => rule.intent,
+  );
   const unique = [...new Set(matches)];
   return unique.length === 1 ? unique[0] : null;
 }
@@ -259,15 +254,9 @@ const LABEL_TO_INTENT: Record<string, SearchIntent> = {
 
 const LABELS = Object.keys(LABEL_TO_INTENT);
 
-type ZeroShotRunner = (
-  query: string,
-  labels: string[],
-) => Promise<{ labels: string[]; scores: number[] }>;
+type ZeroShotRunner = (query: string, labels: string[]) => Promise<{ labels: string[]; scores: number[] }>;
 
-type PipelineLoader = (
-  task: "zero-shot-classification",
-  model: string,
-) => Promise<ZeroShotRunner>;
+type PipelineLoader = (task: "zero-shot-classification", model: string) => Promise<ZeroShotRunner>;
 
 export class SearchIntentClassifier implements IntentClassifier {
   private classifier: ZeroShotRunner | null = null;
@@ -296,9 +285,7 @@ export class SearchIntentClassifier implements IntentClassifier {
 }
 
 export class SearchIntentDetector {
-  constructor(
-    private readonly classifier: IntentClassifier = new SearchIntentClassifier(),
-  ) {}
+  constructor(private readonly classifier: IntentClassifier = new SearchIntentClassifier()) {}
 
   async detect(query: string): Promise<IntentDetection> {
     const heuristic = detectHeuristicIntent(query);
@@ -325,12 +312,13 @@ it("maps descriptive zero-shot labels to domain intents", async () => {
   }));
   const classifier = new SearchIntentClassifier("test-model", loader);
 
-  await expect(classifier.classify("enterprise CRM alternatives"))
-    .resolves.toBe("commercial");
+  await expect(classifier.classify("enterprise CRM alternatives")).resolves.toBe("commercial");
 });
 
 it("fails safely to general and does not reload after permanent load failure", async () => {
-  const loader = vi.fn(async () => { throw new Error("load failed"); });
+  const loader = vi.fn(async () => {
+    throw new Error("load failed");
+  });
   const classifier = new SearchIntentClassifier("test-model", loader);
 
   await expect(classifier.classify("ambiguous query")).resolves.toBe("general");
@@ -358,11 +346,13 @@ git commit -m "feat: add search intent detection"
 ### Task 2: Versioned Provider Profiles and Pure Search Planner
 
 **Files:**
+
 - Create: `src/search/profiles.ts`
 - Create: `src/search/planner.ts`
 - Create: `src/__tests__/search-planner.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SearchIntent` from Task 1.
 - Produces: `ROUTING_PROFILE_VERSION`, `SearchPlan`, `planSearch(input)`.
 
@@ -378,31 +368,34 @@ const all = ["duckduckgo", "bing", "brave", "google"];
 
 describe("search planner", () => {
   it("selects two preferred configured providers for technical", () => {
-    expect(planSearch({ intent: "technical", configuredProviderNames: all }))
-      .toMatchObject({
-        intent: "technical",
-        strategy: "aggregate",
-        primaryProviderNames: ["brave", "google"],
-        fallbackProviderNames: ["duckduckgo", "bing"],
-        profileVersion: "v1",
-      });
+    expect(planSearch({ intent: "technical", configuredProviderNames: all })).toMatchObject({
+      intent: "technical",
+      strategy: "aggregate",
+      primaryProviderNames: ["brave", "google"],
+      fallbackProviderNames: ["duckduckgo", "bing"],
+      profileVersion: "v1",
+    });
   });
 
   it("never activates an unconfigured provider", () => {
-    expect(planSearch({
-      intent: "technical",
-      configuredProviderNames: ["duckduckgo", "bing"],
-    })).toMatchObject({
+    expect(
+      planSearch({
+        intent: "technical",
+        configuredProviderNames: ["duckduckgo", "bing"],
+      }),
+    ).toMatchObject({
       primaryProviderNames: ["bing", "duckduckgo"],
       fallbackProviderNames: [],
     });
   });
 
   it("keeps general fallback in configured order", () => {
-    expect(planSearch({
-      intent: "general",
-      configuredProviderNames: ["duckduckgo", "brave", "bing"],
-    })).toMatchObject({
+    expect(
+      planSearch({
+        intent: "general",
+        configuredProviderNames: ["duckduckgo", "brave", "bing"],
+      }),
+    ).toMatchObject({
       strategy: "fallback",
       primaryProviderNames: ["duckduckgo", "brave", "bing"],
       fallbackProviderNames: [],
@@ -410,10 +403,12 @@ describe("search planner", () => {
   });
 
   it("orders all configured navigational providers by navigational preference", () => {
-    expect(planSearch({
-      intent: "navigational",
-      configuredProviderNames: ["duckduckgo", "brave", "bing"],
-    })).toMatchObject({
+    expect(
+      planSearch({
+        intent: "navigational",
+        configuredProviderNames: ["duckduckgo", "brave", "bing"],
+      }),
+    ).toMatchObject({
       strategy: "fallback",
       primaryProviderNames: ["bing", "duckduckgo", "brave"],
       fallbackProviderNames: [],
@@ -498,10 +493,7 @@ function unique(names: string[]): string[] {
   return [...new Set(names)];
 }
 
-export function planSearch({
-  intent,
-  configuredProviderNames,
-}: PlanSearchInput): SearchPlan {
+export function planSearch({ intent, configuredProviderNames }: PlanSearchInput): SearchPlan {
   const configured = unique(configuredProviderNames);
   const profile = ROUTING_PROFILES[intent];
 
@@ -512,9 +504,8 @@ export function planSearch({
         ...configured.filter((name) => !profile.preference.includes(name)),
       ];
 
-  const primary = profile.primaryTarget === "all"
-    ? preferredConfigured
-    : preferredConfigured.slice(0, profile.primaryTarget);
+  const primary =
+    profile.primaryTarget === "all" ? preferredConfigured : preferredConfigured.slice(0, profile.primaryTarget);
 
   const primarySet = new Set(primary);
   const fallback = configured.filter((name) => !primarySet.has(name));
@@ -548,10 +539,12 @@ git commit -m "feat: add intent-aware search planner"
 ### Task 3: Planned Execution Using Existing Fallback/Aggregate Engine
 
 **Files:**
+
 - Modify: `src/search/executor.ts`
 - Modify: `src/__tests__/federated-search.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SearchPlan` from Task 2.
 - Produces: `executeSearchPlan(options)`.
 - Existing `executeProviderSearch(options)` remains the explicit-strategy API and its behavior must not change.
@@ -633,14 +626,9 @@ export type ExecuteSearchPlanOptions = Omit<ExecuteProviderSearchOptions, "strat
   plan: SearchPlan;
 };
 
-function providersByNames(
-  providers: SearchProvider[],
-  names: string[],
-): SearchProvider[] {
+function providersByNames(providers: SearchProvider[], names: string[]): SearchProvider[] {
   const byName = new Map(uniqueProvidersByName(providers).map((provider) => [provider.name, provider]));
-  return names
-    .map((name) => byName.get(name))
-    .filter((provider): provider is SearchProvider => Boolean(provider));
+  return names.map((name) => byName.get(name)).filter((provider): provider is SearchProvider => Boolean(provider));
 }
 
 export async function executeSearchPlan({
@@ -701,6 +689,7 @@ git commit -m "feat: execute planned provider searches"
 ### Task 4: Auto Strategy Orchestration, Shared Detector and Cache Semantics
 
 **Files:**
+
 - Modify: `src/cache/semantic-cache.ts`
 - Delete: `src/cache/intent.ts`
 - Modify: `src/index.ts`
@@ -709,6 +698,7 @@ git commit -m "feat: execute planned provider searches"
 - Modify: `src/__tests__/server-status.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SearchIntentDetector`, `planSearch`, `executeSearchPlan`, `ROUTING_PROFILE_VERSION`.
 - Public tool contract becomes `fallback | aggregate | auto`, with `fallback` still default.
 
@@ -724,8 +714,7 @@ it("accepts fallback, aggregate, and auto search strategies", () => {
 });
 
 it("rejects unsupported search strategies", () => {
-  expect(() => SearchSchema.parse({ query: "test", strategy: "adaptive" }))
-    .toThrowError(ZodError);
+  expect(() => SearchSchema.parse({ query: "test", strategy: "adaptive" })).toThrowError(ZodError);
 });
 ```
 
@@ -763,12 +752,20 @@ describe("auto search orchestration", () => {
   it("routes technical auto search to planned primary providers and bypasses query cache", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
-    vi.spyOn(SearchIntentDetector.prototype, "detect")
-      .mockResolvedValue({ intent: "technical", source: "heuristic" });
+    vi.spyOn(SearchIntentDetector.prototype, "detect").mockResolvedValue({ intent: "technical", source: "heuristic" });
 
-    const brave: SearchProvider = { name: "brave", execute: vi.fn(async () => result("brave", "https://example.com/brave")) };
-    const google: SearchProvider = { name: "google", execute: vi.fn(async () => result("google", "https://example.com/google")) };
-    const bing: SearchProvider = { name: "bing", execute: vi.fn(async () => result("bing", "https://example.com/bing")) };
+    const brave: SearchProvider = {
+      name: "brave",
+      execute: vi.fn(async () => result("brave", "https://example.com/brave")),
+    };
+    const google: SearchProvider = {
+      name: "google",
+      execute: vi.fn(async () => result("google", "https://example.com/google")),
+    };
+    const bing: SearchProvider = {
+      name: "bing",
+      execute: vi.fn(async () => result("bing", "https://example.com/bing")),
+    };
 
     const server = new WebSearchServer();
     server.overrideSearchProvidersForTesting([brave, google, bing]);
@@ -789,20 +786,26 @@ describe("auto search orchestration", () => {
   it("classifies the original query before appending a site domain filter", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
-    const detect = vi.spyOn(SearchIntentDetector.prototype, "detect")
+    const detect = vi
+      .spyOn(SearchIntentDetector.prototype, "detect")
       .mockResolvedValue({ intent: "technical", source: "heuristic" });
-    const brave: SearchProvider = { name: "brave", execute: vi.fn(async () => result("brave", "https://react.dev/reference")) };
+    const brave: SearchProvider = {
+      name: "brave",
+      execute: vi.fn(async () => result("brave", "https://react.dev/reference")),
+    };
 
     const server = new WebSearchServer();
     server.overrideSearchProvidersForTesting([brave]);
     const cache = (server as any).cache;
     vi.spyOn(cache, "reRankResults").mockImplementation(async (_query: string, rows: unknown[]) => rows);
 
-    await callPrivate(server, "handleSearch", [{
-      query: "react server components documentation",
-      domain: "react.dev",
-      strategy: "auto",
-    }]);
+    await callPrivate(server, "handleSearch", [
+      {
+        query: "react server components documentation",
+        domain: "react.dev",
+        strategy: "auto",
+      },
+    ]);
 
     expect(detect).toHaveBeenCalledWith("react server components documentation");
     expect(brave.execute).toHaveBeenCalledWith(
@@ -815,7 +818,10 @@ describe("auto search orchestration", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
     const detect = vi.spyOn(SearchIntentDetector.prototype, "detect");
-    const provider: SearchProvider = { name: "duckduckgo", execute: vi.fn(async () => result("duckduckgo", "https://example.com")) };
+    const provider: SearchProvider = {
+      name: "duckduckgo",
+      execute: vi.fn(async () => result("duckduckgo", "https://example.com")),
+    };
 
     const server = new WebSearchServer();
     server.overrideSearchProvidersForTesting([provider]);
@@ -835,10 +841,7 @@ describe("auto search orchestration", () => {
 In `src/cache/semantic-cache.ts` replace the cache-local classifier import with:
 
 ```ts
-import {
-  SearchIntentDetector,
-  type SearchIntent,
-} from "../search/intent.js";
+import { SearchIntentDetector, type SearchIntent } from "../search/intent.js";
 ```
 
 Replace `private intentClassifier` with `private intentDetector` and preserve existing constructor call compatibility:
@@ -885,11 +888,7 @@ Modify `src/index.ts` imports:
 import { SearchIntentDetector } from "./search/intent.js";
 import { planSearch } from "./search/planner.js";
 import { ROUTING_PROFILE_VERSION } from "./search/profiles.js";
-import {
-  executeProviderSearch as executeSearch,
-  executeSearchPlan,
-  type SearchStrategy,
-} from "./search/executor.js";
+import { executeProviderSearch as executeSearch, executeSearchPlan, type SearchStrategy } from "./search/executor.js";
 ```
 
 Keep executor `SearchStrategy` as `fallback | aggregate`; `auto` exists only in the MCP schema/orchestration branch.
@@ -897,7 +896,7 @@ Keep executor `SearchStrategy` as `fallback | aggregate`; `auto` exists only in 
 Schema:
 
 ```ts
-strategy: z.enum(["fallback", "aggregate", "auto"]).optional()
+strategy: z.enum(["fallback", "aggregate", "auto"]).optional();
 ```
 
 After existing env-derived fields (`enableCrosslingual`, `fetchWaitUntil`, `cacheDbPath`) have been assigned, create one detector and inject the same instance into the cache:
@@ -906,12 +905,7 @@ After existing env-derived fields (`enableCrosslingual`, `fetchWaitUntil`, `cach
 this.intentDetector = new SearchIntentDetector();
 const embeddingProvider = new TransformersEmbeddingProvider();
 const vectorStore = new SQLiteVectorStore(this.cacheDbPath);
-this.cache = new SemanticCache(
-  embeddingProvider,
-  vectorStore,
-  0.75,
-  this.intentDetector,
-);
+this.cache = new SemanticCache(embeddingProvider, vectorStore, 0.75, this.intentDetector);
 ```
 
 In `handleSearch`, keep default `strategy = "fallback"` and query-cache behavior exactly:
@@ -1007,11 +1001,13 @@ git commit -m "feat: add auto search orchestration"
 ### Task 5: P0 Turkish Locale Correctness
 
 **Files:**
+
 - Modify: `src/index.ts`
 - Create: `src/__tests__/search-locale-routing.test.ts`
 - Preserve: `src/search-utils.ts` locale API unless a failing test proves a utility change is necessary.
 
 **Interfaces:**
+
 - Uses existing `resolveSearchLocale(query, detectedLanguage?)`.
 - Changes only how `WebSearchServer` supplies `detectedLanguage` when cross-lingual mode is disabled or detection fails.
 
@@ -1040,12 +1036,14 @@ describe("search locale routing", () => {
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
     vi.stubEnv("ENABLE_CROSSLINGUAL", "false");
 
-    const execute = vi.fn(async () => [{
-      title: "Queue",
-      url: "https://example.com/queue",
-      snippet: "Queue guide",
-      source: "mock",
-    }]);
+    const execute = vi.fn(async () => [
+      {
+        title: "Queue",
+        url: "https://example.com/queue",
+        snippet: "Queue guide",
+        source: "mock",
+      },
+    ]);
     const provider: SearchProvider = { name: "mock", execute };
 
     const server = new WebSearchServer();
@@ -1055,10 +1053,12 @@ describe("search locale routing", () => {
     vi.spyOn(cache, "set").mockResolvedValue(undefined);
     vi.spyOn(cache, "reRankResults").mockImplementation(async (_query: string, rows: unknown[]) => rows);
 
-    await callPrivate(server, "handleSearch", [{
-      query: "Laravel için en iyi queue yapısı",
-      strategy: "fallback",
-    }]);
+    await callPrivate(server, "handleSearch", [
+      {
+        query: "Laravel için en iyi queue yapısı",
+        strategy: "fallback",
+      },
+    ]);
 
     expect(execute).toHaveBeenCalledWith(
       "Laravel için en iyi queue yapısı",
@@ -1081,9 +1081,7 @@ Expected: FAIL because current `handleSearch` supplies `eng_Latn` when cross-lin
 Replace the current inline locale resolution with:
 
 ```ts
-const detectedLanguage = this.crossLingual
-  ? await this.crossLingual.detectLanguage(query).catch(() => null)
-  : null;
+const detectedLanguage = this.crossLingual ? await this.crossLingual.detectLanguage(query).catch(() => null) : null;
 const queryLocale = resolveSearchLocale(query, detectedLanguage);
 ```
 
@@ -1111,10 +1109,12 @@ git commit -m "fix: infer locale when cross-lingual search is disabled"
 ### Task 6: Deterministic TR/EN Routing Evaluation Fixture
 
 **Files:**
+
 - Create: `evals/search-routing/queries.jsonl`
 - Create: `src/__tests__/search-routing-eval.test.ts`
 
 **Interfaces:**
+
 - Consumes: `detectHeuristicIntent`, `planSearch`.
 - This is offline/deterministic CI coverage only; it must not call network providers or load the real classifier model.
 
@@ -1168,10 +1168,9 @@ const fixtures = readFileSync("evals/search-routing/queries.jsonl", "utf8")
 
 describe("search routing eval fixture", () => {
   it("covers all eight intents", () => {
-    expect(new Set(fixtures.map((row) => row.intent))).toEqual(new Set([
-      "technical", "research", "news", "commercial",
-      "shopping", "local", "navigational", "general",
-    ]));
+    expect(new Set(fixtures.map((row) => row.intent))).toEqual(
+      new Set(["technical", "research", "news", "commercial", "shopping", "local", "navigational", "general"]),
+    );
   });
 
   it.each(fixtures)("heuristic expectation: $query", ({ query, heuristic }) => {
@@ -1181,8 +1180,9 @@ describe("search routing eval fixture", () => {
   it.each(fixtures)("planner never escapes the configured allowlist: $query", ({ intent }) => {
     const configured = ["duckduckgo", "bing"];
     const plan = planSearch({ intent, configuredProviderNames: configured });
-    expect([...plan.primaryProviderNames, ...plan.fallbackProviderNames]
-      .every((name) => configured.includes(name))).toBe(true);
+    expect(
+      [...plan.primaryProviderNames, ...plan.fallbackProviderNames].every((name) => configured.includes(name)),
+    ).toBe(true);
   });
 });
 ```
@@ -1207,11 +1207,13 @@ git commit -m "test: add search routing evaluation fixtures"
 ### Task 7: MCP Surface, Documentation and Full Release Verification
 
 **Files:**
+
 - Modify: `scripts/smoke-mcp.mjs`
 - Modify: `README.md`
 - Modify if a review finding requires a scoped correction: files already introduced by Tasks 1–6.
 
 **Interfaces:**
+
 - Verifies the public contract end-to-end.
 - No live network quality benchmark is added to blocking CI.
 

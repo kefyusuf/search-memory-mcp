@@ -13,9 +13,7 @@ describe("WebSearchServer diagnostics", () => {
     vi.stubEnv("FORCE_PLAYWRIGHT", "true");
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
     const server = new WebSearchServer();
-    server.overrideSearchProvidersForTesting([
-      { name: "mock", execute: vi.fn(async () => []) },
-    ]);
+    server.overrideSearchProvidersForTesting([{ name: "mock", execute: vi.fn(async () => []) }]);
 
     const result = await callPrivate<{
       content: Array<{ text: string }>;
@@ -65,16 +63,22 @@ describe("WebSearchServer diagnostics", () => {
     const server = new WebSearchServer();
     server.overrideSearchProvidersForTesting([emptyProvider, successfulProvider]);
 
-    const cache = (server as unknown as { cache: {
-      get: (query: string) => Promise<unknown>;
-      set: (...args: unknown[]) => Promise<void>;
-      reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
-    } }).cache;
+    const cache = (
+      server as unknown as {
+        cache: {
+          get: (query: string) => Promise<unknown>;
+          set: (...args: unknown[]) => Promise<void>;
+          reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
+        };
+      }
+    ).cache;
     vi.spyOn(cache, "get").mockResolvedValue(null);
     vi.spyOn(cache, "set").mockResolvedValue();
     vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
 
-    const response = await callPrivate<{ content: Array<{ text: string }> }>(server, "handleSearch", [{ query: "mcp guide", format: "json" }]);
+    const response = await callPrivate<{ content: Array<{ text: string }> }>(server, "handleSearch", [
+      { query: "mcp guide", format: "json" },
+    ]);
     const results = JSON.parse(response.content[0].text).results;
 
     expect(emptyProvider.execute).toHaveBeenCalled();

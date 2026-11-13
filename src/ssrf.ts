@@ -1,5 +1,5 @@
-import { promises as dns } from "dns";
-import { isIP } from "net";
+import { promises as dns } from "node:dns";
+import { isIP } from "node:net";
 
 export type UrlSafetyResult =
   | { ok: true; url: URL }

@@ -20,15 +20,25 @@ describe("tool annotations", () => {
   );
 
   it.each(["ingest_document", "index_url", "remember", "research"])("marks %s as an additive write", (name) => {
-    expect(byName.get(name)?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
+    expect(byName.get(name)?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+    });
   });
 
   it("marks forget as destructive and idempotent", () => {
-    expect(byName.get("forget")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, idempotentHint: true });
+    expect(byName.get("forget")?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+    });
   });
 
   it("marks only tools that reach the internet as open-world", () => {
-    const openWorld = TOOL_DEFINITIONS.filter((tool) => tool.annotations?.openWorldHint).map((tool) => tool.name).sort();
+    const openWorld = TOOL_DEFINITIONS.filter((tool) => tool.annotations?.openWorldHint)
+      .map((tool) => tool.name)
+      .sort();
     expect(openWorld).toEqual(["fetch_content", "index_url", "research", "web_search"]);
     for (const tool of TOOL_DEFINITIONS) {
       expect(tool.annotations?.openWorldHint, tool.name).toEqual(expect.any(Boolean));

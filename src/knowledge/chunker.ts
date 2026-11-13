@@ -8,7 +8,10 @@ const MAX_CHUNK_CHARS = 1200;
 const OVERLAP_CHARS = 120;
 
 function normalizeWhitespace(text: string): string {
-  return text.replace(/\r\n/g, "\n").replace(/[ \t]+\n/g, "\n").trim();
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
 }
 
 function splitLongBlock(block: string, maxChars: number, overlapChars: number): string[] {
@@ -35,9 +38,7 @@ function splitLongBlock(block: string, maxChars: number, overlapChars: number): 
     if (piece) pieces.push(piece);
     // Advance past the piece; apply overlap only when we actually cut early.
     const advance = Math.max(end - cursor, 1);
-    cursor = end < block.length
-      ? Math.max(end - overlapChars, cursor + Math.floor(advance / 2))
-      : end;
+    cursor = end < block.length ? Math.max(end - overlapChars, cursor + Math.floor(advance / 2)) : end;
   }
   return pieces;
 }
@@ -46,7 +47,10 @@ function splitLongBlock(block: string, maxChars: number, overlapChars: number): 
  * Paragraph-first chunking with overlap for long blocks.
  * Keeps parent page context available by preserving chunk order.
  */
-export function chunkText(content: string, options?: { maxChars?: number; minChars?: number; overlapChars?: number }): Chunk[] {
+export function chunkText(
+  content: string,
+  options?: { maxChars?: number; minChars?: number; overlapChars?: number },
+): Chunk[] {
   const maxChars = options?.maxChars ?? MAX_CHUNK_CHARS;
   const minChars = options?.minChars ?? MIN_CHUNK_CHARS;
   const overlapChars = options?.overlapChars ?? OVERLAP_CHARS;
@@ -70,9 +74,7 @@ export function chunkText(content: string, options?: { maxChars?: number; minCha
   };
 
   for (const block of blocks) {
-    const pieces = block.length > maxChars
-      ? splitLongBlock(block, maxChars, overlapChars)
-      : [block];
+    const pieces = block.length > maxChars ? splitLongBlock(block, maxChars, overlapChars) : [block];
 
     for (const piece of pieces) {
       if (buffer.length === 0) {

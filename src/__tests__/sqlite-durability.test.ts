@@ -12,7 +12,10 @@ import { EntityGraph } from "../graph/entity-graph.js";
 
 function openStores(path: string) {
   const opened: Array<{ close(): void }> = [];
-  const track = <T extends { close(): void }>(store: T): T => { opened.push(store); return store; };
+  const track = <T extends { close(): void }>(store: T): T => {
+    opened.push(store);
+    return store;
+  };
   try {
     return {
       cache: track(new SQLiteVectorStore(path)),
@@ -21,13 +24,16 @@ function openStores(path: string) {
       graph: track(new EntityGraph(path)),
     };
   } catch (error) {
-    opened.forEach(store => store.close());
+    opened.forEach((store) => {
+      store.close();
+    });
     throw error;
   }
 }
 
 function removeFixture(directory: string) {
-  if (dirname(resolve(directory)) !== resolve(tmpdir())) throw new Error("Fixture path escaped the temporary directory");
+  if (dirname(resolve(directory)) !== resolve(tmpdir()))
+    throw new Error("Fixture path escaped the temporary directory");
   rmSync(directory, { recursive: true, force: true });
 }
 
@@ -41,11 +47,17 @@ it("keeps committed data and rolls back a spilled write after process terminatio
     await stores.cache.setContent("https://fixture.invalid/redis", "Redis cache guide", "docs");
     const vector = [1, ...Array(383).fill(0)];
     await stores.cache.add("fixture-vector", vector, { query: "Redis", results: [], timestamp: Date.now() });
-    const committedText = "Committed fixture note " + "c".repeat(8 * 1024 * 1024);
+    const committedText = `Committed fixture note ${"c".repeat(8 * 1024 * 1024)}`;
     const note = stores.memory.remember(committedText);
-    const doc = stores.index.ingest({ content: "Redis cache expiration", title: "Redis guide", source: "fixture:redis" });
+    const doc = stores.index.ingest({
+      content: "Redis cache expiration",
+      title: "Redis guide",
+      source: "fixture:redis",
+    });
     stores.graph.indexDocument({ docId: doc.id, source: doc.source, title: doc.title, content: doc.content });
-    Object.values(stores).forEach(store => store.close());
+    Object.values(stores).forEach((store) => {
+      store.close();
+    });
     stores = undefined;
 
     child = fork(join(process.cwd(), "scripts/fixtures/sqlite-crash-writer.mjs"), [path], {
@@ -54,19 +66,24 @@ it("keeps committed data and rolls back a spilled write after process terminatio
       stdio: ["ignore", "ignore", "pipe", "ipc"],
     });
     let errors = "";
-    child.stderr?.on("data", data => { errors += String(data); });
+    child.stderr?.on("data", (data) => {
+      errors += String(data);
+    });
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Crash fixture did not reach its checkpoint: " + errors)), 15000);
-      child!.once("message", message => {
+      const timer = setTimeout(() => reject(new Error(`Crash fixture did not reach its checkpoint: ${errors}`)), 15000);
+      child!.once("message", (message) => {
         clearTimeout(timer);
         if ((message as { stage?: string }).stage === "uncommitted-write") resolve();
         else reject(new Error("Unexpected crash checkpoint"));
       });
       child!.once("exit", () => {
         clearTimeout(timer);
-        reject(new Error("Crash fixture exited before checkpoint: " + errors));
+        reject(new Error(`Crash fixture exited before checkpoint: ${errors}`));
       });
-      child!.once("error", error => { clearTimeout(timer); reject(error); });
+      child!.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
     });
     const exited = once(child, "exit");
     expect(child.kill("SIGKILL")).toBe(true);
@@ -77,18 +94,24 @@ it("keeps committed data and rolls back a spilled write after process terminatio
     expect(stores.memory.list()).toHaveLength(1);
     expect((await stores.cache.getContent("https://fixture.invalid/redis"))?.content).toBe("Redis cache guide");
     expect((await stores.cache.search(vector, 1))[0]?.id).toBe("fixture-vector");
-    expect((await stores.index.search("Redis")).some(hit => hit.source === "fixture:redis")).toBe(true);
-    expect(stores.graph.docsForEntity("Redis").some(row => row.docId === doc.id)).toBe(true);
+    expect((await stores.index.search("Redis")).some((hit) => hit.source === "fixture:redis")).toBe(true);
+    expect(stores.graph.docsForEntity("Redis").some((row) => row.docId === doc.id)).toBe(true);
     const probe = new Database(path);
-    try { expect(probe.pragma("integrity_check", { simple: true })).toBe("ok"); }
-    finally { probe.close(); }
+    try {
+      expect(probe.pragma("integrity_check", { simple: true })).toBe("ok");
+    } finally {
+      probe.close();
+    }
   } finally {
     if (child && child.exitCode === null && child.signalCode === null) {
       const exited = once(child, "exit");
       child.kill("SIGKILL");
       await exited;
     }
-    if (stores) Object.values(stores).forEach(store => store.close());
+    if (stores)
+      Object.values(stores).forEach((store) => {
+        store.close();
+      });
     removeFixture(directory);
   }
 }, 25000);
@@ -108,13 +131,20 @@ it("keeps the shared file in WAL mode as each store opens and reopens", () => {
       for (const create of factories) {
         stores.push(create());
         const probe = new Database(path);
-        try { expect(probe.pragma("journal_mode", { simple: true })).toBe("wal"); }
-        finally { probe.close(); }
+        try {
+          expect(probe.pragma("journal_mode", { simple: true })).toBe("wal");
+        } finally {
+          probe.close();
+        }
       }
-      stores.splice(0).forEach(store => store.close());
+      stores.splice(0).forEach((store) => {
+        store.close();
+      });
     }
   } finally {
-    stores.forEach(store => store.close());
+    stores.forEach((store) => {
+      store.close();
+    });
     removeFixture(directory);
   }
 });

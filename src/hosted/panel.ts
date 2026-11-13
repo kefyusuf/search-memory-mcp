@@ -1,5 +1,3 @@
-import type { ProvisioningOptions } from "./provisioning.js";
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")

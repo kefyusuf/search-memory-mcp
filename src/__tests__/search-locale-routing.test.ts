@@ -15,30 +15,38 @@ describe("search locale routing", () => {
 
     const searchProvider: SearchProvider = {
       name: "mock",
-      execute: vi.fn(async () => [{
-        title: "Laravel Queue Rehberi",
-        url: "https://example.com/laravel-queue",
-        snippet: "Laravel queue retry ve worker yapılandırması.",
-        source: "mock",
-      }]),
+      execute: vi.fn(async () => [
+        {
+          title: "Laravel Queue Rehberi",
+          url: "https://example.com/laravel-queue",
+          snippet: "Laravel queue retry ve worker yapılandırması.",
+          source: "mock",
+        },
+      ]),
     };
 
     const server = new WebSearchServer();
     server.overrideSearchProvidersForTesting([searchProvider]);
 
-    const cache = (server as unknown as { cache: {
-      get: (query: string) => Promise<unknown>;
-      set: (...args: unknown[]) => Promise<void>;
-      reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
-    } }).cache;
+    const cache = (
+      server as unknown as {
+        cache: {
+          get: (query: string) => Promise<unknown>;
+          set: (...args: unknown[]) => Promise<void>;
+          reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
+        };
+      }
+    ).cache;
     vi.spyOn(cache, "get").mockResolvedValue(null);
     vi.spyOn(cache, "set").mockResolvedValue();
     vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
 
-    await callPrivate(server, "handleSearch", [{
-      query: "Laravel için en iyi queue yapısı",
-      strategy: "fallback",
-    }]);
+    await callPrivate(server, "handleSearch", [
+      {
+        query: "Laravel için en iyi queue yapısı",
+        strategy: "fallback",
+      },
+    ]);
 
     expect(searchProvider.execute).toHaveBeenCalledWith(
       "Laravel için en iyi queue yapısı",

@@ -85,8 +85,10 @@ export function ndcgAtK(retrievedIds: string[], relevantIds: string[], k: number
   }
   const dcg = gains.reduce((sum, gain, index) => sum + gain / Math.log2(index + 2), 0);
   const idealLength = Math.min(relevant.size, k);
-  const idcg = Array.from({ length: idealLength }, (_, index) => 1 / Math.log2(index + 2))
-    .reduce((sum, value) => sum + value, 0);
+  const idcg = Array.from({ length: idealLength }, (_, index) => 1 / Math.log2(index + 2)).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
   return idcg === 0 ? 0 : dcg / idcg;
 }
 
@@ -145,9 +147,7 @@ export function evaluateRetrieval(cases: EvalCase[], options?: EvalOptions): Ret
 
 export function formatEvalReport(report: RetrievalReport): string {
   const formatKey = (key: string): string =>
-    key
-      .replace(/^recallAt(\d+)$/, "recall@$1")
-      .replace(/^precisionAt(\d+)$/, "precision@$1");
+    key.replace(/^recallAt(\d+)$/, "recall@$1").replace(/^precisionAt(\d+)$/, "precision@$1");
 
   const metricLines = Object.entries(report.metrics)
     .filter((entry): entry is [string, number] => typeof entry[1] === "number")

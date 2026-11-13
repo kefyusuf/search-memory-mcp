@@ -8,12 +8,24 @@ import { wrapUntrusted } from "../security/untrusted.js";
 import { errorResult, textResult, type ToolResult } from "./types.js";
 
 const ResearchSchema = z.object({
-  query: z.string().min(1).refine((query) => query.trim().length > 0, "Query must not be blank").describe("Question or topic to research."),
+  query: z
+    .string()
+    .min(1)
+    .refine((query) => query.trim().length > 0, "Query must not be blank")
+    .describe("Question or topic to research."),
   max_sources: z.number().int().min(1).max(5).optional().describe("Web pages to read (1-5, default 3)."),
   index: z.boolean().optional().describe("Add the pages read to the knowledge base (default true)."),
   domain: z.string().min(1).optional().describe("Optional domain filter for the web search."),
-  from_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Optional inclusive lower date bound (YYYY-MM-DD)."),
-  to_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Optional inclusive upper date bound (YYYY-MM-DD)."),
+  from_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe("Optional inclusive lower date bound (YYYY-MM-DD)."),
+  to_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe("Optional inclusive upper date bound (YYYY-MM-DD)."),
 });
 
 const LOCAL_HIT_LIMIT = 3;
@@ -55,7 +67,8 @@ const STATUS_LABELS: Record<ResearchSourceStatus, string> = {
 function describeSource(source: ResearchSource): string {
   const parts = [STATUS_LABELS[source.status]];
   if (source.publishedAt) parts.push(`published ${source.publishedAt}`);
-  if (source.fetchedAt) parts.push(`${source.origin === "local" ? "indexed" : "fetched"} ${source.fetchedAt.slice(0, 10)}`);
+  if (source.fetchedAt)
+    parts.push(`${source.origin === "local" ? "indexed" : "fetched"} ${source.fetchedAt.slice(0, 10)}`);
   return parts.join("; ");
 }
 
@@ -70,7 +83,14 @@ export function createResearchHandler(deps: ResearchToolDeps) {
     const { query, max_sources = 3, index = true, domain, from_date, to_date } = ResearchSchema.parse(args);
 
     const localHits = await knowledgeIndex.search(query, LOCAL_HIT_LIMIT, { embed });
-    const searchResult = await search({ query, max_results: Math.min(10, max_sources + 2), domain, from_date, to_date, format: "json" });
+    const searchResult = await search({
+      query,
+      max_results: Math.min(10, max_sources + 2),
+      domain,
+      from_date,
+      to_date,
+      format: "json",
+    });
     const webResults = searchResult.isError
       ? []
       : ((searchResult.structuredContent?.results as WebResult[] | undefined) ?? []).slice(0, max_sources);
@@ -101,7 +121,12 @@ export function createResearchHandler(deps: ResearchToolDeps) {
       if (knowledgeIndex.findDocBySource(result.url)) {
         status = "already_indexed";
       } else if (index) {
-        const doc = knowledgeIndex.ingest({ content: page.text, title: result.title, source: result.url, category: "research" });
+        const doc = knowledgeIndex.ingest({
+          content: page.text,
+          title: result.title,
+          source: result.url,
+          category: "research",
+        });
         entityGraph.indexDocument({ docId: doc.id, source: doc.source, title: doc.title, content: doc.content });
         status = "indexed";
         indexedCount += 1;
@@ -111,18 +136,24 @@ export function createResearchHandler(deps: ResearchToolDeps) {
 
     const webUrls = new Set(webResults.map((result) => result.url));
     for (const hit of localHits) {
-      if (webUrls.has(hit.source) || sources.some((source) => source.origin === "local" && source.url === hit.source)) continue;
+      if (webUrls.has(hit.source) || sources.some((source) => source.origin === "local" && source.url === hit.source))
+        continue;
       documents.push({ title: hit.title, url: hit.source, content: hit.text });
       const indexedAt = knowledgeIndex.getDoc(hit.docId)?.timestamp;
       sources.push({
-        origin: "local", url: hit.source, title: hit.title, status: "already_indexed",
+        origin: "local",
+        url: hit.source,
+        title: hit.title,
+        status: "already_indexed",
         ...(indexedAt ? { fetchedAt: new Date(indexedAt).toISOString() } : {}),
       });
     }
 
     const answer = extractAnswerFromDocuments(query, documents);
-    const lines = sources.map((source, position) =>
-      `${position + 1}. [${source.origin}] ${source.title} — ${source.url} (${describeSource(source)})`);
+    const lines = sources.map(
+      (source, position) =>
+        `${position + 1}. [${source.origin}] ${source.title} — ${source.url} (${describeSource(source)})`,
+    );
     const text = [
       wrapUntrusted(answer),
       "",

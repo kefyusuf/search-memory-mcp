@@ -34,7 +34,7 @@ async function searchTavilyApi(query: string, locale: SearchLocale, apiKey: stri
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Accept-Language": locale.acceptLanguage,
     },

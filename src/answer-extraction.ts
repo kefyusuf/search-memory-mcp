@@ -7,17 +7,116 @@ export type AnswerSource = {
 };
 
 const STOPWORDS = new Set([
-  "a", "an", "the", "and", "or", "but", "if", "then", "else", "when", "at", "by",
-  "for", "with", "about", "against", "between", "into", "through", "during",
-  "before", "after", "above", "below", "to", "from", "up", "down", "in", "out",
-  "on", "off", "over", "under", "again", "further", "once", "here", "there",
-  "all", "any", "both", "each", "few", "more", "most", "other", "some", "such",
-  "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "can",
-  "will", "just", "do", "does", "did", "is", "are", "was", "were", "be", "been",
-  "being", "have", "has", "had", "having", "of", "as", "it", "its", "this",
-  "that", "these", "those", "i", "me", "my", "we", "our", "you", "your", "he",
-  "she", "they", "them", "his", "her", "their", "what", "which", "who", "whom",
-  "how", "why", "where", "please", "tell", "give", "show", "find",
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "but",
+  "if",
+  "then",
+  "else",
+  "when",
+  "at",
+  "by",
+  "for",
+  "with",
+  "about",
+  "against",
+  "between",
+  "into",
+  "through",
+  "during",
+  "before",
+  "after",
+  "above",
+  "below",
+  "to",
+  "from",
+  "up",
+  "down",
+  "in",
+  "out",
+  "on",
+  "off",
+  "over",
+  "under",
+  "again",
+  "further",
+  "once",
+  "here",
+  "there",
+  "all",
+  "any",
+  "both",
+  "each",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "no",
+  "nor",
+  "not",
+  "only",
+  "own",
+  "same",
+  "so",
+  "than",
+  "too",
+  "very",
+  "can",
+  "will",
+  "just",
+  "do",
+  "does",
+  "did",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "having",
+  "of",
+  "as",
+  "it",
+  "its",
+  "this",
+  "that",
+  "these",
+  "those",
+  "i",
+  "me",
+  "my",
+  "we",
+  "our",
+  "you",
+  "your",
+  "he",
+  "she",
+  "they",
+  "them",
+  "his",
+  "her",
+  "their",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "how",
+  "why",
+  "where",
+  "please",
+  "tell",
+  "give",
+  "show",
+  "find",
 ]);
 
 function meaningfulTerms(text: string): Set<string> {
@@ -38,7 +137,7 @@ function splitParagraphs(content: string): string[] {
 
 function splitSentences(paragraph: string): string[] {
   return paragraph
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9"'(\[])/)
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9"'([])/)
     .map((sentence) => sentence.trim())
     .filter((sentence) => sentence.length >= 20);
 }
@@ -118,9 +217,17 @@ function extractVersionAnswer(question: string, sources: AnswerSource[]): string
 
   const candidates = relevant.length > 0 ? relevant : versions;
   const best = candidates.reduce((a, b) =>
-    a.major !== b.major ? (a.major > b.major ? a : b) :
-    a.minor !== b.minor ? (a.minor > b.minor ? a : b) :
-    a.patch > b.patch ? a : b
+    a.major !== b.major
+      ? a.major > b.major
+        ? a
+        : b
+      : a.minor !== b.minor
+        ? a.minor > b.minor
+          ? a
+          : b
+        : a.patch > b.patch
+          ? a
+          : b,
   );
 
   const versionLabel = `${best.name} ${best.major}.${best.minor}${best.patch > 0 ? `.${best.patch}` : ""}`;
@@ -216,18 +323,28 @@ export function formatSearchResults(query: string, results: SearchResultItem[]):
   let summary = "";
   if (foundVersions.length > 0) {
     const best = foundVersions.reduce((a, b) =>
-      a.major !== b.major ? (a.major > b.major ? a : b) :
-      a.minor !== b.minor ? (a.minor > b.minor ? a : b) :
-      a.patch > b.patch ? a : b
+      a.major !== b.major
+        ? a.major > b.major
+          ? a
+          : b
+        : a.minor !== b.minor
+          ? a.minor > b.minor
+            ? a
+            : b
+          : a.patch > b.patch
+            ? a
+            : b,
     );
     const labelText = best.label ? `${best.label} ${best.major}.${best.minor}` : `v${best.major}.${best.minor}`;
     summary = `Version hint from search snippets: ${labelText}.\n\n`;
   }
 
-  const formatted = results.map((result, i) => {
-    const freshnessHint = formatFreshnessHint(`${result.title} ${result.snippet}`, result.publishedAt);
-    return `${i + 1}. "${result.title}" - ${result.url}\n   ${result.snippet || "(no description)"}${freshnessHint ? `\n   ${freshnessHint}` : ""}`;
-  }).join("\n\n");
+  const formatted = results
+    .map((result, i) => {
+      const freshnessHint = formatFreshnessHint(`${result.title} ${result.snippet}`, result.publishedAt);
+      return `${i + 1}. "${result.title}" - ${result.url}\n   ${result.snippet || "(no description)"}${freshnessHint ? `\n   ${freshnessHint}` : ""}`;
+    })
+    .join("\n\n");
 
   return summary + formatted;
 }

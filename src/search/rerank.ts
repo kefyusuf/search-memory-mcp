@@ -135,10 +135,7 @@ export class CrossEncoderReranker {
   }
 }
 
-export function normalizePipelineScores(
-  output: PipelineResult | PipelineResult[],
-  expected: number,
-): number[] {
+export function normalizePipelineScores(output: PipelineResult | PipelineResult[], expected: number): number[] {
   const entries = Array.isArray(output) ? output : [output];
 
   // Shape A: one entry carrying an explicit scores array.

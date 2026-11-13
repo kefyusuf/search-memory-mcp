@@ -1,9 +1,12 @@
-import { IVectorStore, VectorMatch, CacheMetadata, ContentEntry } from "../cache/types.js";
+import type { IVectorStore, VectorMatch, CacheMetadata, ContentEntry } from "../cache/types.js";
 import { cosineSimilarity } from "../cache/utils.js";
 
 export class InMemoryVectorStore implements IVectorStore {
   private store: Map<string, { vector: number[]; metadata: CacheMetadata }> = new Map();
-  private contentStore: Map<string, { content: string; category: string; timestamp: number; publishedAt: string | null }> = new Map();
+  private contentStore: Map<
+    string,
+    { content: string; category: string; timestamp: number; publishedAt: string | null }
+  > = new Map();
 
   async add(id: string, vector: number[], metadata: CacheMetadata): Promise<void> {
     this.store.set(id, { vector, metadata });
@@ -18,9 +21,7 @@ export class InMemoryVectorStore implements IVectorStore {
       results.push({ id, score, metadata: entry.metadata });
     }
 
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    return results.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
   async clear(): Promise<void> {
@@ -35,8 +36,7 @@ export class InMemoryVectorStore implements IVectorStore {
     };
   }
 
-  close(): void {
-  }
+  close(): void {}
 
   async getContent(url: string): Promise<ContentEntry | null> {
     const entry = this.contentStore.get(url);

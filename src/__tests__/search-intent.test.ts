@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { detectHeuristicIntent } from "../search/heuristics.js";
-import {
-  SearchIntentClassifier,
-  SearchIntentDetector,
-  type IntentClassifier,
-} from "../search/intent.js";
+import { SearchIntentClassifier, SearchIntentDetector, type IntentClassifier } from "../search/intent.js";
 
 describe("search intent detection", () => {
   it.each([
@@ -22,13 +18,12 @@ describe("search intent detection", () => {
   });
 
   it("defers mixed strong signals instead of using first-match priority", () => {
-    expect(detectHeuristicIntent("enterprise vendors market adoption benchmark"))
-      .toBeNull();
+    expect(detectHeuristicIntent("enterprise vendors market adoption benchmark")).toBeNull();
   });
 
   it("uses the classifier only when heuristics defer", async () => {
     const classifier: IntentClassifier = {
-      classify: vi.fn(async () => "research"),
+      classify: vi.fn(async (_query: string) => "research" as const),
     };
     const detector = new SearchIntentDetector(classifier);
 
@@ -41,7 +36,7 @@ describe("search intent detection", () => {
 
   it("does not invoke the classifier for a high-confidence heuristic", async () => {
     const classifier: IntentClassifier = {
-      classify: vi.fn(async () => "general"),
+      classify: vi.fn(async (_query: string) => "general" as const),
     };
     const detector = new SearchIntentDetector(classifier);
 
@@ -59,12 +54,13 @@ describe("search intent detection", () => {
     }));
     const classifier = new SearchIntentClassifier("test-model", loader);
 
-    await expect(classifier.classify("enterprise CRM alternatives"))
-      .resolves.toBe("commercial");
+    await expect(classifier.classify("enterprise CRM alternatives")).resolves.toBe("commercial");
   });
 
   it("fails safely to general and does not reload after permanent load failure", async () => {
-    const loader = vi.fn(async () => { throw new Error("load failed"); });
+    const loader = vi.fn(async () => {
+      throw new Error("load failed");
+    });
     const classifier = new SearchIntentClassifier("test-model", loader);
 
     await expect(classifier.classify("ambiguous query")).resolves.toBe("general");
@@ -73,7 +69,8 @@ describe("search intent detection", () => {
   });
 
   it("retries classification after a transient inference failure", async () => {
-    const runner = vi.fn()
+    const runner = vi
+      .fn()
       .mockRejectedValueOnce(new Error("transient inference failure"))
       .mockResolvedValueOnce({
         labels: ["research comparison and evidence gathering"],

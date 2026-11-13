@@ -18,17 +18,16 @@ export function isSupportedNodeVersion(version: string): boolean {
 export function checkSqliteBinding({
   open = () => new Database(":memory:").close(),
   nodeVersion = process.version,
-}: { open?: () => void; nodeVersion?: string } = {}): string | null {
+}: {
+  open?: () => void;
+  nodeVersion?: string;
+} = {}): string | null {
   try {
     open();
     return null;
   } catch (error) {
     const reason = error instanceof Error ? error.message.split("\n")[0] : String(error);
-    const lines = [
-      "Search Memory MCP could not load its SQLite module (better-sqlite3).",
-      `Reason: ${reason}`,
-      "",
-    ];
+    const lines = ["Search Memory MCP could not load its SQLite module (better-sqlite3).", `Reason: ${reason}`, ""];
     if (!isSupportedNodeVersion(nodeVersion)) {
       lines.push(`Node ${nodeVersion} is not supported. Use Node 24 (supported: 20.9 to 25), then reinstall.`, "");
     }

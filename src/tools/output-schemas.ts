@@ -64,7 +64,10 @@ export const RESEARCH_OUTPUT_SCHEMA = {
           origin: { type: "string", enum: ["web", "local"] },
           url: { type: "string" },
           title: { type: "string" },
-          status: { type: "string", enum: ["indexed", "already_indexed", "not_indexed", "fetch_failed", "rate_limited"] },
+          status: {
+            type: "string",
+            enum: ["indexed", "already_indexed", "not_indexed", "fetch_failed", "rate_limited"],
+          },
           publishedAt: { type: "string" },
           fetchedAt: { type: "string" },
         },
@@ -102,7 +105,10 @@ export const SEARCH_INDEX_OUTPUT_SCHEMA = {
 export const SERVER_STATUS_OUTPUT_SCHEMA = {
   type: "object",
   properties: {
-    providers: { type: "array", items: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
+    providers: {
+      type: "array",
+      items: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
+    },
     cache: { type: "object" },
     knowledgeIndex: { type: "object" },
     memory: { type: "object" },

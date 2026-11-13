@@ -37,15 +37,9 @@ const LABEL_TO_INTENT: Record<string, SearchIntent> = {
 
 const LABELS = Object.keys(LABEL_TO_INTENT);
 
-type ZeroShotRunner = (
-  query: string,
-  labels: string[],
-) => Promise<{ labels: string[]; scores: number[] }>;
+type ZeroShotRunner = (query: string, labels: string[]) => Promise<{ labels: string[]; scores: number[] }>;
 
-export type PipelineLoader = (
-  task: "zero-shot-classification",
-  model: string,
-) => Promise<ZeroShotRunner>;
+export type PipelineLoader = (task: "zero-shot-classification", model: string) => Promise<ZeroShotRunner>;
 
 export class SearchIntentClassifier implements IntentClassifier {
   private classifier: ZeroShotRunner | null = null;
@@ -95,9 +89,7 @@ export class SearchIntentClassifier implements IntentClassifier {
 }
 
 export class SearchIntentDetector implements IntentDetector {
-  constructor(
-    private readonly classifier: IntentClassifier = new SearchIntentClassifier(),
-  ) {}
+  constructor(private readonly classifier: IntentClassifier = new SearchIntentClassifier()) {}
 
   async detect(query: string): Promise<IntentDetection> {
     const heuristic = detectHeuristicIntent(query);

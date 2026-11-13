@@ -27,26 +27,49 @@ export function pdf(text: string, info = "<< /Title (Sample PDF) >>"): Uint8Arra
 }
 
 export function docx(paragraphs: string[], title?: string): Uint8Array {
-  const escape = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-  const body = paragraphs.map((text) => `<w:p><w:r><w:t xml:space="preserve">${escape(text)}</w:t></w:r></w:p>`).join("");
+  const escapeXml = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
+  const body = paragraphs
+    .map((text) => `<w:p><w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`)
+    .join("");
   return zipSync({
-    "[Content_Types].xml": strToU8('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'),
-    "word/document.xml": strToU8(`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`),
-    ...(title ? { "docProps/core.xml": strToU8(`<?xml version="1.0"?><cp:coreProperties xmlns:cp="x" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${title}</dc:title></cp:coreProperties>`) } : {}),
+    "[Content_Types].xml": strToU8(
+      '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+    ),
+    "word/document.xml": strToU8(
+      `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`,
+    ),
+    ...(title
+      ? {
+          "docProps/core.xml": strToU8(
+            `<?xml version="1.0"?><cp:coreProperties xmlns:cp="x" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${title}</dc:title></cp:coreProperties>`,
+          ),
+        }
+      : {}),
   });
 }
 
 export function epub(chapters: Array<{ id: string; html: string }>, title: string): Uint8Array {
-  const manifest = chapters.map(({ id }) => `<item id="${id}" href="${id}.xhtml" media-type="application/xhtml+xml"/>`).join("");
+  const manifest = chapters
+    .map(({ id }) => `<item id="${id}" href="${id}.xhtml" media-type="application/xhtml+xml"/>`)
+    .join("");
   // Spine order is reversed relative to the manifest to prove the spine decides reading order.
-  const spine = [...chapters].reverse().map(({ id }) => `<itemref idref="${id}"/>`).join("");
+  const spine = [...chapters]
+    .reverse()
+    .map(({ id }) => `<itemref idref="${id}"/>`)
+    .join("");
   const files: Record<string, Uint8Array> = {
     mimetype: strToU8("application/epub+zip"),
-    "META-INF/container.xml": strToU8('<?xml version="1.0"?><container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>'),
-    "OEBPS/content.opf": strToU8(`<?xml version="1.0"?><package xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>${title}</dc:title></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`),
+    "META-INF/container.xml": strToU8(
+      '<?xml version="1.0"?><container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>',
+    ),
+    "OEBPS/content.opf": strToU8(
+      `<?xml version="1.0"?><package xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>${title}</dc:title></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`,
+    ),
   };
   for (const { id, html } of chapters) {
-    files[`OEBPS/${id}.xhtml`] = strToU8(`<html><head><title>x</title><style>p{}</style></head><body>${html}</body></html>`);
+    files[`OEBPS/${id}.xhtml`] = strToU8(
+      `<html><head><title>x</title><style>p{}</style></head><body>${html}</body></html>`,
+    );
   }
   return zipSync(files);
 }

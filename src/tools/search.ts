@@ -22,18 +22,62 @@ import { wrapUntrusted } from "../security/untrusted.js";
 import { errorResult, rateLimitError, textResult, type ToolResult } from "./types.js";
 
 export const SearchSchema = z.object({
-  query: z.string().min(1).refine((query) => query.trim().length > 0, "Query must not be blank").describe("The search query to perform"),
-  expand_query: z.boolean().optional().describe("If true, search the original query plus up to two rewritten variants and fuse results. Default false; increases provider requests."),
-  deep: z.boolean().optional().describe("If true, fetch the top result pages and extract a direct answer. If false (default), return a ranked list of results quickly without page fetching."),
-  max_results: z.number().int().min(1).max(10).optional().describe("Maximum number of results to return (1-10, default 5)."),
+  query: z
+    .string()
+    .min(1)
+    .refine((query) => query.trim().length > 0, "Query must not be blank")
+    .describe("The search query to perform"),
+  expand_query: z
+    .boolean()
+    .optional()
+    .describe(
+      "If true, search the original query plus up to two rewritten variants and fuse results. Default false; increases provider requests.",
+    ),
+  deep: z
+    .boolean()
+    .optional()
+    .describe(
+      "If true, fetch the top result pages and extract a direct answer. If false (default), return a ranked list of results quickly without page fetching.",
+    ),
+  max_results: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .optional()
+    .describe("Maximum number of results to return (1-10, default 5)."),
   domain: z.string().min(1).optional().describe("Optional domain filter, for example react.dev or github.com."),
-  from_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Optional inclusive lower date bound (YYYY-MM-DD). Results without a detectable date are kept."),
-  to_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Optional inclusive upper date bound (YYYY-MM-DD). Results without a detectable date are kept."),
-  format: z.enum(["text", "json"]).optional().describe("Response format. text (default) for readable Markdown-like output, json for machine-readable structured results."),
-  strategy: z.enum(["fallback", "aggregate", "auto"]).optional().describe("Search execution strategy. fallback tries providers in order and stops at the first success. aggregate queries all available providers and fuses results with Reciprocal Rank Fusion. auto detects search intent and selects a configured-provider plan before using the existing fallback or aggregate execution path."),
+  from_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe("Optional inclusive lower date bound (YYYY-MM-DD). Results without a detectable date are kept."),
+  to_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe("Optional inclusive upper date bound (YYYY-MM-DD). Results without a detectable date are kept."),
+  format: z
+    .enum(["text", "json"])
+    .optional()
+    .describe(
+      "Response format. text (default) for readable Markdown-like output, json for machine-readable structured results.",
+    ),
+  strategy: z
+    .enum(["fallback", "aggregate", "auto"])
+    .optional()
+    .describe(
+      "Search execution strategy. fallback tries providers in order and stops at the first success. aggregate queries all available providers and fuses results with Reciprocal Rank Fusion. auto detects search intent and selects a configured-provider plan before using the existing fallback or aggregate execution path.",
+    ),
 });
 
-export type SearchTraceEntry = { query: string; totalMs: number; cache?: string; strategy?: string; resultCount?: number };
+export type SearchTraceEntry = {
+  query: string;
+  totalMs: number;
+  cache?: string;
+  strategy?: string;
+  resultCount?: number;
+};
 
 /** Bounded in-process history of recent searches, reported by server_status. */
 export class SearchTraceHistory {
@@ -56,10 +100,14 @@ export type FetchedPage = { url: string; title: string; content: string };
 
 function describeAttempt(attempt: ProviderAttempt): string {
   switch (attempt.status) {
-    case "error": return `${attempt.provider} failed (${attempt.error || "unknown error"})`;
-    case "empty": return `${attempt.provider} returned no results`;
-    case "backoff": return `${attempt.provider} skipped (temporarily disabled after repeated failures)`;
-    default: return `${attempt.provider} returned ${attempt.resultCount} results`;
+    case "error":
+      return `${attempt.provider} failed (${attempt.error || "unknown error"})`;
+    case "empty":
+      return `${attempt.provider} returned no results`;
+    case "backoff":
+      return `${attempt.provider} skipped (temporarily disabled after repeated failures)`;
+    default:
+      return `${attempt.provider} returned ${attempt.resultCount} results`;
   }
 }
 
@@ -99,12 +147,20 @@ export function createSearchHandler(deps: SearchToolDeps) {
     }
   };
 
-  const rankResults = (query: string, results: SearchResultItem[], limit: number) => reranker
-    ? rerankResults(query, results, { scorer: reranker.asScorer(), limit })
-    : deps.cache().reRankResults(query, results, limit);
+  const rankResults = (query: string, results: SearchResultItem[], limit: number) =>
+    reranker
+      ? rerankResults(query, results, { scorer: reranker.asScorer(), limit })
+      : deps.cache().reRankResults(query, results, limit);
 
-  const buildDeepResponse = async (query: string, results: SearchResultItem[], format: OutputFormat): Promise<ToolResult> => {
-    const urls = results.slice(0, 2).map((result) => result.url).filter(Boolean);
+  const buildDeepResponse = async (
+    query: string,
+    results: SearchResultItem[],
+    format: OutputFormat,
+  ): Promise<ToolResult> => {
+    const urls = results
+      .slice(0, 2)
+      .map((result) => result.url)
+      .filter(Boolean);
     const pages = await Promise.all(urls.map((url) => deps.fetchPage(url)));
     const validPages = pages.filter((page) => page !== null);
 
@@ -113,30 +169,43 @@ export function createSearchHandler(deps: SearchToolDeps) {
         query,
         validPages.map((page) => ({ title: page.title, url: page.url, content: page.content })),
       );
-      const payload = buildAnswerJson(query, answer, validPages.map((page) => ({ url: page.url, title: page.title })));
+      const payload = buildAnswerJson(
+        query,
+        answer,
+        validPages.map((page) => ({ url: page.url, title: page.title })),
+      );
       return textResult(format === "json" ? formatToolResult(payload, "json") : wrapUntrusted(answer), payload);
     }
 
     const rankedResults = await deps.cache().reRankResults(query, results, results.length);
     const payload = buildSearchJson(query, rankedResults, { deep: true, pagesFetched: 0 });
-    return textResult(format === "json"
-      ? formatToolResult(payload, "json")
-      : wrapUntrusted(formatSearchResults(query, rankedResults)), payload);
+    return textResult(
+      format === "json" ? formatToolResult(payload, "json") : wrapUntrusted(formatSearchResults(query, rankedResults)),
+      payload,
+    );
   };
 
   return async (args: unknown): Promise<ToolResult> => {
     const limited = rateLimitError(searchLimiter, "web_search", "RATE_LIMIT_SEARCH_PER_MIN", "10");
     if (limited) return limited;
 
-    const { query, expand_query = false, deep = false, max_results = 5, domain, from_date, to_date, format = "text", strategy = "fallback" } = SearchSchema.parse(args);
+    const {
+      query,
+      expand_query = false,
+      deep = false,
+      max_results = 5,
+      domain,
+      from_date,
+      to_date,
+      format = "text",
+      strategy = "fallback",
+    } = SearchSchema.parse(args);
     const outputFormat: OutputFormat = format;
     const cache = deps.cache();
     const providers = deps.providers();
     const normalizedDomain = normalizeDomainFilter(domain);
     const cacheKey = normalizedDomain ? `${query} domain:${normalizedDomain}` : query;
-    const detectedLanguage = crossLingual
-      ? await crossLingual.detectLanguage(query).catch(() => null)
-      : null;
+    const detectedLanguage = crossLingual ? await crossLingual.detectLanguage(query).catch(() => null) : null;
     const queryLocale = resolveSearchLocale(query, detectedLanguage);
 
     // Resolve auto planning up front so cache lookups can be namespaced by the
@@ -151,9 +220,9 @@ export function createSearchHandler(deps: SearchToolDeps) {
       console.error(`Auto search intent: ${detection.intent} (${detection.source})`);
       console.error(
         `Auto search plan: ${searchPlan.strategy} [${searchPlan.primaryProviderNames.join(", ")}]` +
-        (searchPlan.fallbackProviderNames.length > 0
-          ? `, fallback [${searchPlan.fallbackProviderNames.join(", ")}]`
-          : "")
+          (searchPlan.fallbackProviderNames.length > 0
+            ? `, fallback [${searchPlan.fallbackProviderNames.join(", ")}]`
+            : ""),
       );
     }
 
@@ -162,14 +231,16 @@ export function createSearchHandler(deps: SearchToolDeps) {
       : strategy;
     const executionNamespace = expand_query ? `${baseCacheNamespace}:expand:v1` : baseCacheNamespace;
     // Filters are exact cache constraints, not semantic similarity signals.
-    const cacheNamespace = normalizedDomain || from_date || to_date
-      ? `${executionNamespace}:filters:v1:${JSON.stringify([normalizedDomain ?? "", from_date ?? "", to_date ?? ""])}`
-      : executionNamespace;
-    const applyFilters = (candidates: SearchResultItem[]) => filterResultsByDate(
-      filterSearchResultsByDomain(candidates, normalizedDomain),
-      from_date || to_date ? { from: from_date, to: to_date } : undefined,
-      { keepUndated: true },
-    );
+    const cacheNamespace =
+      normalizedDomain || from_date || to_date
+        ? `${executionNamespace}:filters:v1:${JSON.stringify([normalizedDomain ?? "", from_date ?? "", to_date ?? ""])}`
+        : executionNamespace;
+    const applyFilters = (candidates: SearchResultItem[]) =>
+      filterResultsByDate(
+        filterSearchResultsByDomain(candidates, normalizedDomain),
+        from_date || to_date ? { from: from_date, to: to_date } : undefined,
+        { keepUndated: true },
+      );
     const queries = expand_query
       ? expandQuery(query, { maxVariants: 2, context: { intent: searchPlan?.intent } })
       : [query];
@@ -205,12 +276,16 @@ export function createSearchHandler(deps: SearchToolDeps) {
       // Give looping clients a visible repeat signal: an identical query
       // always returns these same cached results, so searching again cannot
       // add information.
-      const cacheHitNote = outputFormat === "json"
-        ? ""
-        : "\n\nNote: this exact query was answered before — these are the same cached results. Answer from them, or change the query meaningfully instead of repeating it.";
-      return textResult(outputFormat === "json"
-        ? formatToolResult(payload, "json")
-        : wrapUntrusted(formatSearchResults(query, limitedResults)) + cacheHitNote, payload);
+      const cacheHitNote =
+        outputFormat === "json"
+          ? ""
+          : "\n\nNote: this exact query was answered before — these are the same cached results. Answer from them, or change the query meaningfully instead of repeating it.";
+      return textResult(
+        outputFormat === "json"
+          ? formatToolResult(payload, "json")
+          : wrapUntrusted(formatSearchResults(query, limitedResults)) + cacheHitNote,
+        payload,
+      );
     }
 
     trace.endStage("cache.lookup", { status: "empty", error: "miss" });
@@ -218,27 +293,31 @@ export function createSearchHandler(deps: SearchToolDeps) {
 
     const resultSets: SearchResultItem[][] = [];
     const attempts: ProviderAttempt[] = [];
-    const onAttempt = (attempt: ProviderAttempt) => { attempts.push(attempt); };
+    const onAttempt = (attempt: ProviderAttempt) => {
+      attempts.push(attempt);
+    };
     trace.startStage("providers");
     for (const variant of queries) {
       const providerQuery = normalizedDomain ? `${variant} site:${normalizedDomain}` : variant;
-      resultSets.push(searchPlan
-        ? await executeSearchPlan({
-            providers,
-            query: providerQuery,
-            locale: queryLocale,
-            plan: searchPlan,
-            healthTracker: deps.healthTracker(),
-            onAttempt,
-          })
-        : await executeProviderSearch({
-            providers,
-            query: providerQuery,
-            locale: queryLocale,
-            strategy: strategy === "aggregate" ? "aggregate" : "fallback",
-            healthTracker: deps.healthTracker(),
-            onAttempt,
-          }));
+      resultSets.push(
+        searchPlan
+          ? await executeSearchPlan({
+              providers,
+              query: providerQuery,
+              locale: queryLocale,
+              plan: searchPlan,
+              healthTracker: deps.healthTracker(),
+              onAttempt,
+            })
+          : await executeProviderSearch({
+              providers,
+              query: providerQuery,
+              locale: queryLocale,
+              strategy: strategy === "aggregate" ? "aggregate" : "fallback",
+              healthTracker: deps.healthTracker(),
+              onAttempt,
+            }),
+      );
     }
     const rawResults = resultSets.length > 1 ? fuseQueryResults(resultSets) : resultSets[0];
     trace.endStage("providers", {
@@ -251,9 +330,11 @@ export function createSearchHandler(deps: SearchToolDeps) {
     if (results.length === 0) {
       trace.endStage("filters", { status: "empty", resultCount: 0 });
       finalizeTrace(trace, 0);
-      return errorResult(normalizedDomain
-        ? `No results matched the domain filter "${normalizedDomain}". Try a broader search or fetch_content with a direct URL.`
-        : `Web search is currently unavailable (all providers returned no results${attempts.length > 0 ? `: ${attempts.map(describeAttempt).join("; ")}` : ""}). Try using fetch_content with a direct URL instead, or retry the search later.`);
+      return errorResult(
+        normalizedDomain
+          ? `No results matched the domain filter "${normalizedDomain}". Try a broader search or fetch_content with a direct URL.`
+          : `Web search is currently unavailable (all providers returned no results${attempts.length > 0 ? `: ${attempts.map(describeAttempt).join("; ")}` : ""}). Try using fetch_content with a direct URL instead, or retry the search later.`,
+      );
     }
 
     trace.endStage("filters", { status: "ok", resultCount: results.length });
@@ -265,10 +346,16 @@ export function createSearchHandler(deps: SearchToolDeps) {
       const ranked = await rankResults(query, results, max_results);
       finalizeTrace(trace, ranked.length);
       const limitedResults = ranked.slice(0, max_results);
-      const payload = { ...buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length }), providerAttempts: attempts };
-      return textResult(outputFormat === "json"
-        ? formatToolResult(payload, "json")
-        : wrapUntrusted(formatSearchResults(query, limitedResults)) + providerNotes(attempts), payload);
+      const payload = {
+        ...buildSearchJson(query, limitedResults, { strategy, cache: "miss", resultCount: limitedResults.length }),
+        providerAttempts: attempts,
+      };
+      return textResult(
+        outputFormat === "json"
+          ? formatToolResult(payload, "json")
+          : wrapUntrusted(formatSearchResults(query, limitedResults)) + providerNotes(attempts),
+        payload,
+      );
     }
 
     finalizeTrace(trace, results.length);

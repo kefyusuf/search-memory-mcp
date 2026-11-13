@@ -44,11 +44,24 @@ function pdf(text, info) {
   return strToU8(body);
 }
 
-writeFileSync(join(docs, "pooling.pdf"), pdf("PgBouncer pools PostgreSQL connections for Kubernetes services", "<< /Title (Pooling handbook) /CreationDate (D:20240115120000Z) >>"));
-writeFileSync(join(docs, "notes.docx"), zipSync({
-  "[Content_Types].xml": strToU8('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'),
-  "word/document.xml": strToU8('<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Transaction pooling lets many clients share a few server connections.</w:t></w:r></w:p></w:body></w:document>'),
-}));
+writeFileSync(
+  join(docs, "pooling.pdf"),
+  pdf(
+    "PgBouncer pools PostgreSQL connections for Kubernetes services",
+    "<< /Title (Pooling handbook) /CreationDate (D:20240115120000Z) >>",
+  ),
+);
+writeFileSync(
+  join(docs, "notes.docx"),
+  zipSync({
+    "[Content_Types].xml": strToU8(
+      '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+    ),
+    "word/document.xml": strToU8(
+      '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Transaction pooling lets many clients share a few server connections.</w:t></w:r></w:p></w:body></w:document>',
+    ),
+  }),
+);
 writeFileSync(join(docs, ".env"), "SECRET=should-never-be-read");
 writeFileSync(join(root, "outside.txt"), "outside the allowed directory");
 
@@ -75,9 +88,19 @@ async function step(name, run) {
   const started = Date.now();
   try {
     const outcome = await run();
-    results.push({ name, status: outcome?.skip ? "SKIP" : "PASS", detail: outcome?.skip ?? outcome?.detail ?? "", ms: Date.now() - started });
+    results.push({
+      name,
+      status: outcome?.skip ? "SKIP" : "PASS",
+      detail: outcome?.skip ?? outcome?.detail ?? "",
+      ms: Date.now() - started,
+    });
   } catch (error) {
-    results.push({ name, status: "FAIL", detail: error instanceof Error ? error.message : String(error), ms: Date.now() - started });
+    results.push({
+      name,
+      status: "FAIL",
+      detail: error instanceof Error ? error.message : String(error),
+      ms: Date.now() - started,
+    });
   }
 }
 function expect(condition, message) {
@@ -90,7 +113,10 @@ try {
   await step("tools/list: 12 tools with annotations", async () => {
     const { tools } = await client.listTools();
     expect(tools.length === 12, `expected 12 tools, got ${tools.length}`);
-    expect(tools.every((tool) => tool.annotations?.title), "a tool has no annotations");
+    expect(
+      tools.every((tool) => tool.annotations?.title),
+      "a tool has no annotations",
+    );
     return { detail: tools.map((tool) => tool.name).join(", ") };
   });
 
@@ -110,7 +136,11 @@ try {
   });
 
   await step("ingest_document: text content", async () => {
-    const result = await call("ingest_document", { content: "Kubernetes runs PgBouncer as a sidecar.", title: "Sidecar note", source: "e2e-note" });
+    const result = await call("ingest_document", {
+      content: "Kubernetes runs PgBouncer as a sidecar.",
+      title: "Sidecar note",
+      source: "e2e-note",
+    });
     expect(!result.isError, text(result));
   });
 
@@ -139,7 +169,10 @@ try {
   await step("search_index: finds PDF text", async () => {
     const result = await call("search_index", { query: "PgBouncer PostgreSQL connections" });
     const hits = result.structuredContent?.hits ?? [];
-    expect(hits.some((hit) => hit.title === "Pooling handbook"), `hits: ${hits.map((hit) => hit.title).join(", ")}`);
+    expect(
+      hits.some((hit) => hit.title === "Pooling handbook"),
+      `hits: ${hits.map((hit) => hit.title).join(", ")}`,
+    );
     return { detail: `${hits.length} hits` };
   });
 
@@ -166,15 +199,28 @@ try {
   });
 
   await webStep("index_url: PDF link", async () => {
-    const result = await call("index_url", { url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" }, WEB_TIMEOUT_MS);
+    const result = await call(
+      "index_url",
+      { url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" },
+      WEB_TIMEOUT_MS,
+    );
     expect(!result.isError, text(result).slice(0, 160));
   });
 
   await webStep("research: cited answer with dates", async () => {
-    const result = await call("research", { query: "What is the Node.js release schedule?", max_sources: 2 }, WEB_TIMEOUT_MS);
+    const result = await call(
+      "research",
+      { query: "What is the Node.js release schedule?", max_sources: 2 },
+      WEB_TIMEOUT_MS,
+    );
     const sources = result.structuredContent?.sources ?? [];
     expect(!result.isError && sources.length > 0, text(result).slice(0, 200));
-    expect(sources.filter((source) => source.origin === "web" && source.status !== "fetch_failed").every((source) => source.fetchedAt), "web source without fetchedAt");
+    expect(
+      sources
+        .filter((source) => source.origin === "web" && source.status !== "fetch_failed")
+        .every((source) => source.fetchedAt),
+      "web source without fetchedAt",
+    );
     return { detail: `${sources.length} sources, ${result.structuredContent.indexedCount} indexed` };
   });
 } finally {
@@ -184,7 +230,9 @@ try {
 
 const width = Math.max(...results.map((result) => result.name.length));
 for (const result of results) {
-  console.log(`${result.status.padEnd(4)}  ${result.name.padEnd(width)}  ${String(result.ms).padStart(6)} ms  ${result.detail}`);
+  console.log(
+    `${result.status.padEnd(4)}  ${result.name.padEnd(width)}  ${String(result.ms).padStart(6)} ms  ${result.detail}`,
+  );
 }
 const failed = results.filter((result) => result.status === "FAIL").length;
 const skipped = results.filter((result) => result.status === "SKIP").length;

@@ -12,14 +12,20 @@ describe("parseYahooResults", () => {
   it("reads organic results from a saved Yahoo results page", () => {
     const results = parseYahooResults(fixture("yahoo-results.html"));
     expect(results.length).toBe(7);
-    expect(results[0]).toMatchObject({ title: "Node.js — Node.js Releases", url: "https://nodejs.org/en/about/previous-releases", source: "yahoo" });
+    expect(results[0]).toMatchObject({
+      title: "Node.js — Node.js Releases",
+      url: "https://nodejs.org/en/about/previous-releases",
+      source: "yahoo",
+    });
     expect(results[0].snippet).toMatch(/Starting with Node\.js 27/);
     expect(results.every((result) => !result.url.includes("yahoo.com"))).toBe(true);
   });
 
   it("unwraps r.search.yahoo.com redirect links", () => {
     const html = `<div class="algo"><div class="compTitle"><a href="https://r.search.yahoo.com/_ylt=x/RV=2/RE=1/RO=10/RU=https%3a%2f%2fexample.com%2fpage/RK=2/RS=abc-"><h3 class="title">Example page</h3></a></div><div class="compText"><p>Snippet text</p></div></div>`;
-    expect(parseYahooResults(html)).toEqual([{ title: "Example page", url: "https://example.com/page", snippet: "Snippet text", source: "yahoo" }]);
+    expect(parseYahooResults(html)).toEqual([
+      { title: "Example page", url: "https://example.com/page", snippet: "Snippet text", source: "yahoo" },
+    ]);
   });
 });
 
@@ -58,20 +64,30 @@ describe("yahoo and marginalia providers", () => {
 
   it("follows Marginalia's wait page once, after the requested delay", async () => {
     const urls: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
-      urls.push(String(input));
-      return new Response(fixture(urls.length === 1 ? "marginalia-wait.html" : "marginalia-results.html"));
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        urls.push(String(input));
+        return new Response(fixture(urls.length === 1 ? "marginalia-wait.html" : "marginalia-results.html"));
+      }),
+    );
     const sleep = vi.fn(async () => {});
     const results = await searchMarginalia("react useEffect cleanup function", locale, { sleep });
     expect(results.length).toBeGreaterThanOrEqual(5);
     expect(sleep).toHaveBeenCalledWith(1000);
-    expect(urls[1]).toBe("https://marginalia-search.com/search?query=react+useEffect+cleanup+function&sst=SE-06708b4646379134");
+    expect(urls[1]).toBe(
+      "https://marginalia-search.com/search?query=react+useEffect+cleanup+function&sst=SE-06708b4646379134",
+    );
   });
 
   it("reports a bot check when the wait page comes back again", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(fixture("marginalia-wait.html"))));
-    await expect(searchMarginalia("q", locale, { sleep: async () => {} })).rejects.toThrow("marginalia served a bot-check page");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(fixture("marginalia-wait.html"))),
+    );
+    await expect(searchMarginalia("q", locale, { sleep: async () => {} })).rejects.toThrow(
+      "marginalia served a bot-check page",
+    );
   });
 
   it("are registered by name", () => {

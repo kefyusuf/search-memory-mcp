@@ -23,10 +23,9 @@ export function fuseQueryResults(resultSets: SearchResultItem[][]): SearchResult
         return;
       }
       existing.fusionScore = (existing.fusionScore ?? 0) + contribution;
-      existing.sources = [...new Set([
-        ...(existing.sources ?? [existing.source]),
-        ...(result.sources ?? [result.source]),
-      ])];
+      existing.sources = [
+        ...new Set([...(existing.sources ?? [existing.source]), ...(result.sources ?? [result.source])]),
+      ];
       for (const [provider, rank] of Object.entries(result.providerRanks ?? {})) {
         existing.providerRanks ??= {};
         existing.providerRanks[provider] = Math.min(existing.providerRanks[provider] ?? rank, rank);

@@ -14,7 +14,10 @@ export type UsageSnapshot = {
  */
 export class UsageCounters {
   private readonly startedAt = new Date();
-  private readonly entries = new Map<string, { tenantId: string; workspaceId: string; tool: string; calls: number; errors: number }>();
+  private readonly entries = new Map<
+    string,
+    { tenantId: string; workspaceId: string; tool: string; calls: number; errors: number }
+  >();
 
   record(tenantId: string, workspaceId: string, tool: string, ok: boolean): void {
     const key = `${tenantId}|${workspaceId}|${tool}`;
@@ -26,7 +29,10 @@ export class UsageCounters {
 
   snapshot(): UsageSnapshot {
     const scopes = [...this.entries.values()].sort(
-      (a, b) => a.tenantId.localeCompare(b.tenantId) || a.workspaceId.localeCompare(b.workspaceId) || a.tool.localeCompare(b.tool),
+      (a, b) =>
+        a.tenantId.localeCompare(b.tenantId) ||
+        a.workspaceId.localeCompare(b.workspaceId) ||
+        a.tool.localeCompare(b.tool),
     );
     return {
       since: this.startedAt.toISOString(),
@@ -34,7 +40,13 @@ export class UsageCounters {
         calls: scopes.reduce((sum, s) => sum + s.calls, 0),
         errors: scopes.reduce((sum, s) => sum + s.errors, 0),
       },
-      scopes: scopes.map(({ tenantId, workspaceId, tool, calls, errors }) => ({ tenantId, workspaceId, tool, calls, errors })),
+      scopes: scopes.map(({ tenantId, workspaceId, tool, calls, errors }) => ({
+        tenantId,
+        workspaceId,
+        tool,
+        calls,
+        errors,
+      })),
     };
   }
 }

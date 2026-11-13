@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { lookup as systemLookup, type LookupAddress } from "node:dns";
+import type { lookup as systemLookup, LookupAddress } from "node:dns";
 import { createServer, request } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createGuardedLookup, isPublicConnectionAddress } from "../security/guarded-lookup.js";
 
 function fakeResolver(answers: LookupAddress[], error: NodeJS.ErrnoException | null = null): typeof systemLookup {
-  return ((_hostname: string, _options: unknown, callback: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void) => {
+  return ((
+    _hostname: string,
+    _options: unknown,
+    callback: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void,
+  ) => {
     queueMicrotask(() => callback(error, answers));
   }) as typeof systemLookup;
 }
@@ -29,11 +33,26 @@ describe("guarded socket DNS lookup (not yet integrated with ContentFetcher)", (
       expect(isPublicConnectionAddress(ip)).toBe(true);
     }
     for (const ip of [
-      "127.0.0.1", "10.0.0.1", "169.254.169.254", "100.64.0.1",
-      "192.168.1.5", "198.18.0.1", "203.0.113.1", "224.0.0.1",
-      "255.255.255.255", "::1", "::", "fc00::1", "fe80::1",
-      "2001:db8::1", "3fff::1", "2001:2::1", "2001:10::1",
-      "2002::1", "::ffff:7f00:1", "::ffff:c0a8:101",
+      "127.0.0.1",
+      "10.0.0.1",
+      "169.254.169.254",
+      "100.64.0.1",
+      "192.168.1.5",
+      "198.18.0.1",
+      "203.0.113.1",
+      "224.0.0.1",
+      "255.255.255.255",
+      "::1",
+      "::",
+      "fc00::1",
+      "fe80::1",
+      "2001:db8::1",
+      "3fff::1",
+      "2001:2::1",
+      "2001:10::1",
+      "2002::1",
+      "::ffff:7f00:1",
+      "::ffff:c0a8:101",
     ]) {
       expect(isPublicConnectionAddress(ip)).toBe(false);
     }
@@ -55,7 +74,10 @@ describe("guarded socket DNS lookup (not yet integrated with ContentFetcher)", (
     const forbidden: LookupAddress[][] = [
       [],
       [{ address: "127.0.0.1", family: 4 }],
-      [{ address: "8.8.8.8", family: 4 }, { address: "10.0.0.10", family: 4 }],
+      [
+        { address: "8.8.8.8", family: 4 },
+        { address: "10.0.0.10", family: 4 },
+      ],
       [{ address: "8.8.8.8", family: 6 }],
       [{ address: "::ffff:7f00:1", family: 6 }],
     ];
@@ -74,7 +96,9 @@ describe("guarded socket DNS lookup (not yet integrated with ContentFetcher)", (
   it("blocks a real local HTTP socket after a connect-time DNS change", async () => {
     const server = createServer((_request, response) => response.end("unsafe"));
     let connections = 0;
-    server.on("connection", () => { connections += 1; });
+    server.on("connection", () => {
+      connections += 1;
+    });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const port = (server.address() as AddressInfo).port;
 
@@ -91,13 +115,15 @@ describe("guarded socket DNS lookup (not yet integrated with ContentFetcher)", (
           try {
             expect(error.code).toBe("EACCES");
             resolve();
-          } catch (assertionError) { reject(assertionError); }
+          } catch (assertionError) {
+            reject(assertionError);
+          }
         });
         req.end();
       });
       expect(connections).toBe(0);
     } finally {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }
   });
 });

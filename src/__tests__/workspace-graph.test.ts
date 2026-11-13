@@ -6,55 +6,79 @@ import { join } from "node:path";
 import { EntityGraph } from "../graph/entity-graph.js";
 import { createHostedRequestContext, type RequestContext } from "../runtime/request-context.js";
 
-function context(tenantId = "tenant-a", workspaceId = "workspace", permissions = ["knowledge:read", "knowledge:write"]): RequestContext {
+function context(
+  tenantId = "tenant-a",
+  workspaceId = "workspace",
+  permissions = ["knowledge:read", "knowledge:write"],
+): RequestContext {
   return createHostedRequestContext({
     authorization: { subject: "alice", audiences: ["mcp"], scopes: permissions, expiresAt: Date.now() + 60_000 },
     membership: { principalId: "alice", tenantId, workspaceId, permissions },
-    expectedAudience: "mcp", requestId: "r1", deadlineAt: Date.now() + 60_000, signal: new AbortController().signal,
+    expectedAudience: "mcp",
+    requestId: "r1",
+    deadlineAt: Date.now() + 60_000,
+    signal: new AbortController().signal,
   });
 }
 
 describe("workspace graph isolation", () => {
-  let dir: string; let path: string; let graphs: EntityGraph[];
-  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "workspace-graph-")); path = join(dir, "graph.db"); graphs = []; });
-  afterEach(() => { for (const graph of graphs) graph.close(); rmSync(dir, { recursive: true, force: true }); });
+  let dir: string;
+  let path: string;
+  let graphs: EntityGraph[];
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "workspace-graph-"));
+    path = join(dir, "graph.db");
+    graphs = [];
+  });
+  afterEach(() => {
+    for (const graph of graphs) graph.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
   function open(ctx?: RequestContext) {
     const graph = new EntityGraph(path, ctx ? { context: ctx } : {});
-    graphs.push(graph); return graph;
+    graphs.push(graph);
+    return graph;
   }
   function index(graph: EntityGraph, content: string, docId = "same-id", source = "same-source") {
     graph.indexDocument({ docId, source, title: docId, content });
   }
 
-  it.each([["tenant-b", "workspace"], ["tenant-a", "other-workspace"]])(
-    "keeps document replacement within scope when another scope is %s/%s", (tenant, workspace) => {
-      const a = open(context()); const b = open(context(tenant, workspace));
-      index(a, "Kubernetes runs PostgreSQL."); index(b, "Kubernetes runs Redis.");
-      index(b, "Kubernetes runs Docker.");
-      expect(a.entitiesForDoc("same-id").map(e => e.name)).toContain("PostgreSQL");
-      expect(a.entitiesForDoc("same-id").map(e => e.name)).not.toContain("Docker");
-      expect(b.entitiesForDoc("same-id").map(e => e.name)).toContain("Docker");
-    },
-  );
+  it.each([
+    ["tenant-b", "workspace"],
+    ["tenant-a", "other-workspace"],
+  ])("keeps document replacement within scope when another scope is %s/%s", (tenant, workspace) => {
+    const a = open(context());
+    const b = open(context(tenant, workspace));
+    index(a, "Kubernetes runs PostgreSQL.");
+    index(b, "Kubernetes runs Redis.");
+    index(b, "Kubernetes runs Docker.");
+    expect(a.entitiesForDoc("same-id").map((e) => e.name)).toContain("PostgreSQL");
+    expect(a.entitiesForDoc("same-id").map((e) => e.name)).not.toContain("Docker");
+    expect(b.entitiesForDoc("same-id").map((e) => e.name)).toContain("Docker");
+  });
 
   it("filters document lookup before ranking and limit despite matching entity and source", () => {
-    const a = open(context()); const b = open(context("tenant-b"));
+    const a = open(context());
+    const b = open(context("tenant-b"));
     index(a, "Kubernetes runs PostgreSQL.", "alice-doc");
     index(b, "Kubernetes Kubernetes Kubernetes runs Redis.", "bob-doc");
-    expect(a.docsForEntity("Kubernetes", 1).map(d => d.docId)).toEqual(["alice-doc"]);
+    expect(a.docsForEntity("Kubernetes", 1).map((d) => d.docId)).toEqual(["alice-doc"]);
     expect(a.entitiesForDoc("bob-doc")).toEqual([]);
   });
 
   it("isolates neighbor joins when both entity ids and document ids match", () => {
-    const a = open(context()); const b = open(context("tenant-b"));
-    index(a, "Kubernetes runs PostgreSQL."); index(b, "Kubernetes runs Redis.");
-    expect(a.relatedEntities("Kubernetes").map(e => e.name)).toContain("PostgreSQL");
-    expect(a.relatedEntities("Kubernetes").map(e => e.name)).not.toContain("Redis");
-    expect(b.relatedEntities("Kubernetes").map(e => e.name)).not.toContain("PostgreSQL");
+    const a = open(context());
+    const b = open(context("tenant-b"));
+    index(a, "Kubernetes runs PostgreSQL.");
+    index(b, "Kubernetes runs Redis.");
+    expect(a.relatedEntities("Kubernetes").map((e) => e.name)).toContain("PostgreSQL");
+    expect(a.relatedEntities("Kubernetes").map((e) => e.name)).not.toContain("Redis");
+    expect(b.relatedEntities("Kubernetes").map((e) => e.name)).not.toContain("PostgreSQL");
   });
 
   it("does not disclose another workspace's document, entity or link counts", () => {
-    const a = open(context()); const b = open(context("tenant-a", "other-workspace"));
+    const a = open(context());
+    const b = open(context("tenant-a", "other-workspace"));
     index(a, "Kubernetes runs PostgreSQL.", "alice-doc");
     const ownStats = a.getStats();
     index(b, "Docker runs Redis.", "bob-doc");
@@ -77,8 +101,11 @@ describe("workspace graph isolation", () => {
     expect(hosted.docsForEntity("Kubernetes")).toEqual([]);
     index(hosted, "Kubernetes runs Redis.", "legacy-doc");
     const local = open();
-    expect(local.docsForEntity("Kubernetes")).toEqual([{ docId: "legacy-doc", source: "legacy-source", title: "Legacy title", count: 2 }]);
-    for (const graph of graphs) graph.close(); graphs = [];
+    expect(local.docsForEntity("Kubernetes")).toEqual([
+      { docId: "legacy-doc", source: "legacy-source", title: "Legacy title", count: 2 },
+    ]);
+    for (const graph of graphs) graph.close();
+    graphs = [];
     expect(open().entitiesForDoc("legacy-doc")).toEqual([{ name: "Kubernetes", count: 2 }]);
     expect(open(context("local", "local")).docsForEntity("Kubernetes")[0].source).toBe("same-source");
   });
@@ -92,12 +119,20 @@ describe("workspace graph isolation", () => {
   it("denies every graph read for write-only contexts", () => {
     const writer = open(context("tenant-a", "workspace", ["knowledge:write"]));
     index(writer, "Kubernetes runs PostgreSQL.");
-    for (const read of [() => writer.entitiesForDoc("same-id"), () => writer.docsForEntity("Kubernetes"), () => writer.relatedEntities("Kubernetes"), () => writer.getStats()]) {
+    for (const read of [
+      () => writer.entitiesForDoc("same-id"),
+      () => writer.docsForEntity("Kubernetes"),
+      () => writer.relatedEntities("Kubernetes"),
+      () => writer.getStats(),
+    ]) {
       expect(read).toThrow("forbidden");
     }
   });
 
   it("rejects a copied context before accessing the database", () => {
-    expect(() => { const graph = new EntityGraph(path, { context: { ...context() } }); graphs.push(graph); }).toThrow("invalid_context");
+    expect(() => {
+      const graph = new EntityGraph(path, { context: { ...context() } });
+      graphs.push(graph);
+    }).toThrow("invalid_context");
   });
 });

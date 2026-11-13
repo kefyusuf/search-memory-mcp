@@ -58,10 +58,7 @@ function uniqueProvidersByName(providers: SearchProvider[]): SearchProvider[] {
   });
 }
 
-function providersInPlanOrder(
-  providers: SearchProvider[],
-  providerNames: string[],
-): SearchProvider[] {
+function providersInPlanOrder(providers: SearchProvider[], providerNames: string[]): SearchProvider[] {
   const byName = new Map<string, SearchProvider>();
   for (const provider of providers) {
     if (!byName.has(provider.name)) byName.set(provider.name, provider);
@@ -72,19 +69,14 @@ function providersInPlanOrder(
     .filter((provider): provider is SearchProvider => provider !== undefined);
 }
 
-function applyResultFilter(
-  results: SearchResultItem[],
-  resultFilter?: SearchResultFilter,
-): SearchResultItem[] {
+function applyResultFilter(results: SearchResultItem[], resultFilter?: SearchResultFilter): SearchResultItem[] {
   return resultFilter ? resultFilter(results) : results;
 }
 
 function inferSiteResultFilter(query: string): SearchResultFilter | undefined {
   const match = query.match(/(?:^|\s)site:([^\s]+)\s*$/i);
   const domain = match?.[1];
-  return domain
-    ? (results) => filterSearchResultsByDomain(results, domain)
-    : undefined;
+  return domain ? (results) => filterSearchResultsByDomain(results, domain) : undefined;
 }
 
 function attemptError(error: unknown): string {
@@ -137,10 +129,7 @@ async function runProvider(
     return deduped;
   } catch (error) {
     healthTracker.record(provider.name, false);
-    console.error(
-      `Provider ${provider.name} error:`,
-      error instanceof Error ? error.message : String(error)
-    );
+    console.error(`Provider ${provider.name} error:`, error instanceof Error ? error.message : String(error));
     report("error", 0, attemptError(error));
     return [];
   }
@@ -170,16 +159,11 @@ export async function executeProviderSearch({
   const settled = await Promise.all(
     aggregateProviders.map(async (provider) => ({
       provider: provider.name,
-      results: applyResultFilter(
-        await runProvider(provider, query, locale, healthTracker, onAttempt),
-        resultFilter,
-      ),
-    }))
+      results: applyResultFilter(await runProvider(provider, query, locale, healthTracker, onAttempt), resultFilter),
+    })),
   );
 
-  return fuseSearchResults(
-    settled.filter(({ results }) => results.length > 0)
-  );
+  return fuseSearchResults(settled.filter(({ results }) => results.length > 0));
 }
 
 export async function executeSearchPlan({
@@ -203,11 +187,7 @@ export async function executeSearchPlan({
     onAttempt,
   });
 
-  if (
-    plan.strategy === "fallback" ||
-    primaryResults.length > 0 ||
-    plan.fallbackProviderNames.length === 0
-  ) {
+  if (plan.strategy === "fallback" || primaryResults.length > 0 || plan.fallbackProviderNames.length === 0) {
     return primaryResults;
   }
 

@@ -30,10 +30,7 @@ const RULES: HeuristicRule[] = [
   },
   {
     intent: "local",
-    patterns: [
-      /\b(near me|nearby|closest|in my area)\b/i,
-      /\b(yakınımda|yakınımdaki|yakındaki|en yakın)\b/i,
-    ],
+    patterns: [/\b(near me|nearby|closest|in my area)\b/i, /\b(yakınımda|yakınımdaki|yakındaki|en yakın)\b/i],
   },
   {
     intent: "navigational",
@@ -61,9 +58,9 @@ const RULES: HeuristicRule[] = [
 ];
 
 export function detectHeuristicIntent(query: string): SearchIntent | null {
-  const matches = RULES
-    .filter((rule) => rule.patterns.some((pattern) => pattern.test(query)))
-    .map((rule) => rule.intent);
+  const matches = RULES.filter((rule) => rule.patterns.some((pattern) => pattern.test(query))).map(
+    (rule) => rule.intent,
+  );
   const unique = [...new Set(matches)];
   return unique.length === 1 ? unique[0] : null;
 }

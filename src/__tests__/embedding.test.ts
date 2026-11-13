@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 // Mock Transformers.js to avoid loading actual models during unit tests.
 vi.mock("@huggingface/transformers", () => {
   const mockPipeline = vi.fn(async (_task: string, _model: string) => {
-    return async (_text: string, _options?: any) => {
+    return async (_text: string, _options?: unknown) => {
       return { data: new Float32Array(384).fill(0.1) };
     };
   });

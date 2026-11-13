@@ -32,7 +32,7 @@ Add this to your MCP client config (for example `claude_desktop_config.json` or 
 }
 ```
 
-Restart your client and ask: *"Search the web for the latest Node.js release and remember the version number."*
+Restart your client and ask: _"Search the web for the latest Node.js release and remember the version number."_
 
 > Search and most pages work right away. Pages that need a real browser use Playwright Chromium (about 180 MB). It is downloaded during install, or on first use if your package manager skipped install scripts, so that first request can take a few minutes. To download it ahead of time, run `npx playwright install chromium`. Model-backed features download small local models on first use.
 
@@ -47,7 +47,16 @@ Docker brings its own Node 24, SQLite module and Chromium, so it works whatever 
   "mcpServers": {
     "search-memory": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "search-memory-data:/app/data", "-v", "search-memory-models:/root/.cache/huggingface", "ghcr.io/kefyusuf/search-memory-mcp:latest"]
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-v",
+        "search-memory-data:/app/data",
+        "-v",
+        "search-memory-models:/root/.cache/huggingface",
+        "ghcr.io/kefyusuf/search-memory-mcp:latest"
+      ]
     }
   }
 }
@@ -154,28 +163,28 @@ For package-runner based clients, use the `npx` configuration from [Quick start]
 
 ## Tools
 
-| Tool | Description |
-| --- | --- |
-| `web_search` | Searches the web and returns ranked results. Supports `strategy` (`fallback`/`aggregate`/`auto`), `domain`, `from_date`/`to_date`, `format` (`text`/`json`), and `deep=true` for source-backed answers. |
-| `fetch_content` | Fetches a URL and returns clean Markdown with content caching, charset handling, GitHub Raw fast paths, RSS feed extraction, and Playwright fallback. |
-| `research` | Researches a question in one call: checks the local knowledge base, searches the web, reads the top pages (`max_sources`, default 3), answers with citations from both, and adds the pages it read to the knowledge base (`index=false` to skip; sources already indexed are not added again). |
-| `server_status` | Returns provider availability, cache stats, knowledge index stats, memory stats, entity graph stats, recent search traces, browser state, routing profile metadata, feature flags, and uptime. |
-| `ingest_document` | Chunks a document and indexes it into the local knowledge base (FTS + vectors) and entity graph. Pass `content`, or `path` to a local PDF, DOCX, EPUB, HTML or text file inside `INGEST_ALLOWED_DIRS`. |
-| `index_url` | Fetches a URL and indexes its Markdown into the local knowledge base and entity graph. |
-| `search_index` | Hybrid keyword + semantic search over the local knowledge base; returns chunks with source citations. Supports `format: "json"`. |
-| `list_index` | Lists documents stored in the local knowledge base. |
-| `remember` | Stores a short fact or note in session memory. |
-| `recall` | Searches or lists session memory notes. |
-| `forget` | Deletes a session memory note by id. |
-| `find_related` | Explores the entity graph: related documents and co-occurring entities for an entity name. |
+| Tool              | Description                                                                                                                                                                                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web_search`      | Searches the web and returns ranked results. Supports `strategy` (`fallback`/`aggregate`/`auto`), `domain`, `from_date`/`to_date`, `format` (`text`/`json`), and `deep=true` for source-backed answers.                                                                                        |
+| `fetch_content`   | Fetches a URL and returns clean Markdown with content caching, charset handling, GitHub Raw fast paths, RSS feed extraction, and Playwright fallback.                                                                                                                                          |
+| `research`        | Researches a question in one call: checks the local knowledge base, searches the web, reads the top pages (`max_sources`, default 3), answers with citations from both, and adds the pages it read to the knowledge base (`index=false` to skip; sources already indexed are not added again). |
+| `server_status`   | Returns provider availability, cache stats, knowledge index stats, memory stats, entity graph stats, recent search traces, browser state, routing profile metadata, feature flags, and uptime.                                                                                                 |
+| `ingest_document` | Chunks a document and indexes it into the local knowledge base (FTS + vectors) and entity graph. Pass `content`, or `path` to a local PDF, DOCX, EPUB, HTML or text file inside `INGEST_ALLOWED_DIRS`.                                                                                         |
+| `index_url`       | Fetches a URL and indexes its Markdown into the local knowledge base and entity graph.                                                                                                                                                                                                         |
+| `search_index`    | Hybrid keyword + semantic search over the local knowledge base; returns chunks with source citations. Supports `format: "json"`.                                                                                                                                                               |
+| `list_index`      | Lists documents stored in the local knowledge base.                                                                                                                                                                                                                                            |
+| `remember`        | Stores a short fact or note in session memory.                                                                                                                                                                                                                                                 |
+| `recall`          | Searches or lists session memory notes.                                                                                                                                                                                                                                                        |
+| `forget`          | Deletes a session memory note by id.                                                                                                                                                                                                                                                           |
+| `find_related`    | Explores the entity graph: related documents and co-occurring entities for an entity name.                                                                                                                                                                                                     |
 
 ### Search strategies
 
-| Strategy | Behavior | Semantic query cache |
-| --- | --- | --- |
-| `fallback` **(default)** | Tries configured providers in order and stops at the first usable result set. | Enabled (namespace: `fallback`) |
-| `aggregate` | Queries all currently available configured providers in parallel, deduplicates URLs, and fuses rankings with RRF. | Enabled (namespace: `aggregate`) |
-| `auto` | Detects intent, builds a routing plan from profile `v2`, then delegates to the existing fallback/aggregate executor. | Enabled (namespace: `auto:{profile}:{intent}:{providers}`) |
+| Strategy                 | Behavior                                                                                                             | Semantic query cache                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `fallback` **(default)** | Tries configured providers in order and stops at the first usable result set.                                        | Enabled (namespace: `fallback`)                            |
+| `aggregate`              | Queries all currently available configured providers in parallel, deduplicates URLs, and fuses rankings with RRF.    | Enabled (namespace: `aggregate`)                           |
+| `auto`                   | Detects intent, builds a routing plan from profile `v2`, then delegates to the existing fallback/aggregate executor. | Enabled (namespace: `auto:{profile}:{intent}:{providers}`) |
 
 Semantic query cache keys are namespaced by execution strategy (and by plan fingerprint for `auto`), so a cached `fallback` result is never reused for `aggregate` or a different auto plan. Deep-search page content continues to use the normal content cache.
 
@@ -187,16 +196,16 @@ For aggregate auto profiles, secondary configured providers are contacted only i
 
 Current routing profile: `v3`.
 
-| Intent | Execution | Preferred order | Primary target |
-| --- | --- | --- | ---: |
-| `technical` | aggregate | searxng, brave, duckduckgo, bing, google | 2 |
-| `research` | aggregate | exa, tavily, searxng, duckduckgo, brave, bing, google | 3 |
-| `news` | aggregate | tavily, duckduckgo, searxng, brave, bing, google | 3 |
-| `commercial` | aggregate | searxng, brave, duckduckgo, bing, google | 3 |
-| `shopping` | aggregate | searxng, duckduckgo, brave, bing, google | 2 |
-| `local` | aggregate | searxng, duckduckgo, brave, bing, google | 2 |
-| `navigational` | fallback | searxng, duckduckgo, brave, bing, google | all configured |
-| `general` | fallback | existing configured order | all configured |
+| Intent         | Execution | Preferred order                                       | Primary target |
+| -------------- | --------- | ----------------------------------------------------- | -------------: |
+| `technical`    | aggregate | searxng, brave, duckduckgo, bing, google              |              2 |
+| `research`     | aggregate | exa, tavily, searxng, duckduckgo, brave, bing, google |              3 |
+| `news`         | aggregate | tavily, duckduckgo, searxng, brave, bing, google      |              3 |
+| `commercial`   | aggregate | searxng, brave, duckduckgo, bing, google              |              3 |
+| `shopping`     | aggregate | searxng, duckduckgo, brave, bing, google              |              2 |
+| `local`        | aggregate | searxng, duckduckgo, brave, bing, google              |              2 |
+| `navigational` | fallback  | searxng, duckduckgo, brave, bing, google              | all configured |
+| `general`      | fallback  | existing configured order                             | all configured |
 
 Profile `v3` places the opt-in official APIs where their capability is measured (P1-04 three-day live matrix, October 2026: 449/450 attempts — see `evals/providers/` and [ADR 0003](docs/adr/0003-routing-profile-v3.md)): Tavily's news topic and provider-reported publish dates lead `news`, and Exa's neural retrieval leads `research`. Every other row keeps the v2 reliability ordering, where self-hosted SearXNG and the Brave Search API answered reliably and DuckDuckGo was the only scraper that answered consistently, while Bing and Google mostly blocked scraping clients. These preferences are not permanent quality claims. They are versioned so later releases can tune them from deterministic and live evaluation evidence without scattering routing conditionals through the server. The planner intersects preferences with `SEARCH_PROVIDERS`, so providers without keys never activate and keyless behavior is unchanged.
 
@@ -265,7 +274,11 @@ Returns a stable payload with `query`, `resultCount`, `results[]` (title, url, s
 ### Example: local knowledge base
 
 ```json
-{ "content": "PgBouncer multiplexes PostgreSQL connections...", "title": "PgBouncer Guide", "source": "https://example.com/pgbouncer" }
+{
+  "content": "PgBouncer multiplexes PostgreSQL connections...",
+  "title": "PgBouncer Guide",
+  "source": "https://example.com/pgbouncer"
+}
 ```
 
 Then search it:
@@ -288,26 +301,26 @@ Or explore the entity graph:
 
 ## Configuration
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `RATE_LIMIT_SEARCH_PER_MIN` | `10` | Maximum `web_search` requests per minute. Invalid or non-positive values disable the limiter. |
-| `RATE_LIMIT_FETCH_PER_MIN` | `20` | Maximum `fetch_content` requests per minute. Invalid or non-positive values disable the limiter. |
-| `SEARCH_PROVIDERS` | `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` when `BRAVE_SEARCH_API_KEY` is set) | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`, `tavily`, `exa`. Key-backed providers (`brave`, `tavily`, `exa`) are dropped from the list when their key is unset. |
-| `READER_FALLBACK_URL` | unset | Optional reader service used by `fetch_content`, `index_url` and `research` when direct HTTP and the browser both fail, called as `<READER_FALLBACK_URL><page url>`, for example `https://markdown.new/`. The page URL is sent to that third party, so it is off by default. |
-| `BRAVE_SEARCH_API_KEY` | unset | Optional key for the [Brave Search API](https://api-dashboard.search.brave.com/). When set, the `brave` provider calls the official API instead of scraping the website, which avoids the rate limits that block scraping. |
-| `TAVILY_API_KEY` | unset | Optional key for the [Tavily Search API](https://app.tavily.com/). When set, the `tavily` provider adds news-topic search with publish dates; news-intent queries use Tavily's news topic. Billing is per request. |
-| `EXA_API_KEY` | unset | Optional key for the [Exa Search API](https://dashboard.exa.ai/). When set, the `exa` provider adds neural (semantic) web search through `type: auto`. Billing is per request. |
-| `SEARXNG_BASE_URL` | unset | Base URL of a SearXNG instance with the JSON format enabled (for example `https://searx.example.com`). Required for the `searxng` provider; no API key is used. |
-| `ENABLE_CROSSLINGUAL` | `false` | Enables language detection and cross-lingual search support. This can trigger first-run local model downloads. When disabled, query heuristics still infer supported locales such as Turkish. |
-| `ENABLE_RERANKER` | `false` | Enables optional cross-encoder reranking of `web_search` results using a local Transformers.js model. First use downloads the model. |
-| `TRACE_SEARCHES` | `false` | Logs a compact per-search execution trace (stages, timings, cache) to stderr. Recent searches are always exposed via `server_status`. |
-| `MEMORY_MAX_NOTES` | `500` | Maximum session-memory notes kept; oldest notes are evicted first. |
-| `FETCH_WAIT_UNTIL` | `networkidle` | Playwright wait strategy. Use `domcontentloaded` for faster rendered-page fallback. |
-| `CHROMIUM_INSTALL_TIMEOUT_MS` | `600000` | Maximum time for the automatic first-use Chromium download. A stalled download is stopped after this time and the next browser request tries again. |
-| `FORCE_PLAYWRIGHT` | unset | Set to `true` to skip HTTP-first fetch and always use Playwright. |
-| `CACHE_DB_PATH` | `~/.search-memory-mcp/websearch_cache.db` (a `websearch_cache.db` already in the working directory is kept) | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph. |
-| `INGEST_ALLOWED_DIRS` | _(empty: disabled)_ | Comma-separated directories `ingest_document` may read files from, for example `~/Documents/notes,~/Papers`. Symlinks are resolved first, so a link cannot point outside these directories. Hidden files and anything inside hidden folders (such as `.ssh` or `.env`) are never read. Files above 25 MB are refused. |
-| `CACHE_CLEANUP_INTERVAL_HOURS` | `24` | Interval for expired content cache cleanup. |
+| Variable                       | Default                                                                                                     | Description                                                                                                                                                                                                                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RATE_LIMIT_SEARCH_PER_MIN`    | `10`                                                                                                        | Maximum `web_search` requests per minute. Invalid or non-positive values disable the limiter.                                                                                                                                                                                                                         |
+| `RATE_LIMIT_FETCH_PER_MIN`     | `20`                                                                                                        | Maximum `fetch_content` requests per minute. Invalid or non-positive values disable the limiter.                                                                                                                                                                                                                      |
+| `SEARCH_PROVIDERS`             | `duckduckgo,marginalia,bing` (`brave,duckduckgo,marginalia,bing` when `BRAVE_SEARCH_API_KEY` is set)        | Comma-separated provider allowlist/order. Supported values: `duckduckgo`, `bing`, `brave`, `google`, `yahoo`, `marginalia`, `searxng`, `tavily`, `exa`. Key-backed providers (`brave`, `tavily`, `exa`) are dropped from the list when their key is unset.                                                            |
+| `READER_FALLBACK_URL`          | unset                                                                                                       | Optional reader service used by `fetch_content`, `index_url` and `research` when direct HTTP and the browser both fail, called as `<READER_FALLBACK_URL><page url>`, for example `https://markdown.new/`. The page URL is sent to that third party, so it is off by default.                                          |
+| `BRAVE_SEARCH_API_KEY`         | unset                                                                                                       | Optional key for the [Brave Search API](https://api-dashboard.search.brave.com/). When set, the `brave` provider calls the official API instead of scraping the website, which avoids the rate limits that block scraping.                                                                                            |
+| `TAVILY_API_KEY`               | unset                                                                                                       | Optional key for the [Tavily Search API](https://app.tavily.com/). When set, the `tavily` provider adds news-topic search with publish dates; news-intent queries use Tavily's news topic. Billing is per request.                                                                                                    |
+| `EXA_API_KEY`                  | unset                                                                                                       | Optional key for the [Exa Search API](https://dashboard.exa.ai/). When set, the `exa` provider adds neural (semantic) web search through `type: auto`. Billing is per request.                                                                                                                                        |
+| `SEARXNG_BASE_URL`             | unset                                                                                                       | Base URL of a SearXNG instance with the JSON format enabled (for example `https://searx.example.com`). Required for the `searxng` provider; no API key is used.                                                                                                                                                       |
+| `ENABLE_CROSSLINGUAL`          | `false`                                                                                                     | Enables language detection and cross-lingual search support. This can trigger first-run local model downloads. When disabled, query heuristics still infer supported locales such as Turkish.                                                                                                                         |
+| `ENABLE_RERANKER`              | `false`                                                                                                     | Enables optional cross-encoder reranking of `web_search` results using a local Transformers.js model. First use downloads the model.                                                                                                                                                                                  |
+| `TRACE_SEARCHES`               | `false`                                                                                                     | Logs a compact per-search execution trace (stages, timings, cache) to stderr. Recent searches are always exposed via `server_status`.                                                                                                                                                                                 |
+| `MEMORY_MAX_NOTES`             | `500`                                                                                                       | Maximum session-memory notes kept; oldest notes are evicted first.                                                                                                                                                                                                                                                    |
+| `FETCH_WAIT_UNTIL`             | `networkidle`                                                                                               | Playwright wait strategy. Use `domcontentloaded` for faster rendered-page fallback.                                                                                                                                                                                                                                   |
+| `CHROMIUM_INSTALL_TIMEOUT_MS`  | `600000`                                                                                                    | Maximum time for the automatic first-use Chromium download. A stalled download is stopped after this time and the next browser request tries again.                                                                                                                                                                   |
+| `FORCE_PLAYWRIGHT`             | unset                                                                                                       | Set to `true` to skip HTTP-first fetch and always use Playwright.                                                                                                                                                                                                                                                     |
+| `CACHE_DB_PATH`                | `~/.search-memory-mcp/websearch_cache.db` (a `websearch_cache.db` already in the working directory is kept) | SQLite database path used by the semantic cache, content cache, knowledge index, session memory, and entity graph.                                                                                                                                                                                                    |
+| `INGEST_ALLOWED_DIRS`          | _(empty: disabled)_                                                                                         | Comma-separated directories `ingest_document` may read files from, for example `~/Documents/notes,~/Papers`. Symlinks are resolved first, so a link cannot point outside these directories. Hidden files and anything inside hidden folders (such as `.ssh` or `.env`) are never read. Files above 25 MB are refused. |
+| `CACHE_CLEANUP_INTERVAL_HOURS` | `24`                                                                                                        | Interval for expired content cache cleanup.                                                                                                                                                                                                                                                                           |
 
 File-backed SQLite stores use WAL journaling with `synchronous=FULL`; `:memory:` databases remain in memory. Use a writable local data directory: WAL requires shared memory on the same host and is unsuitable for a database shared over a network filesystem. While the server is running, the `-wal` and `-shm` files belong to the database; copying only the `.db` file does not provide a consistent live backup. See [SQLite WAL documentation](https://www.sqlite.org/wal.html) and the [disposable backup/restore rehearsal](docs/sqlite-backup-restore.md). Production backup operations remain separate from these local regressions.
 

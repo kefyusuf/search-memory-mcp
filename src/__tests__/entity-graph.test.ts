@@ -51,10 +51,12 @@ describe("extractEntities", () => {
   it.each(["PostgreSQL. Redis!", "PostgreSQL\nRedis", "PostgreSQL\r\nRedis", "PostgreSQL.\tRedis"])(
     "retains real names across sentence or line boundaries: %s",
     (text) => {
-      expect(extractEntities(text)).toEqual(expect.arrayContaining([
-        { name: "PostgreSQL", count: 1 },
-        { name: "Redis", count: 1 },
-      ]));
+      expect(extractEntities(text)).toEqual(
+        expect.arrayContaining([
+          { name: "PostgreSQL", count: 1 },
+          { name: "Redis", count: 1 },
+        ]),
+      );
     },
   );
 
@@ -135,10 +137,12 @@ describe("EntityGraph", () => {
       content: "React Native works with Redis and Redis.",
     });
 
-    expect(graph.entitiesForDoc("counted-doc")).toEqual(expect.arrayContaining([
-      { name: "React Native", count: 1 },
-      { name: "Redis", count: 2 },
-    ]));
+    expect(graph.entitiesForDoc("counted-doc")).toEqual(
+      expect.arrayContaining([
+        { name: "React Native", count: 1 },
+        { name: "Redis", count: 2 },
+      ]),
+    );
   });
 
   it("returns co-occurring entities for an entity", () => {

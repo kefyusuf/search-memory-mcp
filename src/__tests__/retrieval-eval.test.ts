@@ -93,10 +93,7 @@ describe("evaluateRetrieval", () => {
   });
 
   it("formats a readable report", () => {
-    const report = evaluateRetrieval(
-      [{ query: "q", relevantIds: ["a"], retrievedIds: ["a", "b"] }],
-      { ks: [1, 2] },
-    );
+    const report = evaluateRetrieval([{ query: "q", relevantIds: ["a"], retrievedIds: ["a", "b"] }], { ks: [1, 2] });
 
     const text = formatEvalReport(report);
     expect(text).toContain("recall@1");

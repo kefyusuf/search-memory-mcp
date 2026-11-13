@@ -1,6 +1,11 @@
 import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import { assertRequestContext, InvocationError, type Permission, type RequestContext } from "../runtime/request-context.js";
+import {
+  assertRequestContext,
+  InvocationError,
+  type Permission,
+  type RequestContext,
+} from "../runtime/request-context.js";
 
 export type SessionNoteInput = {
   text: string;
@@ -57,7 +62,12 @@ export class SessionMemory {
     this.db.pragma("synchronous = FULL");
     this.db.pragma("temp_store = MEMORY");
     this.maxNotes = options?.maxNotes ?? DEFAULT_MAX_NOTES;
-    try { this.init(); } catch (error) { this.db.close(); throw error; }
+    try {
+      this.init();
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   private init() {
@@ -75,11 +85,16 @@ export class SessionMemory {
         CREATE INDEX IF NOT EXISTS idx_session_notes_session ON session_notes(session);
         CREATE INDEX IF NOT EXISTS idx_session_notes_ts ON session_notes(timestamp);
       `);
-      const columns = new Set((this.db.pragma("table_info(session_notes)") as Array<{ name: string }>).map(column => column.name));
+      const columns = new Set(
+        (this.db.pragma("table_info(session_notes)") as Array<{ name: string }>).map((column) => column.name),
+      );
       for (const name of ["execution_mode", "tenant_id", "workspace_id"]) {
-        if (!columns.has(name)) this.db.exec(`ALTER TABLE session_notes ADD COLUMN ${name} TEXT NOT NULL DEFAULT 'local'`);
+        if (!columns.has(name))
+          this.db.exec(`ALTER TABLE session_notes ADD COLUMN ${name} TEXT NOT NULL DEFAULT 'local'`);
       }
-      this.db.exec("CREATE INDEX IF NOT EXISTS idx_session_notes_scope ON session_notes(execution_mode, tenant_id, workspace_id, timestamp)");
+      this.db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_session_notes_scope ON session_notes(execution_mode, tenant_id, workspace_id, timestamp)",
+      );
     })();
   }
 
@@ -91,9 +106,7 @@ export class SessionMemory {
 
   remember(textOrInput: string | SessionNoteInput, options?: RememberOptions): SessionNote {
     this.authorize("memory:write");
-    const input: SessionNoteInput = typeof textOrInput === "string"
-      ? { text: textOrInput, ...options }
-      : textOrInput;
+    const input: SessionNoteInput = typeof textOrInput === "string" ? { text: textOrInput, ...options } : textOrInput;
 
     const text = input.text.trim();
     if (!text) {
@@ -109,9 +122,11 @@ export class SessionMemory {
     const timestamp = Date.now();
 
     this.db.transaction(() => {
-      this.db.prepare(
-        "INSERT INTO session_notes (id, text, topic, tags, session, timestamp, execution_mode, tenant_id, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      ).run(id, text, topic, JSON.stringify(tags), session, timestamp, ...this.scope);
+      this.db
+        .prepare(
+          "INSERT INTO session_notes (id, text, topic, tags, session, timestamp, execution_mode, tenant_id, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run(id, text, topic, JSON.stringify(tags), session, timestamp, ...this.scope);
       this.enforceMaxNotes();
     })();
 
@@ -120,7 +135,9 @@ export class SessionMemory {
 
   get(id: string): SessionNote | null {
     this.authorize("memory:read");
-    const row = this.db.prepare(`SELECT * FROM session_notes WHERE ${this.scopeWhere} AND id = ?`).get(...this.scope, id) as
+    const row = this.db
+      .prepare(`SELECT * FROM session_notes WHERE ${this.scopeWhere} AND id = ?`)
+      .get(...this.scope, id) as
       | { id: string; text: string; topic: string; tags: string; session: string; timestamp: number }
       | undefined;
     return row ? this.hydrate(row) : null;
@@ -143,9 +160,9 @@ export class SessionMemory {
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     const limit = Math.min(Math.max(filter?.limit ?? 50, 1), 500);
 
-    const rows = this.db.prepare(
-      `SELECT * FROM session_notes ${where} ORDER BY timestamp DESC, rowid DESC LIMIT ?`,
-    ).all(...params, limit) as Array<{
+    const rows = this.db
+      .prepare(`SELECT * FROM session_notes ${where} ORDER BY timestamp DESC, rowid DESC LIMIT ?`)
+      .all(...params, limit) as Array<{
       id: string;
       text: string;
       topic: string;
@@ -188,37 +205,53 @@ export class SessionMemory {
 
   delete(id: string): boolean {
     this.authorize("memory:write");
-    const result = this.db.prepare(`DELETE FROM session_notes WHERE ${this.scopeWhere} AND id = ?`).run(...this.scope, id);
+    const result = this.db
+      .prepare(`DELETE FROM session_notes WHERE ${this.scopeWhere} AND id = ?`)
+      .run(...this.scope, id);
     return result.changes > 0;
   }
 
   clear(session?: string): number {
     this.authorize("memory:write");
     if (session) {
-      return this.db.prepare(`DELETE FROM session_notes WHERE ${this.scopeWhere} AND session = ?`).run(...this.scope, session).changes;
+      return this.db
+        .prepare(`DELETE FROM session_notes WHERE ${this.scopeWhere} AND session = ?`)
+        .run(...this.scope, session).changes;
     }
     return this.db.prepare(`DELETE FROM session_notes WHERE ${this.scopeWhere}`).run(...this.scope).changes;
   }
 
   getStats(): { count: number; sessions: number } {
     this.authorize("memory:read");
-    const count = (this.db.prepare(`SELECT COUNT(*) AS c FROM session_notes WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }).c;
+    const count = (
+      this.db.prepare(`SELECT COUNT(*) AS c FROM session_notes WHERE ${this.scopeWhere}`).get(...this.scope) as {
+        c: number;
+      }
+    ).c;
     const sessions = (
-      this.db.prepare(`SELECT COUNT(DISTINCT session) AS c FROM session_notes WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }
+      this.db
+        .prepare(`SELECT COUNT(DISTINCT session) AS c FROM session_notes WHERE ${this.scopeWhere}`)
+        .get(...this.scope) as { c: number }
     ).c;
     return { count, sessions };
   }
 
   private enforceMaxNotes(): void {
-    const count = (this.db.prepare(`SELECT COUNT(*) AS c FROM session_notes WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }).c;
+    const count = (
+      this.db.prepare(`SELECT COUNT(*) AS c FROM session_notes WHERE ${this.scopeWhere}`).get(...this.scope) as {
+        c: number;
+      }
+    ).c;
     if (count <= this.maxNotes) return;
 
     const excess = count - this.maxNotes;
-    this.db.prepare(
-      `DELETE FROM session_notes WHERE id IN (
+    this.db
+      .prepare(
+        `DELETE FROM session_notes WHERE id IN (
          SELECT id FROM session_notes WHERE ${this.scopeWhere} ORDER BY timestamp ASC, rowid ASC LIMIT ?
        )`,
-    ).run(...this.scope, excess);
+      )
+      .run(...this.scope, excess);
   }
 
   private hydrate(row: {

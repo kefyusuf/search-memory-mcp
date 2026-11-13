@@ -1,4 +1,11 @@
-import { assertRequestContext, assertRequestAuthorization, InvocationError, type ExecutionMode, type Permission, type RequestContext } from "./request-context.js";
+import {
+  assertRequestContext,
+  assertRequestAuthorization,
+  InvocationError,
+  type ExecutionMode,
+  type Permission,
+  type RequestContext,
+} from "./request-context.js";
 import type { InvocationAdmission } from "./invocation-admission.js";
 
 export type ToolHandler<T> = (args: unknown, context: RequestContext) => Promise<T>;
@@ -12,11 +19,17 @@ export type ToolDefinition<T> = {
 export class ToolDispatcher<T = unknown> {
   private readonly tools: ReadonlyMap<string, Readonly<ToolDefinition<T>>>;
 
-  constructor(tools: Record<string, ToolDefinition<T>>, private readonly options: Readonly<{ admission?: InvocationAdmission }> = {}) {
+  constructor(
+    tools: Record<string, ToolDefinition<T>>,
+    private readonly options: Readonly<{ admission?: InvocationAdmission }> = {},
+  ) {
     this.options = Object.freeze({ ...options });
-    this.tools = new Map(Object.entries(tools).map(([name, tool]) => [name,
-      Object.freeze({ ...tool, modes: Object.freeze([...tool.modes]) }),
-    ]));
+    this.tools = new Map(
+      Object.entries(tools).map(([name, tool]) => [
+        name,
+        Object.freeze({ ...tool, modes: Object.freeze([...tool.modes]) }),
+      ]),
+    );
   }
 
   async call(name: string, args: unknown, input: unknown): Promise<T> {

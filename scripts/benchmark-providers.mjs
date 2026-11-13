@@ -18,7 +18,8 @@ import { parseArgs } from "node:util";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const load = (path) => import(pathToFileURL(join(root, "build", path)).href);
 const { buildProviders } = await load("providers/registry.js");
-const { runProviderBenchmark, summarizeProviderBenchmark, formatProviderBenchmarkReport } = await load("eval/provider-benchmark.js");
+const { runProviderBenchmark, summarizeProviderBenchmark, formatProviderBenchmarkReport } =
+  await load("eval/provider-benchmark.js");
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -31,11 +32,16 @@ const { values, positionals } = parseArgs({
 });
 
 const casesPath = positionals[0] ?? join(root, "evals/providers/queries.jsonl");
-let queries = readFileSync(casesPath, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+let queries = readFileSync(casesPath, "utf8")
+  .split("\n")
+  .filter((line) => line.trim())
+  .map((line) => JSON.parse(line));
 if (values.limit) queries = queries.slice(0, Number(values.limit));
 
 const providerNames = (process.env.SEARCH_PROVIDERS ?? "duckduckgo,bing,brave,google,marginalia")
-  .split(",").map((name) => name.trim().toLowerCase()).filter(Boolean);
+  .split(",")
+  .map((name) => name.trim().toLowerCase())
+  .filter(Boolean);
 const providers = buildProviders(providerNames);
 
 // Provider logs go to stderr; keep them out of the report.
@@ -47,7 +53,10 @@ if (values.dump) {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const response = await realFetch(input, init);
-    const body = await response.clone().text().catch(() => "");
+    const body = await response
+      .clone()
+      .text()
+      .catch(() => "");
     lastResponse = { url: String(input instanceof Request ? input.url : input), status: response.status, body };
     return response;
   };

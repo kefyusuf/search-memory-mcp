@@ -38,7 +38,11 @@ function killProcessTree(child: ChildProcess): void {
   if (process.platform === "win32") {
     spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
   } else {
-    try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch {
+      child.kill("SIGKILL");
+    }
   }
 }
 
@@ -58,7 +62,11 @@ export function installChromium(options: InstallOptions = {}): Promise<void> {
     });
     const timer = setTimeout(() => {
       killProcessTree(child);
-      reject(new Error(`Chromium download did not finish within ${Math.round(timeoutMs / 1000)} seconds. ${MANUAL_INSTALL_HINT}`));
+      reject(
+        new Error(
+          `Chromium download did not finish within ${Math.round(timeoutMs / 1000)} seconds. ${MANUAL_INSTALL_HINT}`,
+        ),
+      );
     }, timeoutMs);
     child.on("error", (error) => {
       clearTimeout(timer);

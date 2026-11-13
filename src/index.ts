@@ -2,19 +2,16 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-import { chromium, Browser, BrowserContext } from "playwright";
+import { chromium, type Browser, type BrowserContext } from "playwright";
 import { z } from "zod";
 import { TransformersEmbeddingProvider } from "./cache/embedding.js";
 import { SQLiteVectorStore } from "./cache/sqlite-store.js";
 import { SemanticCache } from "./cache/semantic-cache.js";
 import { CrossLingualEngine } from "./cache/crosslingual.js";
-import { createSearchRateLimiter, createFetchRateLimiter, TokenBucket } from "./rate-limiter.js";
+import { createSearchRateLimiter, createFetchRateLimiter, type TokenBucket } from "./rate-limiter.js";
 import type { SearchProvider } from "./providers/base.js";
 import { ProviderHealthTracker } from "./providers/health.js";
 import { buildProviders } from "./providers/registry.js";
@@ -47,7 +44,10 @@ export { SearchSchema } from "./tools/search.js";
 
 function getEnvArray(key: string, defaultVal: string): string[] {
   const raw = process.env[key] || defaultVal;
-  return raw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 function getEnv(key: string, defaultVal: string): string {
@@ -106,11 +106,12 @@ export class WebSearchServer {
         capabilities: {
           tools: {},
         },
-      }
+      },
     );
 
     this.enableCrosslingual = getEnvBool("ENABLE_CROSSLINGUAL", false);
-    this.fetchWaitUntil = getEnv("FETCH_WAIT_UNTIL", "networkidle") === "domcontentloaded" ? "domcontentloaded" : "networkidle";
+    this.fetchWaitUntil =
+      getEnv("FETCH_WAIT_UNTIL", "networkidle") === "domcontentloaded" ? "domcontentloaded" : "networkidle";
     this.cacheDbPath = resolveCacheDbPath({ envPath: process.env.CACHE_DB_PATH });
     this.intentDetector = intentDetector;
 
@@ -133,7 +134,8 @@ export class WebSearchServer {
       console.error("Cross-encoder reranker enabled (models download on first use).");
     }
     const cleanupIntervalHours = parseInt(getEnv("CACHE_CLEANUP_INTERVAL_HOURS", "24"), 10);
-    const cleanupIntervalMs = (isNaN(cleanupIntervalHours) || cleanupIntervalHours <= 0 ? 24 : cleanupIntervalHours) * 60 * 60 * 1000;
+    const cleanupIntervalMs =
+      (Number.isNaN(cleanupIntervalHours) || cleanupIntervalHours <= 0 ? 24 : cleanupIntervalHours) * 60 * 60 * 1000;
     setInterval(() => {
       const deleted = this.cache.deleteExpiredContent();
       if (deleted > 0) console.error(`Cache cleanup: removed ${deleted} expired content entries`);
@@ -150,9 +152,7 @@ export class WebSearchServer {
       getBrowserContext: () => this.getBrowserContext(),
       fetchWaitUntil: this.fetchWaitUntil,
       readerFallbackUrl: process.env.READER_FALLBACK_URL,
-      detectIntent: this.enableCrosslingual
-        ? (text) => this.cache.detectIntent(text)
-        : null,
+      detectIntent: this.enableCrosslingual ? (text) => this.cache.detectIntent(text) : null,
     });
 
     this.setupProviders();
@@ -207,7 +207,11 @@ export class WebSearchServer {
       fetch_content: { permission: "content:read", modes: ["local"], handler: (args) => fetchContent(args) },
       research: { permission: "knowledge:write", modes: ["local"], handler: (args) => research(args) },
       server_status: { permission: "status:read", modes: ["local"], handler: () => this.handleStatus() },
-      ingest_document: { permission: "knowledge:write", modes: ["local"], handler: (args) => knowledge.ingest_document(args) },
+      ingest_document: {
+        permission: "knowledge:write",
+        modes: ["local"],
+        handler: (args) => knowledge.ingest_document(args),
+      },
       index_url: { permission: "knowledge:write", modes: ["local"], handler: (args) => knowledge.index_url(args) },
       search_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => knowledge.search_index(args) },
       list_index: { permission: "knowledge:read", modes: ["local"], handler: (args) => knowledge.list_index(args) },
@@ -222,7 +226,9 @@ export class WebSearchServer {
 
   private setupProviders() {
     // With a Brave Search API key, the API is the most reliable source, so it leads by default.
-    const defaultOrder = process.env.BRAVE_SEARCH_API_KEY?.trim() ? "brave,duckduckgo,marginalia,bing" : "duckduckgo,marginalia,bing";
+    const defaultOrder = process.env.BRAVE_SEARCH_API_KEY?.trim()
+      ? "brave,duckduckgo,marginalia,bing"
+      : "duckduckgo,marginalia,bing";
     const order = getEnvArray("SEARCH_PROVIDERS", defaultOrder);
     this.providers = buildProviders(order.filter((name) => this.providerIsConfigurable(name)));
   }
@@ -239,15 +245,18 @@ export class WebSearchServer {
   private async getBrowser() {
     if (!this.browser) {
       console.error("Launching persistent browser instance...");
-      this.browserLaunch ??= launchWithAutoInstall(() => chromium.launch({
-        headless: true,
-        args: [
-          "--disable-quic",
-          "--disable-background-networking",
-          "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
-        ],
-      }))
-        .finally(() => { this.browserLaunch = null; });
+      this.browserLaunch ??= launchWithAutoInstall(() =>
+        chromium.launch({
+          headless: true,
+          args: [
+            "--disable-quic",
+            "--disable-background-networking",
+            "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+          ],
+        }),
+      ).finally(() => {
+        this.browserLaunch = null;
+      });
       this.browser = await this.browserLaunch;
     }
     return this.browser;
@@ -261,17 +270,24 @@ export class WebSearchServer {
     this.browserContextLaunch ??= (async () => {
       const browser = await this.getBrowser();
       const { context, proxy } = await openGuardedBrowserContext(browser, {
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       });
       if (this.browserShuttingDown) {
-        try { await context.close(); } finally { await proxy.close(); }
+        try {
+          await context.close();
+        } finally {
+          await proxy.close();
+        }
         throw new Error("Browser is shutting down");
       }
       this.browserEgressProxy = proxy;
       this.browserContext = context;
       console.error("Persistent guarded browser context created.");
       return context;
-    })().finally(() => { this.browserContextLaunch = null; });
+    })().finally(() => {
+      this.browserContextLaunch = null;
+    });
     return this.browserContextLaunch;
   }
 
@@ -280,20 +296,30 @@ export class WebSearchServer {
     this.browserShuttingDown = true;
     // In-flight context creation may allocate a proxy and browser after the
     // shutdown signal. Await it even when it rejects, then close every resource.
-    try { await this.browserContextLaunch; } catch {}
-    try { await this.browserLaunch; } catch {}
+    try {
+      await this.browserContextLaunch;
+    } catch {}
+    try {
+      await this.browserLaunch;
+    } catch {}
     if (this.browserContext) {
-      try { await this.browserContext.close(); } catch {}
+      try {
+        await this.browserContext.close();
+      } catch {}
       this.browserContext = null;
     }
     if (this.browserEgressProxy) {
-      try { await this.browserEgressProxy.close(); } catch (error) {
+      try {
+        await this.browserEgressProxy.close();
+      } catch (error) {
         console.error("Error stopping browser egress proxy:", error);
       }
       this.browserEgressProxy = null;
     }
     if (this.browser) {
-      try { await this.browser.close(); } catch {}
+      try {
+        await this.browser.close();
+      } catch {}
       this.browser = null;
     }
   }
@@ -322,9 +348,14 @@ export class WebSearchServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const { name, arguments: args } = request.params;
-      return this.callTool(name, args, createLocalRequestContext({
-        requestId: String(extra.requestId), signal: extra.signal,
-      }));
+      return this.callTool(
+        name,
+        args,
+        createLocalRequestContext({
+          requestId: String(extra.requestId),
+          signal: extra.signal,
+        }),
+      );
     });
   }
 

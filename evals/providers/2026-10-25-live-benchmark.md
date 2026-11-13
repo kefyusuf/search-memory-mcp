@@ -10,11 +10,11 @@ First live measurement after the 1.1.0 release. Scope: a small smoke-scale run, 
 
 ## Results
 
-| Provider | Attempts | OK | Empty | Error | Success | p50 ms | p95 ms | Top errors |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| duckduckgo | 4 | 4 | 0 | 0 | 100% | 790 | 988 | - |
-| exa | 4 | 4 | 0 | 0 | 100% | 1263 | 2441 | - |
-| tavily | 4 | 4 | 0 | 0 | 100% | 1847 | 2148 | - |
+| Provider   | Attempts | OK  | Empty | Error | Success | p50 ms | p95 ms | Top errors |
+| ---------- | -------- | --- | ----- | ----- | ------- | ------ | ------ | ---------- |
+| duckduckgo | 4        | 4   | 0     | 0     | 100%    | 790    | 988    | -          |
+| exa        | 4        | 4   | 0     | 0     | 100%    | 1263   | 2441   | -          |
+| tavily     | 4        | 4   | 0     | 0     | 100%    | 1847   | 2148   | -          |
 
 All three providers answered every query with zero blocks, empty results, or errors — a marked contrast to the October 2026 scraper measurements (Brave 429, Google JS-only, Yahoo always-500, Bing soft blocks).
 

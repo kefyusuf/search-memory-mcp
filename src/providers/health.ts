@@ -52,9 +52,7 @@ export class ProviderHealthTracker {
     const attempts = this.history.get(name) ?? [];
     const recentSuccesses = attempts.filter(Boolean).length;
     const backoffUntil = this.backoffUntil.get(name);
-    const backoffRemainingMs = backoffUntil === undefined
-      ? 0
-      : Math.max(0, backoffUntil - Date.now());
+    const backoffRemainingMs = backoffUntil === undefined ? 0 : Math.max(0, backoffUntil - Date.now());
 
     return {
       available: this.isAvailable(name),

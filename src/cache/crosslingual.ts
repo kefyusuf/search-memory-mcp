@@ -1,23 +1,23 @@
 import { pipeline } from "@huggingface/transformers";
-import { TranslationResult, ClassificationResult } from "./types.js";
+import type { TranslationResult, ClassificationResult } from "./types.js";
 
 const OPUS_MT_REGISTRY: Record<string, string> = {
-  "tur_Latn": "Xenova/opus-mt-tr-en",
-  "fra_Latn": "Xenova/opus-mt-fr-en",
-  "deu_Latn": "Xenova/opus-mt-de-en",
-  "spa_Latn": "Xenova/opus-mt-es-en",
-  "por_Latn": "Xenova/opus-mt-pt-en",
-  "ita_Latn": "Xenova/opus-mt-it-en",
-  "nld_Latn": "Xenova/opus-mt-nl-en",
-  "rus_Cyrl": "Xenova/opus-mt-ru-en",
-  "zho_Hans": "Xenova/opus-mt-zh-en",
-  "jpn_Jpan": "Xenova/opus-mt-ja-en",
+  tur_Latn: "Xenova/opus-mt-tr-en",
+  fra_Latn: "Xenova/opus-mt-fr-en",
+  deu_Latn: "Xenova/opus-mt-de-en",
+  spa_Latn: "Xenova/opus-mt-es-en",
+  por_Latn: "Xenova/opus-mt-pt-en",
+  ita_Latn: "Xenova/opus-mt-it-en",
+  nld_Latn: "Xenova/opus-mt-nl-en",
+  rus_Cyrl: "Xenova/opus-mt-ru-en",
+  zho_Hans: "Xenova/opus-mt-zh-en",
+  jpn_Jpan: "Xenova/opus-mt-ja-en",
 };
 
 const LANG_DETECT_MODEL = "onnx-community/language_detection-ONNX";
 
 class TranslationProvider {
-  private models = new Map<string, any>();
+  private models = new Map<string, (text: string) => Promise<unknown>>();
   private loadFailed = false;
 
   async translate(text: string, sourceLang: string): Promise<string> {
@@ -38,13 +38,13 @@ class TranslationProvider {
         return text;
       }
     }
-    const [result] = await model(text) as TranslationResult[];
+    const [result] = (await model(text)) as TranslationResult[];
     return result.translation_text;
   }
 }
 
 export class CrossLingualEngine {
-  private langDetector: any = null;
+  private langDetector: ((text: string) => Promise<unknown>) | null = null;
   private langDetectFailed = false;
   private translator: TranslationProvider;
 
@@ -72,7 +72,7 @@ export class CrossLingualEngine {
     try {
       const detector = await this.getLangDetector();
       if (!detector) return "eng_Latn";
-      const [result] = await detector(text) as ClassificationResult[];
+      const [result] = (await detector(text)) as ClassificationResult[];
       return result.label;
     } catch (error) {
       console.error("Language detection error:", error);

@@ -54,6 +54,10 @@
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
     "start": "node build/index.js",
     "dev": "node --loader ts-node/esm src/index.ts",
     "test": "vitest run --configLoader native --pool forks",
@@ -100,11 +104,13 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
     "@types/better-sqlite3": "^7.6.13",
     "@types/jsdom": "^21.1.6",
     "@types/node": "^20.11.24",
     "@types/pg": "8.23.1",
     "@types/turndown": "^5.0.4",
+    "@vitest/coverage-v8": "^4.1.12",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "vitest": "^4.1.12"

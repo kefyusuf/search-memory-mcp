@@ -23,8 +23,14 @@ const IO_READ_TIMEOUT_MS = 15_000;
 // Bounded cleanup: protocol sends other than IO.read can also stall.
 const CDP_SETTLE_TIMEOUT_MS = 15_000;
 const OMIT_REPLAY_HEADERS = new Set([
-  "content-length", "transfer-encoding", "content-encoding",
-  "content-md5", "digest", "etag", "content-range", "accept-ranges",
+  "content-length",
+  "transfer-encoding",
+  "content-encoding",
+  "content-md5",
+  "digest",
+  "etag",
+  "content-range",
+  "accept-ranges",
 ]);
 
 function isRedirect(code: number): boolean {
@@ -80,11 +86,15 @@ async function withDeadline<T>(operation: Promise<T>, label: string, ms: number)
   }
 }
 
-async function readWithDeadline(session: CDPSession, handle: string): Promise<{
-  data: string; base64Encoded?: boolean; eof?: boolean;
+async function readWithDeadline(
+  session: CDPSession,
+  handle: string,
+): Promise<{
+  data: string;
+  base64Encoded?: boolean;
+  eof?: boolean;
 }> {
-  return withDeadline(session.send("IO.read", { handle, size: READ_CHUNK_BYTES }),
-    "IO.read", IO_READ_TIMEOUT_MS);
+  return withDeadline(session.send("IO.read", { handle, size: READ_CHUNK_BYTES }), "IO.read", IO_READ_TIMEOUT_MS);
 }
 
 export type BoundedDocumentInterceptor = {
@@ -101,7 +111,9 @@ export type BoundedDocumentInterceptor = {
 
 /** Installs response-stage interception before page.goto(). */
 export async function interceptBoundedMainDocument(
-  context: BrowserContext, page: Page, maxBytes: number,
+  context: BrowserContext,
+  page: Page,
+  maxBytes: number,
 ): Promise<BoundedDocumentInterceptor> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error("Invalid document byte budget");
   const sessionCreation = context.newCDPSession(page);
@@ -113,9 +125,7 @@ export async function interceptBoundedMainDocument(
     // Reclaim that late result rather than leaving an untracked CDP session.
     // A broken browser connection can make detach impossible: best effort.
     void sessionCreation.then(
-      lateSession => withDeadline(
-        lateSession.detach(), "late session detach", CDP_SETTLE_TIMEOUT_MS,
-      ).catch(() => {}),
+      (lateSession) => withDeadline(lateSession.detach(), "late session detach", CDP_SETTLE_TIMEOUT_MS).catch(() => {}),
       () => {},
     );
     throw error;
@@ -135,9 +145,16 @@ export async function interceptBoundedMainDocument(
       try {
         if (disposed) return;
         const status = event.responseStatusCode;
-        if (event.resourceType !== "Document" || event.frameId !== mainFrameId ||
-            (status !== undefined && isRedirect(status))) {
-          await withDeadline(session.send("Fetch.continueResponse", { requestId: event.requestId }), "Fetch.continueResponse", CDP_SETTLE_TIMEOUT_MS);
+        if (
+          event.resourceType !== "Document" ||
+          event.frameId !== mainFrameId ||
+          (status !== undefined && isRedirect(status))
+        ) {
+          await withDeadline(
+            session.send("Fetch.continueResponse", { requestId: event.requestId }),
+            "Fetch.continueResponse",
+            CDP_SETTLE_TIMEOUT_MS,
+          );
           return;
         }
         // This is the main-frame final document. A malformed response cannot
@@ -146,7 +163,13 @@ export async function interceptBoundedMainDocument(
         if (!status || status < 100 || status > 599 || !event.responseHeaders) {
           throw new Error("Missing main-document response metadata");
         }
-        handle = (await withDeadline(session.send("Fetch.takeResponseBodyAsStream", { requestId: event.requestId }), "Fetch.takeResponseBodyAsStream", CDP_SETTLE_TIMEOUT_MS)).stream;
+        handle = (
+          await withDeadline(
+            session.send("Fetch.takeResponseBodyAsStream", { requestId: event.requestId }),
+            "Fetch.takeResponseBodyAsStream",
+            CDP_SETTLE_TIMEOUT_MS,
+          )
+        ).stream;
         if (!handle) throw new Error("No CDP response stream");
         let total = 0;
         const chunks: Buffer[] = [];
@@ -158,30 +181,47 @@ export async function interceptBoundedMainDocument(
           total += chunk.byteLength;
           if (total > maxBytes) {
             failure ??= "oversize";
-            await withDeadline(session.send("Fetch.failRequest", {
-              requestId: event.requestId, errorReason: "BlockedByClient",
-            }), "Fetch.failRequest", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
+            await withDeadline(
+              session.send("Fetch.failRequest", {
+                requestId: event.requestId,
+                errorReason: "BlockedByClient",
+              }),
+              "Fetch.failRequest",
+              CDP_SETTLE_TIMEOUT_MS,
+            ).catch(() => {});
             return;
           }
           chunks.push(chunk);
-          if (result.eof) { eof = true; break; }
+          if (result.eof) {
+            eof = true;
+            break;
+          }
         }
         if (!eof) throw new Error("CDP stream did not reach EOF");
         const body = Buffer.concat(chunks, total);
         const responseHeaders = safeReplayHeaders(event.responseHeaders, body.byteLength);
-        await withDeadline(session.send("Fetch.fulfillRequest", {
-          requestId: event.requestId,
-          responseCode: status,
-          responseHeaders,
-          body: body.toString("base64"),
-        }), "Fetch.fulfillRequest", CDP_SETTLE_TIMEOUT_MS);
+        await withDeadline(
+          session.send("Fetch.fulfillRequest", {
+            requestId: event.requestId,
+            responseCode: status,
+            responseHeaders,
+            body: body.toString("base64"),
+          }),
+          "Fetch.fulfillRequest",
+          CDP_SETTLE_TIMEOUT_MS,
+        );
         if (!failure) document = { body };
       } catch {
         failure ??= "interception_failed";
         document = null;
-        await withDeadline(session.send("Fetch.failRequest", {
-          requestId: event.requestId, errorReason: "Failed",
-        }), "Fetch.failRequest", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
+        await withDeadline(
+          session.send("Fetch.failRequest", {
+            requestId: event.requestId,
+            errorReason: "Failed",
+          }),
+          "Fetch.failRequest",
+          CDP_SETTLE_TIMEOUT_MS,
+        ).catch(() => {});
       } finally {
         if (handle) {
           try {
@@ -200,14 +240,20 @@ export async function interceptBoundedMainDocument(
       pending.add(task);
       void task.finally(() => pending.delete(task));
     });
-    await withDeadline(session.send("Fetch.enable", {
-      patterns: [{ urlPattern: "*", requestStage: "Response" }],
-    }), "Fetch.enable", CDP_SETTLE_TIMEOUT_MS);
+    await withDeadline(
+      session.send("Fetch.enable", {
+        patterns: [{ urlPattern: "*", requestStage: "Response" }],
+      }),
+      "Fetch.enable",
+      CDP_SETTLE_TIMEOUT_MS,
+    );
     enabled = true;
     return {
       captured: () => document,
       terminal: () => failure,
-      resetForNavigation: () => { document = null; },
+      resetForNavigation: () => {
+        document = null;
+      },
       settle: async () => {
         try {
           await withDeadline(Promise.allSettled([...pending]), "response settlement", CDP_SETTLE_TIMEOUT_MS);
@@ -225,11 +271,15 @@ export async function interceptBoundedMainDocument(
         if (enabled) {
           try {
             await withDeadline(session.send("Fetch.disable"), "Fetch.disable", CDP_SETTLE_TIMEOUT_MS);
-          } catch { teardownFailed = true; }
+          } catch {
+            teardownFailed = true;
+          }
         }
         try {
           await withDeadline(session.detach(), "session detach", CDP_SETTLE_TIMEOUT_MS);
-        } catch { teardownFailed = true; }
+        } catch {
+          teardownFailed = true;
+        }
         if (teardownFailed) {
           failure ??= "interception_failed";
           document = null;
@@ -237,7 +287,8 @@ export async function interceptBoundedMainDocument(
       },
     };
   } catch (error) {
-    if (enabled) await withDeadline(session.send("Fetch.disable"), "Fetch.disable", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
+    if (enabled)
+      await withDeadline(session.send("Fetch.disable"), "Fetch.disable", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
     await withDeadline(session.detach(), "session detach", CDP_SETTLE_TIMEOUT_MS).catch(() => {});
     throw error;
   }

@@ -15,14 +15,21 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("Google provider", () => {
   it("reports the JavaScript-required page as an error, not as no results", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(ENABLE_JS_PAGE, { status: 200 })));
-    await expect(searchGoogle("node.js 22 release notes", locale))
-      .rejects.toThrow("google returned a JavaScript-required page");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(ENABLE_JS_PAGE, { status: 200 })),
+    );
+    await expect(searchGoogle("node.js 22 release notes", locale)).rejects.toThrow(
+      "google returned a JavaScript-required page",
+    );
   });
 
   it("still parses a normal results page", async () => {
     const html = `<html><body><div><a href="https://nodejs.org/en/blog/release/v22.0.0"><h3>Node.js 22 release</h3></a></div></body></html>`;
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(html, { status: 200 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(html, { status: 200 })),
+    );
     await expect(searchGoogle("node.js 22", locale)).resolves.toEqual([
       expect.objectContaining({ url: "https://nodejs.org/en/blog/release/v22.0.0", title: "Node.js 22 release" }),
     ]);

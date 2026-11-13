@@ -38,17 +38,16 @@ export function createMemoryHandlers({ sessionMemory }: { sessionMemory: Session
     async recall(args: unknown): Promise<ToolResult> {
       const { query, topic, session, limit = 10 } = RecallSchema.parse(args ?? {});
       const filter = { topic, session, limit };
-      const notes = query && query.trim()
-        ? sessionMemory.search(query, filter)
-        : sessionMemory.list(filter);
+      const notes = query?.trim() ? sessionMemory.search(query, filter) : sessionMemory.list(filter);
 
       const stats = sessionMemory.getStats();
       if (notes.length === 0) {
         return textResult(`No memory notes matched. (${stats.count} notes stored across ${stats.sessions} sessions)`);
       }
 
-      const lines = notes.map((note, index) =>
-        `${index + 1}. [${note.id}] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`
+      const lines = notes.map(
+        (note, index) =>
+          `${index + 1}. [${note.id}] (${note.topic}${note.tags.length ? `, ${note.tags.join(",")}` : ""}) ${note.text}`,
       );
       return textResult(`Session memory (${stats.count} notes total):\n\n${lines.join("\n")}`);
     },

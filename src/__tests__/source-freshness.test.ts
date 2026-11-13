@@ -33,7 +33,9 @@ describe("normalizePublishedDate", () => {
 
 describe("PDF publication date", () => {
   it("comes from the document creation date", async () => {
-    const result = await extractDocument({ data: pdf("text", "<< /Title (Dated) /CreationDate (D:20240115120000Z) >>") });
+    const result = await extractDocument({
+      data: pdf("text", "<< /Title (Dated) /CreationDate (D:20240115120000Z) >>"),
+    });
     expect(result.publishedAt).toBe("2024-01-15");
   });
 });
@@ -72,28 +74,66 @@ describe("ContentFetcher dates", () => {
     vi.spyOn(dns, "resolve4").mockResolvedValue(["93.184.216.34"] as never);
     vi.spyOn(dns, "resolve6").mockResolvedValue([] as never);
   });
-  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 
   function fetcher() {
-    const cache = new SemanticCache({ getEmbedding: async () => [], isAvailable: () => false }, new InMemoryVectorStore());
-    return new ContentFetcher({ cache, getBrowserContext: async () => ({}) as BrowserContext, fetchWaitUntil: "networkidle" });
+    const cache = new SemanticCache(
+      { getEmbedding: async () => [], isAvailable: () => false },
+      new InMemoryVectorStore(),
+    );
+    return new ContentFetcher({
+      cache,
+      getBrowserContext: async () => ({}) as BrowserContext,
+      fetchWaitUntil: "networkidle",
+    });
   }
 
   it("returns the page's publication date and when it was fetched, also from the cache", async () => {
     vi.useFakeTimers({ now: new Date("2026-10-09T08:00:00Z"), toFake: ["Date"] });
     const instance = fetcher();
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE('<meta property="article:published_time" content="2024-03-05T09:00:00Z">'), { status: 200, headers: { "content-type": "text/html" } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(ARTICLE('<meta property="article:published_time" content="2024-03-05T09:00:00Z">'), {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
     const first = await instance.fetchContent("https://guide.example/pooling");
-    expect(first).toMatchObject({ kind: "content", source: "http", publishedAt: "2024-03-05", fetchedAt: "2026-10-09T08:00:00.000Z" });
+    expect(first).toMatchObject({
+      kind: "content",
+      source: "http",
+      publishedAt: "2024-03-05",
+      fetchedAt: "2026-10-09T08:00:00.000Z",
+    });
 
     vi.setSystemTime(new Date("2026-10-09T09:30:00Z"));
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("should use cache"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("should use cache");
+      }),
+    );
     const cached = await instance.fetchContent("https://guide.example/pooling");
-    expect(cached).toMatchObject({ kind: "content", source: "content-cache", publishedAt: "2024-03-05", fetchedAt: "2026-10-09T08:00:00.000Z" });
+    expect(cached).toMatchObject({
+      kind: "content",
+      source: "content-cache",
+      publishedAt: "2024-03-05",
+      fetchedAt: "2026-10-09T08:00:00.000Z",
+    });
   });
 
   it("leaves the publication date out when the page has none", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(ARTICLE(""), { status: 200, headers: { "content-type": "text/html" } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(ARTICLE(""), { status: 200, headers: { "content-type": "text/html" } })),
+    );
     const result = await fetcher().fetchContent("https://guide.example/undated");
     expect(result.kind === "content" && result.publishedAt).toBeUndefined();
     expect(result.kind === "content" && result.fetchedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);

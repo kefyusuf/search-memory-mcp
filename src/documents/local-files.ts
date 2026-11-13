@@ -6,7 +6,10 @@ import { extractDocument, type ExtractedDocument } from "./extract.js";
 export type LocalFileErrorCode = "disabled" | "outside" | "hidden" | "not_found" | "not_a_file" | "too_large";
 
 export class LocalFileError extends Error {
-  constructor(readonly code: LocalFileErrorCode, message: string) {
+  constructor(
+    readonly code: LocalFileErrorCode,
+    message: string,
+  ) {
     super(message);
     this.name = "LocalFileError";
   }
@@ -41,11 +44,15 @@ export async function readLocalDocument(
   { allowedDirs, maxBytes = DEFAULT_MAX_BYTES }: { allowedDirs: string[]; maxBytes?: number },
 ): Promise<LocalDocument> {
   if (allowedDirs.length === 0) {
-    throw new LocalFileError("disabled", "Reading local files is disabled. Set INGEST_ALLOWED_DIRS to the directories that may be indexed.");
+    throw new LocalFileError(
+      "disabled",
+      "Reading local files is disabled. Set INGEST_ALLOWED_DIRS to the directories that may be indexed.",
+    );
   }
 
-  const realDirs = (await Promise.all(allowedDirs.map((dir) => realpath(dir).catch(() => null))))
-    .filter((dir): dir is string => dir !== null);
+  const realDirs = (await Promise.all(allowedDirs.map((dir) => realpath(dir).catch(() => null)))).filter(
+    (dir): dir is string => dir !== null,
+  );
   const requested = resolve(path);
 
   let real: string;
