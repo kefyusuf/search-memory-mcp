@@ -325,7 +325,9 @@ export class WebSearchServer {
   }
 
   private setupShutdownHandlers() {
-    const shutdown = () => { void this.shutdown(); };
+    const shutdown = () => {
+      void this.shutdown();
+    };
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
     process.on("SIGHUP", shutdown);
@@ -341,7 +343,9 @@ export class WebSearchServer {
     this.knowledgeIndex.close();
     this.sessionMemory.close();
     this.entityGraph.close();
-    try { await this.server.close(); } catch {}
+    try {
+      await this.server.close();
+    } catch {}
     process.exit(0);
   }
 
