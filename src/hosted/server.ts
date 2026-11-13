@@ -21,7 +21,7 @@ import { PostgresMembershipResolver } from "../identity/postgres-membership.js";
 import { InvocationError } from "../runtime/request-context.js";
 import { createHostedHttpAuthHandler } from "../runtime/hosted-http-auth.js";
 import { ToolDispatcher } from "../runtime/tool-dispatcher.js";
-import { InMemoryInvocationAdmission } from "../runtime/invocation-admission.js";
+import { InMemoryInvocationAdmission, type RateLimits } from "../runtime/invocation-admission.js";
 import { TransformersEmbeddingProvider } from "../cache/embedding.js";
 import { SQLiteVectorStore } from "../cache/sqlite-store.js";
 import { SemanticCache } from "../cache/semantic-cache.js";
@@ -43,6 +43,7 @@ import { launchWithAutoInstall } from "../browser-launcher.js";
 import { openGuardedBrowserContext, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 import { TenantStoreCache, ScopeCache } from "./tenant-stores.js";
 import { UsageCounters } from "./usage.js";
+import { resolveRateLimits } from "./config.js";
 import { startProvisioningServer } from "./provisioning.js";
 import { ContentFetcher } from "../fetch-module.js";
 
@@ -88,6 +89,13 @@ const admit = {
   workspace: requireInt("HOSTED_ADMIT_WORKSPACE"),
   principal: requireInt("HOSTED_ADMIT_PRINCIPAL"),
 };
+let rateLimits: RateLimits | undefined;
+try {
+  rateLimits = resolveRateLimits(process.env);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 const maxTenantStores = Number(process.env.HOSTED_MAX_TENANT_STORES ?? "64");
 const maxScopeCaches = Number(process.env.HOSTED_MAX_SCOPE_CACHES ?? "64");
 const lookupConcurrency = Number(process.env.HOSTED_LOOKUP_CONCURRENCY ?? "8");
@@ -177,7 +185,7 @@ const resolver = new PostgresMembershipResolver({
   lookupTimeoutMs,
 });
 const storeCache = new TenantStoreCache({ appDbPath: appDb, maxStores: maxTenantStores });
-const admission = new InMemoryInvocationAdmission(admit);
+const admission = new InMemoryInvocationAdmission(admit, rateLimits ? { rateLimits } : {});
 const usage = new UsageCounters();
 
 // Per-scope (tenant|workspace) search caches and content fetchers. The
@@ -529,6 +537,11 @@ server.listen(port, bind, () => {
   );
   console.error(
     `Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`,
+  );
+  console.error(
+    rateLimits
+      ? `Rate limits: global=${rateLimits.global} tenant=${rateLimits.tenant} workspace=${rateLimits.workspace} principal=${rateLimits.principal} per ${rateLimits.windowMs}ms window.`
+      : "Rate limits: disabled (concurrency-only; set HOSTED_RATE_WINDOW_MS to enable).",
   );
 });
 
