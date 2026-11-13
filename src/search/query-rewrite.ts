@@ -113,11 +113,7 @@ export function expandQuery(query: string, options?: ExpandOptions): string[] {
   }
 
   // Intent-biased extra variant: news queries benefit from a year hint.
-  if (
-    options?.context?.intent === "news" &&
-    variants.length - 1 < maxVariants &&
-    !/\b20\d{2}\b/.test(original)
-  ) {
+  if (options?.context?.intent === "news" && variants.length - 1 < maxVariants && !/\b20\d{2}\b/.test(original)) {
     const year = new Date().getFullYear();
     const variant = `${original} ${year}`;
     const key = variant.toLowerCase();

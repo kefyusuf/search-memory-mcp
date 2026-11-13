@@ -1,17 +1,17 @@
-import { IEmbeddingProvider, IVectorStore, SearchResultItem, CacheMetadata } from "./types.js";
+import type { IEmbeddingProvider, IVectorStore, SearchResultItem, CacheMetadata } from "./types.js";
 import { SearchIntentDetector, type IntentDetector, type SearchIntent } from "../search/intent.js";
 import { cosineSimilarity } from "./utils.js";
 import { InvocationError } from "../runtime/request-context.js";
 import { DEFAULT_SEARCH_CACHE_TTL_MS } from "./search-ttl.js";
 
 const TTL_MAP: Record<string, number> = {
-  price: 15 * 60 * 1000,              // 15 minutes
-  news: 1 * 60 * 60 * 1000,           // 1 Hour
-  blog: 5 * 24 * 60 * 60 * 1000,     // 5 Days
-  docs: 30 * 24 * 60 * 60 * 1000,    // 30 Days
+  price: 15 * 60 * 1000, // 15 minutes
+  news: 1 * 60 * 60 * 1000, // 1 Hour
+  blog: 5 * 24 * 60 * 60 * 1000, // 5 Days
+  docs: 30 * 24 * 60 * 60 * 1000, // 30 Days
   technical: 30 * 24 * 60 * 60 * 1000, // 30 Days
-  social: 3 * 24 * 60 * 60 * 1000,   // 3 Days
-  general: 7 * 24 * 60 * 60 * 1000,  // 7 Days
+  social: 3 * 24 * 60 * 60 * 1000, // 3 Days
+  general: 7 * 24 * 60 * 60 * 1000, // 7 Days
 };
 
 const SEMANTIC_RANK_WEIGHT = 0.7;
@@ -82,7 +82,12 @@ export class SemanticCache {
     return null;
   }
 
-  async set(query: string, results: SearchResultItem[], namespace?: string, options: { ttlMs?: number } = {}): Promise<void> {
+  async set(
+    query: string,
+    results: SearchResultItem[],
+    namespace?: string,
+    options: { ttlMs?: number } = {},
+  ): Promise<void> {
     try {
       const vector = await this.getQueryVector(query);
       if (!vector) return;
@@ -140,7 +145,9 @@ export class SemanticCache {
   }
 
   /** Cached page with when it was fetched and, when known, when it was published. */
-  async getCachedContentEntry(url: string): Promise<{ content: string; fetchedAt: number; publishedAt?: string } | null> {
+  async getCachedContentEntry(
+    url: string,
+  ): Promise<{ content: string; fetchedAt: number; publishedAt?: string } | null> {
     this.vectorStore.assertAccess?.("content:read");
     const entry = await this.vectorStore.getContent(url);
     this.vectorStore.assertAccess?.("content:read");
@@ -162,15 +169,19 @@ export class SemanticCache {
     };
   }
 
-  async setCachedContent(url: string, content: string, title: string, intent?: SearchIntent, publishedAt?: string): Promise<void> {
-    const category = intent
-      ? this.intentToContentCategory(intent)
-      : this.detectCategory(url, title);
+  async setCachedContent(
+    url: string,
+    content: string,
+    title: string,
+    intent?: SearchIntent,
+    publishedAt?: string,
+  ): Promise<void> {
+    const category = intent ? this.intentToContentCategory(intent) : this.detectCategory(url, title);
     await this.vectorStore.setContent(url, content, category, publishedAt);
   }
 
   private detectCategory(url: string, title: string): string {
-    const combined = (url + " " + title).toLowerCase();
+    const combined = `${url} ${title}`.toLowerCase();
 
     if (/\b(docs|wiki|tutorial|learn|documentation|guide|stackoverflow|api)\b/.test(combined)) return "docs";
     if (/\b(news|haber|breaking|daily|journal|gazete)\b/.test(combined)) return "news";
@@ -196,21 +207,17 @@ export class SemanticCache {
           if (resVector.length === 0) return { ...res, semanticScore: 0 };
           const score = cosineSimilarity(queryVector, resVector);
           return { ...res, semanticScore: score };
-        })
+        }),
       );
 
-      const maxFusionScore = semanticallyScored.reduce(
-        (max, result) => Math.max(max, result.fusionScore ?? 0),
-        0
-      );
+      const maxFusionScore = semanticallyScored.reduce((max, result) => Math.max(max, result.fusionScore ?? 0), 0);
 
       const rankedResults = semanticallyScored.map((result) => {
-        const normalizedFusionScore = maxFusionScore > 0
-          ? (result.fusionScore ?? 0) / maxFusionScore
-          : 0;
-        const rankingScore = maxFusionScore > 0
-          ? result.semanticScore * SEMANTIC_RANK_WEIGHT + normalizedFusionScore * FUSION_RANK_WEIGHT
-          : result.semanticScore;
+        const normalizedFusionScore = maxFusionScore > 0 ? (result.fusionScore ?? 0) / maxFusionScore : 0;
+        const rankingScore =
+          maxFusionScore > 0
+            ? result.semanticScore * SEMANTIC_RANK_WEIGHT + normalizedFusionScore * FUSION_RANK_WEIGHT
+            : result.semanticScore;
         return { ...result, rankingScore };
       });
 

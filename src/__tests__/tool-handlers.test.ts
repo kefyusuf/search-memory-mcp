@@ -13,7 +13,9 @@ import { createLocalRequestContext } from "../runtime/request-context.js";
 
 const closers: Array<{ close(): void }> = [];
 afterEach(() => {
-  closers.splice(0).forEach((store) => store.close());
+  closers.splice(0).forEach((store) => {
+    store.close();
+  });
   vi.unstubAllEnvs();
 });
 
@@ -32,7 +34,12 @@ function knowledge(overrides: Partial<Parameters<typeof createKnowledgeHandlers>
     knowledgeIndex: track(new KnowledgeIndex(":memory:", { enableEmbeddings: false })),
     entityGraph: track(new EntityGraph(":memory:")),
     embed: async () => [],
-    fetchContent: async () => ({ kind: "content", text: "# Page\n\nKubernetes runs PgBouncer.", source: "http" }),
+    fetchContent: async () => ({
+      kind: "content",
+      text: "# Page\n\nKubernetes runs PgBouncer.",
+      source: "http",
+      fetchedAt: "2026-01-01T00:00:00Z",
+    }),
     fetchLimiter: open(),
     validateUrl: publicUrl,
     ...overrides,
@@ -58,18 +65,30 @@ describe("memory tool handlers", () => {
 describe("knowledge tool handlers", () => {
   it("ingests, lists, searches and links documents", async () => {
     const tools = knowledge();
-    const ingested = await tools.ingest_document({ content: "Kubernetes uses PgBouncer for pooling.", title: "Pooling", source: "notes.md" });
-    expect(text(ingested)).toMatch(/^Indexed document "Pooling" \(.+…\)\nSource: notes\.md\nChunks: 1\nEntities: \d+\nCategory: /);
+    const ingested = await tools.ingest_document({
+      content: "Kubernetes uses PgBouncer for pooling.",
+      title: "Pooling",
+      source: "notes.md",
+    });
+    expect(text(ingested)).toMatch(
+      /^Indexed document "Pooling" \(.+…\)\nSource: notes\.md\nChunks: 1\nEntities: \d+\nCategory: /,
+    );
 
-    expect(text(await tools.list_index({}))).toMatch(/^Knowledge index: 1 docs, 1 chunks, 0 vectors\n\n1\. Pooling \(notes\.md\)/);
+    expect(text(await tools.list_index({}))).toMatch(
+      /^Knowledge index: 1 docs, 1 chunks, 0 vectors\n\n1\. Pooling \(notes\.md\)/,
+    );
     expect(text(await tools.search_index({ query: "PgBouncer" }))).toContain('[Source 1] "Pooling" (notes.md)');
     expect(text(await tools.find_related({ entity: "Kubernetes" }))).toContain("Pooling (notes.md)");
   });
 
   it("reports empty index states", async () => {
     const tools = knowledge();
-    expect(text(await tools.list_index(undefined))).toBe("Knowledge index is empty. Use ingest_document or index_url to add content.");
-    expect(text(await tools.search_index({ query: "nothing" }))).toBe('No knowledge-index chunks matched "nothing". Use ingest_document or index_url to add content first.');
+    expect(text(await tools.list_index(undefined))).toBe(
+      "Knowledge index is empty. Use ingest_document or index_url to add content.",
+    );
+    expect(text(await tools.search_index({ query: "nothing" }))).toBe(
+      'No knowledge-index chunks matched "nothing". Use ingest_document or index_url to add content first.',
+    );
     expect(text(await tools.find_related({ entity: "Nobody" }))).toContain('No graph links found for entity "Nobody"');
   });
 
@@ -96,25 +115,52 @@ describe("knowledge tool handlers", () => {
   });
 
   it("rejects index_url when rate limited, blocked or unfetchable", async () => {
-    expect(text(await knowledge({ fetchLimiter: exhausted() }).index_url({ url: "https://example.com" })))
-      .toMatch(/^Rate limit exceeded: index_url allows 20 requests per minute/);
-    expect(text(await knowledge({ validateUrl: async () => ({ ok: false, hostname: "10.0.0.1" }) }).index_url({ url: "https://example.com" })))
-      .toBe("Access to unsupported or local/private resource is blocked for security reasons: 10.0.0.1");
-    expect(text(await knowledge({ fetchContent: async () => ({ kind: "error", reason: "fetch_failed" }) }).index_url({ url: "https://example.com" })))
-      .toBe("Could not fetch page for indexing: fetch_failed");
+    expect(text(await knowledge({ fetchLimiter: exhausted() }).index_url({ url: "https://example.com" }))).toMatch(
+      /^Rate limit exceeded: index_url allows 20 requests per minute/,
+    );
+    expect(
+      text(
+        await knowledge({ validateUrl: async () => ({ ok: false, hostname: "10.0.0.1" }) }).index_url({
+          url: "https://example.com",
+        }),
+      ),
+    ).toBe("Access to unsupported or local/private resource is blocked for security reasons: 10.0.0.1");
+    expect(
+      text(
+        await knowledge({ fetchContent: async () => ({ kind: "error", reason: "fetch_failed" }) }).index_url({
+          url: "https://example.com",
+        }),
+      ),
+    ).toBe("Could not fetch page for indexing: fetch_failed");
   });
 });
 
 describe("fetch_content handler", () => {
   it("returns content and maps failures", async () => {
-    const ok = createFetchHandler({ fetchLimiter: open(), validateUrl: publicUrl, fetchContent: async () => ({ kind: "content", text: "Hello", source: "http" }) });
-    expect(await ok({ url: "https://example.com" })).toEqual({ content: [{ type: "text", text: wrapUntrusted("Hello", "https://example.com") }] });
+    const ok = createFetchHandler({
+      fetchLimiter: open(),
+      validateUrl: publicUrl,
+      fetchContent: async () => ({ kind: "content", text: "Hello", source: "http", fetchedAt: "2026-01-01T00:00:00Z" }),
+    });
+    expect(await ok({ url: "https://example.com" })).toEqual({
+      content: [{ type: "text", text: wrapUntrusted("Hello", "https://example.com") }],
+    });
 
-    const parse = createFetchHandler({ fetchLimiter: open(), validateUrl: publicUrl, fetchContent: async () => ({ kind: "error", reason: "parse_failed" }) });
+    const parse = createFetchHandler({
+      fetchLimiter: open(),
+      validateUrl: publicUrl,
+      fetchContent: async () => ({ kind: "error", reason: "parse_failed" }),
+    });
     expect(text(await parse({ url: "https://example.com" }))).toBe("Could not parse article content from the page.");
 
-    const limited = createFetchHandler({ fetchLimiter: exhausted(), validateUrl: publicUrl, fetchContent: async () => ({ kind: "content", text: "", source: "http" }) });
-    expect(text(await limited({ url: "https://example.com" }))).toMatch(/^Rate limit exceeded: fetch_content allows 20 requests per minute/);
+    const limited = createFetchHandler({
+      fetchLimiter: exhausted(),
+      validateUrl: publicUrl,
+      fetchContent: async () => ({ kind: "content", text: "", source: "http", fetchedAt: "2026-01-01T00:00:00Z" }),
+    });
+    expect(text(await limited({ url: "https://example.com" }))).toMatch(
+      /^Rate limit exceeded: fetch_content allows 20 requests per minute/,
+    );
   });
 });
 

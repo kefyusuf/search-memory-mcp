@@ -14,11 +14,17 @@ const serverEnv = {
   ENABLE_CROSSLINGUAL: process.env.ENABLE_CROSSLINGUAL ?? "false",
 };
 const child = dockerImage
-  ? spawn("docker", [
-      "run", "-i", "--rm",
-      ...Object.entries(serverEnv).flatMap(([key, value]) => ["-e", `${key}=${value}`]),
-      dockerImage,
-    ], { stdio: ["pipe", "pipe", "pipe"] })
+  ? spawn(
+      "docker",
+      [
+        "run",
+        "-i",
+        "--rm",
+        ...Object.entries(serverEnv).flatMap(([key, value]) => ["-e", `${key}=${value}`]),
+        dockerImage,
+      ],
+      { stdio: ["pipe", "pipe", "pipe"] },
+    )
   : spawn(process.execPath, ["build/index.js"], {
       cwd: process.cwd(),
       stdio: ["pipe", "pipe", "pipe"],
@@ -34,10 +40,13 @@ let stdout = "";
 let stderr = "";
 const pending = new Map();
 
-const timeout = setTimeout(() => {
-  child.kill();
-  fail(`MCP smoke timed out.\n${stderr}`);
-}, dockerImage ? 60_000 : 15_000);
+const timeout = setTimeout(
+  () => {
+    child.kill();
+    fail(`MCP smoke timed out.\n${stderr}`);
+  },
+  dockerImage ? 60_000 : 15_000,
+);
 
 child.stdout.on("data", (chunk) => {
   stdout += chunk.toString("utf8");
@@ -120,12 +129,14 @@ try {
   const noteText = "Dispatcher smoke note";
   const noteSession = `smoke-${process.pid}`;
   const remembered = await request("tools/call", {
-    name: "remember", arguments: { text: noteText, session: noteSession },
+    name: "remember",
+    arguments: { text: noteText, session: noteSession },
   });
   assertNoError(remembered, "remember");
   if (remembered.result?.isError) fail("remember failed through the stdio dispatcher.");
   const recalled = await request("tools/call", {
-    name: "recall", arguments: { session: noteSession },
+    name: "recall",
+    arguments: { session: noteSession },
   });
   assertNoError(recalled, "recall");
   if (recalled.result?.isError || !recalled.result?.content?.[0]?.text?.includes(noteText)) {
@@ -135,12 +146,14 @@ try {
   const rememberedId = remembered.result.content?.[0]?.text?.match(/id=([^,]+)/)?.[1];
   if (!rememberedId) throw new Error("remember did not return a usable note id.");
   const forgotten = await request("tools/call", {
-    name: "forget", arguments: { id: rememberedId },
+    name: "forget",
+    arguments: { id: rememberedId },
   });
   assertNoError(forgotten, "forget remembered id");
   if (forgotten.result?.isError) throw new Error("forget could not delete the note using the id returned by remember.");
   const afterForget = await request("tools/call", {
-    name: "recall", arguments: { session: noteSession },
+    name: "recall",
+    arguments: { session: noteSession },
   });
   assertNoError(afterForget, "recall after forget");
   if (afterForget.result?.isError || !afterForget.result?.content?.[0]?.text?.includes("No memory notes matched.")) {
@@ -148,26 +161,34 @@ try {
   }
 
   const recallNote = await request("tools/call", {
-    name: "remember", arguments: { text: "Recall deletion smoke note", session: noteSession },
+    name: "remember",
+    arguments: { text: "Recall deletion smoke note", session: noteSession },
   });
   assertNoError(recallNote, "remember recall deletion note");
   if (recallNote.result?.isError) throw new Error("remember failed to create the recall deletion note.");
   const recallForDeletion = await request("tools/call", {
-    name: "recall", arguments: { session: noteSession },
+    name: "recall",
+    arguments: { session: noteSession },
   });
   assertNoError(recallForDeletion, "recall deletion id");
   const recalledId = recallForDeletion.result?.content?.[0]?.text?.match(/1\. \[([^\]]+)\]/)?.[1];
   if (!recalledId) throw new Error("recall did not return a usable note id.");
   const forgottenRecall = await request("tools/call", {
-    name: "forget", arguments: { id: recalledId },
+    name: "forget",
+    arguments: { id: recalledId },
   });
   assertNoError(forgottenRecall, "forget recalled id");
-  if (forgottenRecall.result?.isError) throw new Error("forget could not delete the note using the id returned by recall.");
+  if (forgottenRecall.result?.isError)
+    throw new Error("forget could not delete the note using the id returned by recall.");
   const afterRecallForget = await request("tools/call", {
-    name: "recall", arguments: { session: noteSession },
+    name: "recall",
+    arguments: { session: noteSession },
   });
   assertNoError(afterRecallForget, "recall after recalled id deletion");
-  if (afterRecallForget.result?.isError || !afterRecallForget.result?.content?.[0]?.text?.includes("No memory notes matched.")) {
+  if (
+    afterRecallForget.result?.isError ||
+    !afterRecallForget.result?.content?.[0]?.text?.includes("No memory notes matched.")
+  ) {
     throw new Error("recall still returned the note deleted using the recall id.");
   }
 
@@ -243,7 +264,14 @@ function assertHasStatusShape(status) {
   }
 
   const provider = status.providers[0];
-  for (const field of ["name", "available", "recentAttempts", "recentSuccesses", "recentFailures", "backoffRemainingMs"]) {
+  for (const field of [
+    "name",
+    "available",
+    "recentAttempts",
+    "recentSuccesses",
+    "recentFailures",
+    "backoffRemainingMs",
+  ]) {
     if (!(field in provider)) {
       fail(`server_status provider missing ${field}.`);
     }
@@ -253,7 +281,11 @@ function assertHasStatusShape(status) {
     fail("server_status did not include cache counts.");
   }
 
-  if (!status.config || !Array.isArray(status.config.searchProviders) || typeof status.config.fetchWaitUntil !== "string") {
+  if (
+    !status.config ||
+    !Array.isArray(status.config.searchProviders) ||
+    typeof status.config.fetchWaitUntil !== "string"
+  ) {
     fail("server_status did not include runtime config.");
   }
 

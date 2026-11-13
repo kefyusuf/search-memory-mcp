@@ -12,10 +12,16 @@ const HOUR = 60 * MINUTE;
 const hit = { title: "Hit", url: "https://a.example/1", snippet: "s", source: "mock" };
 
 function cache() {
-  return new SemanticCache({ getEmbedding: async () => [1, ...new Array(383).fill(0)], isAvailable: () => true }, new InMemoryVectorStore());
+  return new SemanticCache(
+    { getEmbedding: async () => [1, ...new Array(383).fill(0)], isAvailable: () => true },
+    new InMemoryVectorStore(),
+  );
 }
 
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("search cache TTL by intent", () => {
   it("keeps fast-changing queries briefly and reference queries longer", () => {
@@ -45,7 +51,10 @@ describe("search cache TTL by intent", () => {
   it.each([true, false])("persists the TTL in SQLite (native vectors: %s)", async (useNativeVectors) => {
     vi.useFakeTimers({ now: 1_000_000_000_000 });
     const sqlite = new SQLiteVectorStore(":memory:", { useNativeVectors });
-    const store = new SemanticCache({ getEmbedding: async () => [1, ...new Array(383).fill(0)], isAvailable: () => true }, sqlite);
+    const store = new SemanticCache(
+      { getEmbedding: async () => [1, ...new Array(383).fill(0)], isAvailable: () => true },
+      sqlite,
+    );
     await store.set("query", [hit], "fallback", { ttlMs: searchCacheTtlMs("technical") });
     vi.setSystemTime(Date.now() + 2 * HOUR);
     expect(await store.get("query", "fallback")).toEqual([hit]);
@@ -94,6 +103,8 @@ describe("web_search cache TTL", () => {
     const store = cache();
     const set = vi.spyOn(store, "set");
     await search(store, "news")({ query: "how tall is mount everest", strategy: "auto" });
-    expect(set).toHaveBeenCalledWith("how tall is mount everest", expect.any(Array), "auto:v3:news:brave", { ttlMs: 15 * MINUTE });
+    expect(set).toHaveBeenCalledWith("how tall is mount everest", expect.any(Array), "auto:v3:news:brave", {
+      ttlMs: 15 * MINUTE,
+    });
   });
 });

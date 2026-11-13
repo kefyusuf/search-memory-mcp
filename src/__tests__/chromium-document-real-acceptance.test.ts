@@ -33,27 +33,34 @@ function fetcherFor(context: BrowserContext, budget: number, readerUrl?: string)
 }
 
 describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher real Chromium acceptance", () => {
-  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   it("enforces the main document budget through actual Chromium for plain, chunked, gzip, Brotli and redirect", async () => {
     const web = createServer((req, res) => {
       const path = req.url ?? "/";
       if (path === "/redirect") {
-        res.writeHead(302, { location: "/small" }); res.end(); return;
+        res.writeHead(302, { location: "/small" });
+        res.end();
+        return;
       }
       if (path === "/large-script") {
         res.writeHead(200, { "content-type": "application/javascript" });
-        res.end("/* " + "script-data ".repeat(5000) + " */"); return;
+        res.end(`/* ${"script-data ".repeat(5000)} */`);
+        return;
       }
-      const html = path === "/small"
-        ? BODY
-        : path === "/unicode"
-          ? UNICODE_BODY
-          : path === "/with-resources"
-            ? RESOURCES_BODY
-        : path === "/short"
-          ? "<html><title>Small</title><body>plain</body></html>"
-          : BODY + "x".repeat(8192);
+      const html =
+        path === "/small"
+          ? BODY
+          : path === "/unicode"
+            ? UNICODE_BODY
+            : path === "/with-resources"
+              ? RESOURCES_BODY
+              : path === "/short"
+                ? "<html><title>Small</title><body>plain</body></html>"
+                : BODY + "x".repeat(8192);
       const raw = Buffer.from(html);
       const gz = path.includes("gzip");
       const br = path.includes("brotli");
@@ -68,9 +75,12 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
         res.end();
       } else res.end(bytes);
     });
-    await new Promise<void>(resolve => web.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) => web.listen(0, "127.0.0.1", resolve));
     const origin = `http://127.0.0.1:${(web.address() as AddressInfo).port}`;
-    const browser = await chromium.launch({ headless: true, args: ["--disable-quic", "--disable-background-networking"] });
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--disable-quic", "--disable-background-networking"],
+    });
     try {
       const cases = [
         { path: "/small", budget: Buffer.byteLength(BODY), success: true },
@@ -86,7 +96,10 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
         const { fetcher, cache } = fetcherFor(context, check.budget, "https://markdown.new/");
         // Isolated fixture only: no actual external/private access is attempted.
         // This is NOT a substitute for the guarded context acceptance below.
-        vi.spyOn(fetcher as never, "isFetchUrlAllowed" as never).mockResolvedValue(true as never);
+        vi.spyOn(
+          fetcher as unknown as { isFetchUrlAllowed: (url: string) => Promise<boolean> },
+          "isFetchUrlAllowed",
+        ).mockResolvedValue(true);
         const nodeFetch = vi.fn();
         vi.stubGlobal("fetch", nodeFetch);
         const reader = vi.spyOn(fetcher as never, "fetchViaReader" as never);
@@ -102,10 +115,11 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
           } else {
             expect(result, check.path).toEqual({ kind: "error", reason: "fetch_failed" });
           }
-          expect(reader, check.path + " must not invoke reader").not.toHaveBeenCalled();
-          expect(nodeFetch, check.path + " must not send alternate HTTP request").not.toHaveBeenCalled();
+          expect(reader, `${check.path} must not invoke reader`).not.toHaveBeenCalled();
+          expect(nodeFetch, `${check.path} must not send alternate HTTP request`).not.toHaveBeenCalled();
         } finally {
-          fetcher.close(); cache.close();
+          fetcher.close();
+          cache.close();
           await context.close();
           vi.unstubAllGlobals();
           vi.restoreAllMocks();
@@ -113,14 +127,18 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
       }
     } finally {
       await browser.close();
-      await new Promise<void>(resolve => web.close(() => resolve()));
+      await new Promise<void>((resolve) => web.close(() => resolve()));
     }
   }, 120_000);
 
   it("retains production guarded HTTPS egress while rejecting an oversized main document without reader fallback", async () => {
     const browser = await chromium.launch({
       headless: true,
-      args: ["--disable-quic", "--disable-background-networking", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
+      args: [
+        "--disable-quic",
+        "--disable-background-networking",
+        "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+      ],
     });
     let opened: Awaited<ReturnType<typeof openGuardedBrowserContext>> | null = null;
     try {
@@ -136,7 +154,8 @@ describe.skipIf(process.env.P0_03C_REAL_BROWSER !== "1")("P0-03C ContentFetcher 
         expect(reader).not.toHaveBeenCalled();
         expect(nodeFetch).not.toHaveBeenCalled();
       } finally {
-        fetcher.close(); cache.close();
+        fetcher.close();
+        cache.close();
       }
     } finally {
       if (opened) {

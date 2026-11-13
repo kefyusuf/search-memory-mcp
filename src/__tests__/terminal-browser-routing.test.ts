@@ -57,8 +57,7 @@ describe("P0-03C internal terminal browser routing (offline contract tests)", ()
       const persist = vi.spyOn(cache, "setCachedContent").mockResolvedValue(undefined);
       const browser = setBrowserOutcome(fetcher, { kind: "terminal_browser_failure", cause });
 
-      await expect(fetcher.fetchContent(PAGE_URL, true))
-        .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+      await expect(fetcher.fetchContent(PAGE_URL, true)).resolves.toEqual({ kind: "error", reason: "fetch_failed" });
 
       expect(browser).toHaveBeenCalledTimes(1);
       expect(browserFactory).not.toHaveBeenCalled();
@@ -75,8 +74,7 @@ describe("P0-03C internal terminal browser routing (offline contract tests)", ()
     vi.stubGlobal("fetch", fetchMock);
     setBrowserOutcome(fetcher, { kind: "terminal_browser_failure", cause: "interception_failed" });
 
-    await expect(fetcher.fetchContent(PAGE_URL, true))
-      .resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    await expect(fetcher.fetchContent(PAGE_URL, true)).resolves.toEqual({ kind: "error", reason: "fetch_failed" });
     expect(fetchMock).not.toHaveBeenCalled();
     fetcher.close();
     cache.close();
@@ -85,8 +83,7 @@ describe("P0-03C internal terminal browser routing (offline contract tests)", ()
   it("retains opt-in reader fallback for an ordinary navigation error", async () => {
     const { fetcher, cache } = createFetcher(true);
     setBrowserOutcome(fetcher, { kind: "error", reason: "fetch_failed" });
-    const fetchMock = vi.fn(async () =>
-      new Response(READER_BODY, { headers: { "content-type": "text/plain" } }));
+    const fetchMock = vi.fn(async () => new Response(READER_BODY, { headers: { "content-type": "text/plain" } }));
     vi.stubGlobal("fetch", fetchMock);
     const persist = vi.spyOn(cache, "setCachedContent").mockResolvedValue(undefined);
 
@@ -103,8 +100,7 @@ describe("P0-03C internal terminal browser routing (offline contract tests)", ()
     const privateFetcher = fetcher as unknown as {
       fetchViaPlaywright: (url: string, options: unknown) => Promise<unknown>;
     };
-    vi.spyOn(privateFetcher, "fetchViaPlaywright")
-      .mockRejectedValue(new Error("browser unavailable"));
+    vi.spyOn(privateFetcher, "fetchViaPlaywright").mockRejectedValue(new Error("browser unavailable"));
 
     await expect(fetcher.fetchContent(PAGE_URL, true)).rejects.toThrow("browser unavailable");
     fetcher.close();

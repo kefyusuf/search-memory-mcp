@@ -16,7 +16,7 @@ afterEach(() => {
 describe("exa api provider", () => {
   it("posts the query with an api key and auto retrieval type", async () => {
     process.env.EXA_API_KEY = "test-key";
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }));
+    const fetchMock = vi.fn(async (_url: string | URL, _init?: RequestInit) => jsonResponse({ results: [] }));
     vi.stubGlobal("fetch", fetchMock);
 
     await searchExa("papers about attention-free transformers", locale);
@@ -34,25 +34,38 @@ describe("exa api provider", () => {
 
   it("moves a site: suffix into includeDomains instead of the query text", async () => {
     process.env.EXA_API_KEY = "test-key";
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }));
+    const fetchMock = vi.fn(async (_url: string | URL, _init?: RequestInit) => jsonResponse({ results: [] }));
     vi.stubGlobal("fetch", fetchMock);
 
     await searchExa("connection pooler internals site:github.com", locale);
 
-    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL | string, RequestInit])[1].body)) as Record<string, unknown>;
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL | string, RequestInit])[1].body)) as Record<
+      string,
+      unknown
+    >;
     expect(body.query).toBe("connection pooler internals");
     expect(body.includeDomains).toEqual(["github.com"]);
   });
 
   it("maps highlights to snippets with normalized publish dates", async () => {
     process.env.EXA_API_KEY = "test-key";
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
-      results: [
-        { title: "Semantic <b>search</b>", url: "https://example.com/a", publishedDate: "2026-10-01", highlights: ["Relevant passage <i>here</i>."] },
-        { title: "No highlights", url: "https://example.com/b", text: "Fallback text." },
-        { title: "", url: "https://example.com/c" },
-      ],
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          results: [
+            {
+              title: "Semantic <b>search</b>",
+              url: "https://example.com/a",
+              publishedDate: "2026-10-01",
+              highlights: ["Relevant passage <i>here</i>."],
+            },
+            { title: "No highlights", url: "https://example.com/b", text: "Fallback text." },
+            { title: "", url: "https://example.com/c" },
+          ],
+        }),
+      ),
+    );
 
     const results = await searchExa("q", locale);
 
@@ -75,7 +88,10 @@ describe("exa api provider", () => {
 
   it("rejects with the HTTP status so blocking is not reported as empty", async () => {
     process.env.EXA_API_KEY = "test-key";
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ message: "blocked" }, 429)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ message: "blocked" }, 429)),
+    );
 
     await expect(searchExa("q", locale)).rejects.toThrow("exa api returned HTTP 429");
   });

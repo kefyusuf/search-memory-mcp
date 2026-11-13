@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildSearchJson,
-  buildIndexHitJson,
-  buildAnswerJson,
-  formatToolResult,
-} from "../format/structured-output.js";
+import { buildSearchJson, buildIndexHitJson, buildAnswerJson, formatToolResult } from "../format/structured-output.js";
 import type { SearchResultItem } from "../cache/types.js";
 import type { KnowledgeChunkHit } from "../knowledge/index-store.js";
 

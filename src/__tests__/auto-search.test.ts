@@ -14,12 +14,14 @@ const locale: SearchLocale = {
 function provider(name: string, urls: string[]): SearchProvider {
   return {
     name,
-    execute: vi.fn(async () => urls.map((url, index) => ({
-      title: `${name} result ${index + 1}`,
-      url,
-      snippet: `${name} snippet ${index + 1}`,
-      source: name,
-    }))),
+    execute: vi.fn(async () =>
+      urls.map((url, index) => ({
+        title: `${name} result ${index + 1}`,
+        url,
+        snippet: `${name} snippet ${index + 1}`,
+        source: name,
+      })),
+    ),
   };
 }
 
@@ -143,21 +145,27 @@ describe("WebSearchServer auto routing", () => {
     const server = new WebSearchServer(detector);
     server.overrideSearchProvidersForTesting([duckduckgo, bing, brave, google]);
 
-    const cache = (server as unknown as { cache: {
-      get: (...args: unknown[]) => Promise<unknown>;
-      set: (...args: unknown[]) => Promise<void>;
-      reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
-    } }).cache;
+    const cache = (
+      server as unknown as {
+        cache: {
+          get: (...args: unknown[]) => Promise<unknown>;
+          set: (...args: unknown[]) => Promise<void>;
+          reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
+        };
+      }
+    ).cache;
     const cacheGet = vi.spyOn(cache, "get").mockResolvedValue(null);
     const cacheSet = vi.spyOn(cache, "set").mockResolvedValue(undefined as never);
     vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
 
-    const response = await callPrivate<{ content: Array<{ text: string }> }>(server, "handleSearch", [{
-      query: "react server components",
-      domain: "react.dev",
-      strategy: "auto",
-      max_results: 5,
-    }]);
+    const response = await callPrivate<{ content: Array<{ text: string }> }>(server, "handleSearch", [
+      {
+        query: "react server components",
+        domain: "react.dev",
+        strategy: "auto",
+        max_results: 5,
+      },
+    ]);
 
     expect(response.content[0].text).toContain("react.dev");
     expect(detector.detect).toHaveBeenCalledWith("react server components");
@@ -191,11 +199,15 @@ describe("WebSearchServer auto routing", () => {
     const server = new WebSearchServer(detector);
     server.overrideSearchProvidersForTesting([bing]);
 
-    const cache = (server as unknown as { cache: {
-      get: (query: string) => Promise<unknown>;
-      set: (...args: unknown[]) => Promise<void>;
-      reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
-    } }).cache;
+    const cache = (
+      server as unknown as {
+        cache: {
+          get: (query: string) => Promise<unknown>;
+          set: (...args: unknown[]) => Promise<void>;
+          reRankResults: (query: string, results: unknown[], limit: number) => Promise<unknown[]>;
+        };
+      }
+    ).cache;
     vi.spyOn(cache, "get").mockResolvedValue(null);
     vi.spyOn(cache, "set").mockResolvedValue();
     vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));

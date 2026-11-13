@@ -224,16 +224,16 @@ Profiles are policy-as-data, not hard-coded branching inside `index.ts`.
 
 Initial profile version: `v1`.
 
-| Intent | Execution | Preference | Primary target |
-|---|---|---|---:|
-| technical | aggregate | brave, google, bing, duckduckgo | 2 |
-| research | aggregate | brave, google, bing, duckduckgo | 3 |
-| news | aggregate | google, bing, brave, duckduckgo | 3 |
-| commercial | aggregate | brave, google, bing, duckduckgo | 3 |
-| shopping | aggregate | google, bing, duckduckgo, brave | 2 |
-| local | aggregate | google, bing, duckduckgo, brave | 2 |
-| navigational | fallback | google, bing, duckduckgo, brave | all configured in preferred order |
-| general | fallback | existing configured order | all configured |
+| Intent       | Execution | Preference                      |                    Primary target |
+| ------------ | --------- | ------------------------------- | --------------------------------: |
+| technical    | aggregate | brave, google, bing, duckduckgo |                                 2 |
+| research     | aggregate | brave, google, bing, duckduckgo |                                 3 |
+| news         | aggregate | google, bing, brave, duckduckgo |                                 3 |
+| commercial   | aggregate | brave, google, bing, duckduckgo |                                 3 |
+| shopping     | aggregate | google, bing, duckduckgo, brave |                                 2 |
+| local        | aggregate | google, bing, duckduckgo, brave |                                 2 |
+| navigational | fallback  | google, bing, duckduckgo, brave | all configured in preferred order |
+| general      | fallback  | existing configured order       |                    all configured |
 
 If fewer configured providers exist than a profile's primary target, all available configured providers in preference order become primary.
 
@@ -303,10 +303,7 @@ Treat the existing locale behavior as a v1.2 P0 correctness fix.
 Current problem:
 
 ```ts
-resolveSearchLocale(
-  query,
-  crossLingual ? detectedLanguage : "eng_Latn"
-)
+resolveSearchLocale(query, crossLingual ? detectedLanguage : "eng_Latn");
 ```
 
 When cross-lingual mode is disabled, Turkish query heuristics cannot run because English is supplied as an explicit detected language.
@@ -371,7 +368,7 @@ evals/search-routing/queries.jsonl
 Each record contains at least:
 
 ```json
-{"query":"Laravel queue retry best practices","intent":"technical"}
+{ "query": "Laravel queue retry best practices", "intent": "technical" }
 ```
 
 The dataset should include Turkish and English queries and cover all eight intents plus ambiguity cases.

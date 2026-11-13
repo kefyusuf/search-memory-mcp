@@ -1,9 +1,14 @@
 import { pipeline } from "@huggingface/transformers";
-import { IEmbeddingProvider } from "./types.js";
+import type { IEmbeddingProvider } from "./types.js";
 import { InvocationError } from "../runtime/request-context.js";
 
+type FeatureExtractor = (
+  text: string,
+  options: { pooling: "mean"; normalize: boolean },
+) => Promise<{ data: ArrayLike<number> }>;
+
 export class TransformersEmbeddingProvider implements IEmbeddingProvider {
-  private extractorLoading: Promise<any> | null = null;
+  private extractorLoading: Promise<FeatureExtractor | null> | null = null;
   private extractorFailed = false;
   private modelName: string;
   private readonly maxConcurrentInferences: number;
@@ -14,7 +19,10 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private readonly loadWaitMs?: number;
   private extractorReady = false;
 
-  constructor(modelName: string = "Xenova/paraphrase-multilingual-MiniLM-L12-v2", options: { maxConcurrentInferences?: number; maxQueuedInferences?: number; loadWaitMs?: number } = {}) {
+  constructor(
+    modelName: string = "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+    options: { maxConcurrentInferences?: number; maxQueuedInferences?: number; loadWaitMs?: number } = {},
+  ) {
     this.modelName = modelName;
     // Loading takes seconds from disk and minutes on the first download. Queries made
     // meanwhile get no vector (keyword-only search) instead of waiting for it;
@@ -22,8 +30,12 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
     this.loadWaitMs = options.loadWaitMs;
     this.maxConcurrentInferences = options.maxConcurrentInferences ?? 1;
     this.maxQueuedInferences = options.maxQueuedInferences ?? 32;
-    if (!Number.isSafeInteger(this.maxConcurrentInferences) || this.maxConcurrentInferences <= 0 ||
-        !Number.isSafeInteger(this.maxQueuedInferences) || this.maxQueuedInferences < 0) {
+    if (
+      !Number.isSafeInteger(this.maxConcurrentInferences) ||
+      this.maxConcurrentInferences <= 0 ||
+      !Number.isSafeInteger(this.maxQueuedInferences) ||
+      this.maxQueuedInferences < 0
+    ) {
       throw new InvocationError("invalid_embedding_capacity");
     }
   }
@@ -35,7 +47,10 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
       // Publish the promise before starting the loader so concurrent callers share it.
       this.extractorLoading = Promise.resolve()
         .then(() => pipeline("feature-extraction", this.modelName))
-        .then((extractor) => { this.extractorReady = true; return extractor; })
+        .then((extractor) => {
+          this.extractorReady = true;
+          return extractor;
+        })
         .catch((e) => {
           this.extractorFailed = true;
           console.error("Embedding model permanently failed:", e);
@@ -56,7 +71,9 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
     if (this.extractorReady) return loading;
     if (!this.loadWaitMs) return null;
     let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), this.loadWaitMs); });
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), this.loadWaitMs);
+    });
     try {
       return await Promise.race([loading, timeout]);
     } finally {
@@ -72,12 +89,15 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
     if (this.inferenceWaiters.length >= this.maxQueuedInferences) {
       return Promise.reject(new InvocationError("embedding_capacity_exceeded"));
     }
-    return new Promise(resolve => { this.inferenceWaiters.push(resolve); });
+    return new Promise((resolve) => {
+      this.inferenceWaiters.push(resolve);
+    });
   }
 
   private releaseInference(): void {
     const next = this.inferenceWaiters.shift();
-    if (next) next(); // Transfer the occupied slot; new arrivals cannot jump the FIFO queue.
+    if (next)
+      next(); // Transfer the occupied slot; new arrivals cannot jump the FIFO queue.
     else this.activeInferences--;
   }
 
@@ -95,7 +115,9 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
       if (!extractor || this.extractorFailed) return [];
       const output = await extractor(text, { pooling: "mean", normalize: true });
       return Array.from(output.data);
-    } finally { this.releaseInference(); }
+    } finally {
+      this.releaseInference();
+    }
   }
 
   isAvailable(): boolean {

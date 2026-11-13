@@ -5,9 +5,8 @@ import { SessionMemory } from "../../src/memory/session-memory.ts";
 const memory = new SessionMemory(process.argv[2], { maxNotes: 1 });
 const transaction = Database.prototype.transaction;
 Database.prototype.transaction = function (callback) {
-  const connection = this;
-  return transaction.call(connection, (...args) => {
-    connection.pragma("cache_size = 8");
+  return transaction.call(this, (...args) => {
+    this.pragma("cache_size = 8");
     const result = callback(...args);
     process.send({ stage: "uncommitted-write" });
     // Wait synchronously so the transaction cannot commit before termination.
@@ -15,4 +14,4 @@ Database.prototype.transaction = function (callback) {
     return result;
   });
 };
-memory.remember("Interrupted note " + "x".repeat(8 * 1024 * 1024));
+memory.remember(`Interrupted note ${"x".repeat(8 * 1024 * 1024)}`);

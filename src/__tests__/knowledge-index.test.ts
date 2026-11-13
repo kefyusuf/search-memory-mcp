@@ -78,8 +78,16 @@ describe("KnowledgeIndex", () => {
 
   it("filters search results by source", async () => {
     index = new KnowledgeIndex(":memory:");
-    index.ingest({ title: "A", source: "https://a.example/doc", content: "PostgreSQL pooling reduces churn under load." });
-    index.ingest({ title: "B", source: "https://b.example/doc", content: "PostgreSQL pooling reduces churn under load." });
+    index.ingest({
+      title: "A",
+      source: "https://a.example/doc",
+      content: "PostgreSQL pooling reduces churn under load.",
+    });
+    index.ingest({
+      title: "B",
+      source: "https://b.example/doc",
+      content: "PostgreSQL pooling reduces churn under load.",
+    });
 
     const hits = await index.search("PostgreSQL pooling", 10, {
       source: "https://a.example/doc",

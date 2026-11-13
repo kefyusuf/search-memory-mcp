@@ -4,11 +4,19 @@ vi.mock("@huggingface/transformers", () => ({ pipeline: (...args: unknown[]) => 
 import { TransformersEmbeddingProvider } from "../cache/embedding.js";
 
 describe("embedding model first download", () => {
-  beforeEach(() => { model.extract.mockReset().mockResolvedValue({ data: new Float32Array([0.5, 0.5]) }); model.load.mockReset(); });
+  beforeEach(() => {
+    model.extract.mockReset().mockResolvedValue({ data: new Float32Array([0.5, 0.5]) });
+    model.load.mockReset();
+  });
 
   it("answers without a vector while the model is still downloading, then uses it once loaded", async () => {
     let finish!: (extractor: unknown) => void;
-    model.load.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    model.load.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
     const provider = new TransformersEmbeddingProvider("test", { loadWaitMs: 20 });
 
     expect(await provider.getEmbedding("first")).toEqual([]);

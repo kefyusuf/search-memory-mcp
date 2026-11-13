@@ -70,47 +70,51 @@ export function summarizeProviderBenchmark(attempts: ProviderAttempt[]): Provide
     byProvider.set(attempt.provider, [...(byProvider.get(attempt.provider) ?? []), attempt]);
   }
 
-  return [...byProvider.entries()].map(([provider, rows]) => {
-    const count = (status: ProviderAttempt["status"]) => rows.filter((row) => row.status === status).length;
-    const durations = rows.map((row) => row.durationMs).sort((a, b) => a - b);
-    const errors = new Map<string, number>();
-    for (const row of rows) {
-      if (row.error) errors.set(row.error, (errors.get(row.error) ?? 0) + 1);
-    }
-    return {
-      provider,
-      attempts: rows.length,
-      ok: count("ok"),
-      empty: count("empty"),
-      error: count("error"),
-      backoff: count("backoff"),
-      successRate: count("ok") / rows.length,
-      p50Ms: percentile(durations, 0.5),
-      p95Ms: percentile(durations, 0.95),
-      avgResults: rows.reduce((sum, row) => sum + row.resultCount, 0) / rows.length,
-      topErrors: [...errors.entries()]
-        .map(([error, errorCount]) => ({ error, count: errorCount }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 3),
-    };
-  }).sort((a, b) => a.provider.localeCompare(b.provider));
+  return [...byProvider.entries()]
+    .map(([provider, rows]) => {
+      const count = (status: ProviderAttempt["status"]) => rows.filter((row) => row.status === status).length;
+      const durations = rows.map((row) => row.durationMs).sort((a, b) => a - b);
+      const errors = new Map<string, number>();
+      for (const row of rows) {
+        if (row.error) errors.set(row.error, (errors.get(row.error) ?? 0) + 1);
+      }
+      return {
+        provider,
+        attempts: rows.length,
+        ok: count("ok"),
+        empty: count("empty"),
+        error: count("error"),
+        backoff: count("backoff"),
+        successRate: count("ok") / rows.length,
+        p50Ms: percentile(durations, 0.5),
+        p95Ms: percentile(durations, 0.95),
+        avgResults: rows.reduce((sum, row) => sum + row.resultCount, 0) / rows.length,
+        topErrors: [...errors.entries()]
+          .map(([error, errorCount]) => ({ error, count: errorCount }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3),
+      };
+    })
+    .sort((a, b) => a.provider.localeCompare(b.provider));
 }
 
 export function formatProviderBenchmarkReport(
   summary: ProviderBenchmarkSummary[],
   { queries, date }: { queries: number; date: string },
 ): string {
-  const rows = summary.map((row) => [
-    row.provider,
-    row.attempts,
-    row.ok,
-    row.empty,
-    row.error,
-    `${Math.round(row.successRate * 100)}%`,
-    row.p50Ms,
-    row.p95Ms,
-    row.topErrors.map(({ error, count }) => `${error.replaceAll("|", "/")} (${count})`).join("; ") || "-",
-  ].join(" | "));
+  const rows = summary.map((row) =>
+    [
+      row.provider,
+      row.attempts,
+      row.ok,
+      row.empty,
+      row.error,
+      `${Math.round(row.successRate * 100)}%`,
+      row.p50Ms,
+      row.p95Ms,
+      row.topErrors.map(({ error, count }) => `${error.replaceAll("|", "/")} (${count})`).join("; ") || "-",
+    ].join(" | "),
+  );
   return [
     `Provider benchmark, ${date}: ${queries} queries per provider.`,
     "",

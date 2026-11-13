@@ -24,8 +24,7 @@ export class BlockedFetchUrlError extends Error {
 export function isGuardedFetchRejection(error: unknown): boolean {
   let cause = error;
   for (let i = 0; i < 4 && cause && typeof cause === "object"; i += 1) {
-    if (cause instanceof BlockedFetchUrlError ||
-        ("code" in cause && cause.code === "EACCES")) return true;
+    if (cause instanceof BlockedFetchUrlError || ("code" in cause && cause.code === "EACCES")) return true;
     cause = "cause" in cause ? cause.cause : undefined;
   }
   return false;
@@ -50,9 +49,7 @@ export function createGuardedHttpFetcher(
     // DNS lookup is bypassed for IP literals. Apply the same peer-address
     // policy BEFORE opening a socket, including IPv4-mapped/unspecified IPv6.
     const bracketed = validation.url.hostname;
-    const literal = bracketed.startsWith("[") && bracketed.endsWith("]")
-      ? bracketed.slice(1, -1)
-      : bracketed;
+    const literal = bracketed.startsWith("[") && bracketed.endsWith("]") ? bracketed.slice(1, -1) : bracketed;
     if (isIP(literal) && !isPublicConnectionAddress(literal)) {
       throw new BlockedFetchUrlError();
     }

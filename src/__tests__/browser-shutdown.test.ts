@@ -6,7 +6,10 @@ import { WebSearchServer } from "../index.js";
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
-  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  const promise = new Promise<T>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
   return { promise, resolve, reject };
 }
 
@@ -14,7 +17,10 @@ async function proxyIsClosed(url: string): Promise<boolean> {
   return await new Promise((resolve, reject) => {
     const { port } = new URL(url);
     const socket = connectSocket({ host: "127.0.0.1", port: Number(port) });
-    socket.once("connect", () => { socket.destroy(); resolve(false); });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(false);
+    });
     socket.once("error", (error: NodeJS.ErrnoException) => {
       if (error.code === "ECONNREFUSED") resolve(true);
       else reject(error);
@@ -22,8 +28,23 @@ async function proxyIsClosed(url: string): Promise<boolean> {
   });
 }
 
+// Structural view of the private lifecycle fields; intersecting with
+// WebSearchServer would reduce to never because the fields are private there.
+type BrowserLifecycleFixture = {
+  getBrowserContext(): Promise<BrowserContext>;
+  closeBrowserResources(): Promise<void>;
+  browser: Browser | null;
+  browserLaunch: Promise<Browser> | null;
+  browserContext: BrowserContext | null;
+  browserContextLaunch: Promise<BrowserContext> | null;
+  browserShuttingDown: boolean;
+  browserEgressProxy: unknown;
+};
+
 describe("WebSearchServer guarded Chromium shutdown", () => {
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it("waits for a pending guarded context, then closes its proxy without leaking it", async () => {
     const gate = deferred<BrowserContext>();
@@ -39,16 +60,7 @@ describe("WebSearchServer guarded Chromium shutdown", () => {
 
     // Prototype-only fixture avoids constructing persistence/embedding systems:
     // this directly exercises the same lifecycle methods used by the server.
-    const subject = Object.create(WebSearchServer.prototype) as WebSearchServer & {
-      getBrowserContext(): Promise<BrowserContext>;
-      closeBrowserResources(): Promise<void>;
-      browser: Browser | null;
-      browserLaunch: Promise<Browser> | null;
-      browserContext: BrowserContext | null;
-      browserContextLaunch: Promise<BrowserContext> | null;
-      browserShuttingDown: boolean;
-      browserEgressProxy: unknown;
-    };
+    const subject = Object.create(WebSearchServer.prototype) as BrowserLifecycleFixture;
     subject.browser = browser;
     subject.browserLaunch = null;
     subject.browserContext = null;
@@ -84,15 +96,7 @@ describe("WebSearchServer guarded Chromium shutdown", () => {
     const browserClose = vi.fn(async () => {});
     const browser = { close: browserClose } as unknown as Browser;
     const gate = deferred<BrowserContext>();
-    const subject = Object.create(WebSearchServer.prototype) as WebSearchServer & {
-      closeBrowserResources(): Promise<void>;
-      browser: Browser | null;
-      browserLaunch: Promise<Browser> | null;
-      browserContext: BrowserContext | null;
-      browserContextLaunch: Promise<BrowserContext> | null;
-      browserShuttingDown: boolean;
-      browserEgressProxy: unknown;
-    };
+    const subject = Object.create(WebSearchServer.prototype) as BrowserLifecycleFixture;
     subject.browser = browser;
     subject.browserLaunch = null;
     subject.browserContext = null;

@@ -54,7 +54,10 @@ export function domainMatches(hostname: string, domain: string | undefined): boo
   return normalizedHost === normalizedDomain || normalizedHost.endsWith(`.${normalizedDomain}`);
 }
 
-export function filterSearchResultsByDomain(results: SearchResultItem[], domain: string | undefined): SearchResultItem[] {
+export function filterSearchResultsByDomain(
+  results: SearchResultItem[],
+  domain: string | undefined,
+): SearchResultItem[] {
   const normalizedDomain = normalizeDomainFilter(domain);
   if (!normalizedDomain) return results;
 
@@ -95,8 +98,7 @@ function localeFromLanguageLabel(language: string): SearchLocale | null {
 export function inferSearchLocale(query: string): SearchLocale {
   const normalized = query.toLowerCase();
   const isTurkish =
-    /[çğıöşü]/i.test(query) ||
-    /\b(altın|fiyat|döviz|haber|bugün|gram|çeyrek|ons|kur)\b/i.test(normalized);
+    /[çğıöşü]/i.test(query) || /\b(altın|fiyat|döviz|haber|bugün|gram|çeyrek|ons|kur)\b/i.test(normalized);
 
   if (isTurkish) {
     return {
@@ -146,9 +148,7 @@ export function decodeBingUrl(rawUrl: string): string {
     const encodedTarget = parsed.searchParams.get("u");
     if (!encodedTarget) return rawUrl;
 
-    const base64Payload = encodedTarget.startsWith("a1")
-      ? encodedTarget.slice(2)
-      : encodedTarget;
+    const base64Payload = encodedTarget.startsWith("a1") ? encodedTarget.slice(2) : encodedTarget;
 
     const decoded = Buffer.from(base64Payload, "base64").toString("utf-8");
     if (isLikelyUrl(decoded)) return decoded;
@@ -170,7 +170,7 @@ export function parseDuckDuckGoResults(html: string): SearchResultItem[] {
       const row = anchor.closest("tr");
       const snippet = cleanText(
         row?.nextElementSibling?.querySelector("td.result-snippet")?.textContent ||
-        row?.querySelector("td.result-snippet")?.textContent
+          row?.querySelector("td.result-snippet")?.textContent,
       );
 
       return {
@@ -223,8 +223,7 @@ export function parseBraveResults(html: string): SearchResultItem[] {
 
 export function parseGoogleResults(html: string): SearchResultItem[] {
   const doc = new JSDOM(html, { url: "https://www.google.com" }).window.document;
-  const anchors = Array.from(doc.querySelectorAll("a"))
-    .filter((anchor) => Boolean(anchor.querySelector("h3")));
+  const anchors = Array.from(doc.querySelectorAll("a")).filter((anchor) => Boolean(anchor.querySelector("h3")));
 
   return anchors
     .slice(0, 10)
@@ -232,7 +231,8 @@ export function parseGoogleResults(html: string): SearchResultItem[] {
       title: cleanText(anchor.textContent),
       url: anchor.href,
       snippet: cleanText(
-        anchor.parentElement?.parentElement?.querySelector("div[style*='-webkit-line-clamp'], span.aCOpRe")?.textContent
+        anchor.parentElement?.parentElement?.querySelector("div[style*='-webkit-line-clamp'], span.aCOpRe")
+          ?.textContent,
       ),
       source: "google",
     }))
@@ -276,6 +276,9 @@ export function parseMarginaliaResults(html: string): SearchResultItem[] {
       const snippet = cleanText(card?.querySelector("p.mt-2")?.textContent);
       return { title, url, snippet, source: "marginalia" };
     })
-    .filter((result) => result.title && isLikelyUrl(result.url) && !new URL(result.url).hostname.endsWith("marginalia-search.com"))
+    .filter(
+      (result) =>
+        result.title && isLikelyUrl(result.url) && !new URL(result.url).hostname.endsWith("marginalia-search.com"),
+    )
     .slice(0, 10);
 }

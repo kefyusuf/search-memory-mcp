@@ -3,8 +3,13 @@ import { checkSqliteBinding, isSupportedNodeVersion } from "../runtime/native-ch
 
 describe("isSupportedNodeVersion", () => {
   it.each([
-    ["v20.9.0", true], ["v22.11.0", true], ["v24.3.0", true], ["v25.1.0", true],
-    ["v20.8.1", false], ["v18.20.0", false], ["v26.8.2", false],
+    ["v20.9.0", true],
+    ["v22.11.0", true],
+    ["v24.3.0", true],
+    ["v25.1.0", true],
+    ["v20.8.1", false],
+    ["v18.20.0", false],
+    ["v26.8.2", false],
   ])("%s -> %s", (version, supported) => {
     expect(isSupportedNodeVersion(version)).toBe(supported);
   });
@@ -17,7 +22,9 @@ describe("checkSqliteBinding", () => {
 
   it("explains a missing binding (install scripts not run) with fixes and the Docker option", () => {
     const help = checkSqliteBinding({
-      open: () => { throw new Error("Could not locate the bindings file. Tried: ..."); },
+      open: () => {
+        throw new Error("Could not locate the bindings file. Tried: ...");
+      },
       nodeVersion: "v24.3.0",
     });
     expect(help).toContain("better-sqlite3");
@@ -30,7 +37,9 @@ describe("checkSqliteBinding", () => {
 
   it("names an unsupported Node version and recommends Node 24", () => {
     const help = checkSqliteBinding({
-      open: () => { throw new Error("was compiled against a different Node.js version using NODE_MODULE_VERSION 127"); },
+      open: () => {
+        throw new Error("was compiled against a different Node.js version using NODE_MODULE_VERSION 127");
+      },
       nodeVersion: "v26.8.2",
     });
     expect(help).toContain("Node v26.8.2 is not supported");

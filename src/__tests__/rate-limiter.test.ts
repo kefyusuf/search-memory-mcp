@@ -29,7 +29,7 @@ describe("TokenBucket", () => {
   it("should refill tokens over time", async () => {
     const bucket = new TokenBucket({ maxTokens: 2, refillRatePerSecond: 100 });
     for (let i = 0; i < 2; i++) bucket.tryConsume();
-    await new Promise(resolve => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 30));
     const result = bucket.tryConsume();
     expect(result.allowed).toBe(true);
   });

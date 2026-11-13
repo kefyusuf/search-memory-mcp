@@ -22,10 +22,12 @@ describe("search planner", () => {
   });
 
   it("orders navigational fallback by profile preference", () => {
-    expect(planSearch({
-      intent: "navigational",
-      configuredProviderNames: all,
-    })).toEqual({
+    expect(
+      planSearch({
+        intent: "navigational",
+        configuredProviderNames: all,
+      }),
+    ).toEqual({
       intent: "navigational",
       strategy: "fallback",
       primaryProviderNames: ["duckduckgo", "brave", "bing", "google"],
@@ -35,10 +37,12 @@ describe("search planner", () => {
   });
 
   it("preserves configured order for general fallback", () => {
-    expect(planSearch({
-      intent: "general",
-      configuredProviderNames: ["bing", "duckduckgo", "google"],
-    })).toEqual({
+    expect(
+      planSearch({
+        intent: "general",
+        configuredProviderNames: ["bing", "duckduckgo", "google"],
+      }),
+    ).toEqual({
       intent: "general",
       strategy: "fallback",
       primaryProviderNames: ["bing", "duckduckgo", "google"],
@@ -48,10 +52,12 @@ describe("search planner", () => {
   });
 
   it("intersects preferences with the configured-provider allowlist", () => {
-    expect(planSearch({
-      intent: "technical",
-      configuredProviderNames: ["duckduckgo", "bing"],
-    })).toEqual({
+    expect(
+      planSearch({
+        intent: "technical",
+        configuredProviderNames: ["duckduckgo", "bing"],
+      }),
+    ).toEqual({
       intent: "technical",
       strategy: "aggregate",
       primaryProviderNames: ["duckduckgo", "bing"],
@@ -61,10 +67,12 @@ describe("search planner", () => {
   });
 
   it("leads news with tavily when it is configured", () => {
-    expect(planSearch({
-      intent: "news",
-      configuredProviderNames: ["tavily", "duckduckgo", "bing"],
-    })).toEqual({
+    expect(
+      planSearch({
+        intent: "news",
+        configuredProviderNames: ["tavily", "duckduckgo", "bing"],
+      }),
+    ).toEqual({
       intent: "news",
       strategy: "aggregate",
       primaryProviderNames: ["tavily", "duckduckgo", "bing"],
@@ -74,10 +82,12 @@ describe("search planner", () => {
   });
 
   it("leads research with exa and tavily when they are configured", () => {
-    expect(planSearch({
-      intent: "research",
-      configuredProviderNames: ["exa", "tavily", "duckduckgo"],
-    })).toEqual({
+    expect(
+      planSearch({
+        intent: "research",
+        configuredProviderNames: ["exa", "tavily", "duckduckgo"],
+      }),
+    ).toEqual({
       intent: "research",
       strategy: "aggregate",
       primaryProviderNames: ["exa", "tavily", "duckduckgo"],
@@ -87,16 +97,20 @@ describe("search planner", () => {
   });
 
   it("resolves keyless defaults exactly as v2 did", () => {
-    expect(planSearch({
-      intent: "news",
-      configuredProviderNames: ["duckduckgo", "marginalia", "bing"],
-    }).primaryProviderNames).toEqual(["duckduckgo", "bing", "marginalia"]);
+    expect(
+      planSearch({
+        intent: "news",
+        configuredProviderNames: ["duckduckgo", "marginalia", "bing"],
+      }).primaryProviderNames,
+    ).toEqual(["duckduckgo", "bing", "marginalia"]);
   });
 
   it("deduplicates configured provider names deterministically", () => {
-    expect(planSearch({
-      intent: "technical",
-      configuredProviderNames: ["bing", "bing", "duckduckgo"],
-    }).primaryProviderNames).toEqual(["duckduckgo", "bing"]);
+    expect(
+      planSearch({
+        intent: "technical",
+        configuredProviderNames: ["bing", "bing", "duckduckgo"],
+      }).primaryProviderNames,
+    ).toEqual(["duckduckgo", "bing"]);
   });
 });

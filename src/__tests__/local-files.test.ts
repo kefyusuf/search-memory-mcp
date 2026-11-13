@@ -41,10 +41,13 @@ describe("parseAllowedDirs", () => {
 
 describe("readLocalDocument", () => {
   it("reads text and DOCX files inside an allowed directory", async () => {
-    await expect(readLocalDocument(join(allowed, "notes.md"), { allowedDirs: [allowed] }))
-      .resolves.toMatchObject({ format: "text", text: "# Notes\n\nPgBouncer pools connections." });
-    await expect(readLocalDocument(join(allowed, "sub", "report.docx"), { allowedDirs: [allowed] }))
-      .resolves.toMatchObject({ format: "docx", title: "Report", text: "Quarterly pooling report." });
+    await expect(readLocalDocument(join(allowed, "notes.md"), { allowedDirs: [allowed] })).resolves.toMatchObject({
+      format: "text",
+      text: "# Notes\n\nPgBouncer pools connections.",
+    });
+    await expect(
+      readLocalDocument(join(allowed, "sub", "report.docx"), { allowedDirs: [allowed] }),
+    ).resolves.toMatchObject({ format: "docx", title: "Report", text: "Quarterly pooling report." });
   });
 
   it.each([
@@ -61,8 +64,9 @@ describe("readLocalDocument", () => {
   });
 
   it("refuses files above the size limit before reading them", async () => {
-    await expect(readLocalDocument(join(allowed, "notes.md"), { allowedDirs: [allowed], maxBytes: 10 }))
-      .rejects.toMatchObject({ code: "too_large" });
+    await expect(
+      readLocalDocument(join(allowed, "notes.md"), { allowedDirs: [allowed], maxBytes: 10 }),
+    ).rejects.toMatchObject({ code: "too_large" });
   });
 });
 
@@ -71,12 +75,21 @@ describe("ingest_document with a path", () => {
     const knowledgeIndex = new KnowledgeIndex(":memory:", { enableEmbeddings: false });
     const entityGraph = new EntityGraph(":memory:");
     const handlers = createKnowledgeHandlers({
-      knowledgeIndex, entityGraph, embed: async () => [],
+      knowledgeIndex,
+      entityGraph,
+      embed: async () => [],
       fetchContent: async () => ({ kind: "error", reason: "fetch_failed" }),
       fetchLimiter: new TokenBucket({ maxTokens: 1, refillRatePerSecond: 0 }),
       allowedDirs: () => allowedDirs,
     });
-    return { handlers, knowledgeIndex, close: () => { knowledgeIndex.close(); entityGraph.close(); } };
+    return {
+      handlers,
+      knowledgeIndex,
+      close: () => {
+        knowledgeIndex.close();
+        entityGraph.close();
+      },
+    };
   }
 
   it("indexes an allowed file with its real path as the source", async () => {

@@ -7,8 +7,18 @@ import {
   summarizeProviderBenchmark,
 } from "../eval/provider-benchmark.js";
 
-const attempt = (provider: string, status: ProviderAttempt["status"], durationMs: number, error?: string): ProviderAttempt =>
-  ({ provider, status, resultCount: status === "ok" ? 3 : 0, durationMs, ...(error ? { error } : {}) });
+const attempt = (
+  provider: string,
+  status: ProviderAttempt["status"],
+  durationMs: number,
+  error?: string,
+): ProviderAttempt => ({
+  provider,
+  status,
+  resultCount: status === "ok" ? 3 : 0,
+  durationMs,
+  ...(error ? { error } : {}),
+});
 
 describe("provider benchmark summary", () => {
   it("computes success rate, latency percentiles and top errors per provider", () => {
@@ -23,13 +33,33 @@ describe("provider benchmark summary", () => {
     ]);
     expect(summary).toEqual([
       {
-        provider: "bing", attempts: 6, ok: 2, empty: 1, error: 3, backoff: 0,
-        successRate: 2 / 6, p50Ms: 300, p95Ms: 600, avgResults: 1,
-        topErrors: [{ error: "HTTP 429", count: 2 }, { error: "timeout", count: 1 }],
+        provider: "bing",
+        attempts: 6,
+        ok: 2,
+        empty: 1,
+        error: 3,
+        backoff: 0,
+        successRate: 2 / 6,
+        p50Ms: 300,
+        p95Ms: 600,
+        avgResults: 1,
+        topErrors: [
+          { error: "HTTP 429", count: 2 },
+          { error: "timeout", count: 1 },
+        ],
       },
       {
-        provider: "duckduckgo", attempts: 1, ok: 1, empty: 0, error: 0, backoff: 0,
-        successRate: 1, p50Ms: 50, p95Ms: 50, avgResults: 3, topErrors: [],
+        provider: "duckduckgo",
+        attempts: 1,
+        ok: 1,
+        empty: 0,
+        error: 0,
+        backoff: 0,
+        successRate: 1,
+        p50Ms: 50,
+        p95Ms: 50,
+        avgResults: 3,
+        topErrors: [],
       },
     ]);
   });
@@ -54,8 +84,12 @@ describe("provider benchmark runner", () => {
       sleep,
     });
     expect(calls).toEqual(["bing:a", "duckduckgo:a", "bing:b", "duckduckgo:b"]);
-    expect(attempts.map(({ provider, status }) => `${provider}:${status}`))
-      .toEqual(["bing:error", "duckduckgo:ok", "bing:error", "duckduckgo:ok"]);
+    expect(attempts.map(({ provider, status }) => `${provider}:${status}`)).toEqual([
+      "bing:error",
+      "duckduckgo:ok",
+      "bing:error",
+      "duckduckgo:ok",
+    ]);
     expect(sleep).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledWith(250);
   });
@@ -68,7 +102,9 @@ describe("provider benchmark attempt hook", () => {
       providers: [{ name: "bing", execute: async () => [] }],
       queries: [{ query: "a" }, { query: "b" }],
       delayMs: 0,
-      onAttempt: (attempt, query) => seen.push(`${attempt.provider}:${attempt.status}:${query}`),
+      onAttempt: (attempt, query) => {
+        seen.push(`${attempt.provider}:${attempt.status}:${query}`);
+      },
     });
     expect(seen).toEqual(["bing:empty:a", "bing:empty:b"]);
   });

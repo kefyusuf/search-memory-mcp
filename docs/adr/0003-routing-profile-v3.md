@@ -19,12 +19,12 @@ Three-day live matrix (`evals/providers/2026-10-25-p104-day1.md`, `2026-10-25-p1
 
 Profile **v3** changes exactly two intent rows:
 
-| Intent | v3 preference (planner intersects with `SEARCH_PROVIDERS`) |
-| --- | --- |
-| `news` | tavily, duckduckgo, searxng, brave, bing, google |
-| `research` | exa, tavily, searxng, duckduckgo, brave, bing, google |
+| Intent     | v3 preference (planner intersects with `SEARCH_PROVIDERS`) |
+| ---------- | ---------------------------------------------------------- |
+| `news`     | tavily, duckduckgo, searxng, brave, bing, google           |
+| `research` | exa, tavily, searxng, duckduckgo, brave, bing, google      |
 
-Everything else (strategies, primary targets, all other intents) keeps v2. Placement follows measured *capability×intent*: news freshness/publish dates are Tavily's measured strength; semantic discovery is Exa's; DuckDuckGo leads the remaining candidates by measured speed and stability.
+Everything else (strategies, primary targets, all other intents) keeps v2. Placement follows measured _capability×intent_: news freshness/publish dates are Tavily's measured strength; semantic discovery is Exa's; DuckDuckGo leads the remaining candidates by measured speed and stability.
 
 ## Consequences
 

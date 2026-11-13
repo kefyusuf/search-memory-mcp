@@ -5,7 +5,9 @@ import { InMemoryVectorStore } from "./helpers.js";
 
 function makeVec(values: number[]): number[] {
   const vec = new Array(384).fill(0);
-  values.forEach((value, index) => { vec[index] = value; });
+  values.forEach((value, index) => {
+    vec[index] = value;
+  });
   return vec;
 }
 

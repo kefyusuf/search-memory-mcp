@@ -19,11 +19,14 @@ describe("search-utils", () => {
   });
 
   it("filters results by exact domains and subdomains", () => {
-    const results = filterSearchResultsByDomain([
-      { title: "React", url: "https://react.dev/reference", snippet: "Docs", source: "test" },
-      { title: "Blog", url: "https://engineering.react.dev/post", snippet: "Post", source: "test" },
-      { title: "Other", url: "https://example.com/react", snippet: "Other", source: "test" },
-    ], "react.dev");
+    const results = filterSearchResultsByDomain(
+      [
+        { title: "React", url: "https://react.dev/reference", snippet: "Docs", source: "test" },
+        { title: "Blog", url: "https://engineering.react.dev/post", snippet: "Post", source: "test" },
+        { title: "Other", url: "https://example.com/react", snippet: "Other", source: "test" },
+      ],
+      "react.dev",
+    );
 
     expect(results.map((result) => result.title)).toEqual(["React", "Blog"]);
   });

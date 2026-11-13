@@ -5,11 +5,14 @@ import { createLocalRequestContext } from "../runtime/request-context.js";
 async function configuredProviders(): Promise<string[]> {
   vi.stubEnv("CACHE_DB_PATH", ":memory:");
   const result = await new WebSearchServer().callTool("server_status", {}, createLocalRequestContext());
-  return (result.structuredContent as { config: { searchProviders: string[] } }).config.searchProviders;
+  const structured = "structuredContent" in result ? result.structuredContent : undefined;
+  return (structured as { config: { searchProviders: string[] } }).config.searchProviders;
 }
 
 describe("default search providers", () => {
-  afterEach(() => { vi.unstubAllEnvs(); });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
 
   it("uses duckduckgo, marginalia and bing without configuration", async () => {
     vi.stubEnv("SEARCH_PROVIDERS", "");

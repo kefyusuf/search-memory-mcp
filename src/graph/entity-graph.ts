@@ -1,6 +1,11 @@
 import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import { assertRequestContext, InvocationError, type Permission, type RequestContext } from "../runtime/request-context.js";
+import {
+  assertRequestContext,
+  InvocationError,
+  type Permission,
+  type RequestContext,
+} from "../runtime/request-context.js";
 
 export type ExtractedEntity = {
   name: string;
@@ -27,23 +32,121 @@ export type IndexDocumentInput = {
 };
 
 const STOPWORDS = new Set([
-  "The", "A", "An", "And", "Or", "But", "If", "Then", "Else", "When", "At", "By",
-  "For", "With", "About", "Against", "Between", "Into", "Through", "During",
-  "Before", "After", "Above", "Below", "To", "From", "Up", "Down", "In", "Out",
-  "On", "Off", "Over", "Under", "Again", "Further", "Once", "Here", "There",
-  "All", "Any", "Both", "Each", "Few", "More", "Most", "Other", "Some", "Such",
-  "No", "Nor", "Not", "Only", "Own", "Same", "So", "Than", "Too", "Very", "Can",
-  "Will", "Just", "Do", "Does", "Did", "Is", "Are", "Was", "Were", "Be", "Been",
-  "Being", "Have", "Has", "Had", "Having", "Of", "As", "It", "Its", "This",
-  "That", "These", "Those", "I", "Me", "My", "We", "Our", "You", "Your", "He",
-  "She", "They", "Them", "His", "Her", "Their", "What", "Which", "Who", "Whom",
-  "How", "Why", "Where", "Please", "Note", "Example", "Examples",
+  "The",
+  "A",
+  "An",
+  "And",
+  "Or",
+  "But",
+  "If",
+  "Then",
+  "Else",
+  "When",
+  "At",
+  "By",
+  "For",
+  "With",
+  "About",
+  "Against",
+  "Between",
+  "Into",
+  "Through",
+  "During",
+  "Before",
+  "After",
+  "Above",
+  "Below",
+  "To",
+  "From",
+  "Up",
+  "Down",
+  "In",
+  "Out",
+  "On",
+  "Off",
+  "Over",
+  "Under",
+  "Again",
+  "Further",
+  "Once",
+  "Here",
+  "There",
+  "All",
+  "Any",
+  "Both",
+  "Each",
+  "Few",
+  "More",
+  "Most",
+  "Other",
+  "Some",
+  "Such",
+  "No",
+  "Nor",
+  "Not",
+  "Only",
+  "Own",
+  "Same",
+  "So",
+  "Than",
+  "Too",
+  "Very",
+  "Can",
+  "Will",
+  "Just",
+  "Do",
+  "Does",
+  "Did",
+  "Is",
+  "Are",
+  "Was",
+  "Were",
+  "Be",
+  "Been",
+  "Being",
+  "Have",
+  "Has",
+  "Had",
+  "Having",
+  "Of",
+  "As",
+  "It",
+  "Its",
+  "This",
+  "That",
+  "These",
+  "Those",
+  "I",
+  "Me",
+  "My",
+  "We",
+  "Our",
+  "You",
+  "Your",
+  "He",
+  "She",
+  "They",
+  "Them",
+  "His",
+  "Her",
+  "Their",
+  "What",
+  "Which",
+  "Who",
+  "Whom",
+  "How",
+  "Why",
+  "Where",
+  "Please",
+  "Note",
+  "Example",
+  "Examples",
 ]);
 
 const TECH_TOKEN = /^[A-Za-z][A-Za-z0-9+#.\-_]{2,30}$/;
 
 export function extractEntities(text: string): ExtractedEntity[] {
-  if (!text || !text.trim()) return [];
+  if (!text?.trim()) return [];
 
   const counts = new Map<string, number>();
   const phraseMentions = new Map<number, string>();
@@ -73,10 +176,7 @@ export function extractEntities(text: string): ExtractedEntity[] {
     if (STOPWORDS.has(token) || !TECH_TOKEN.test(token)) continue;
     // Skip generic lowercase words unless they look technical (camelCase / mixed / digits).
     const looksTechnical =
-      /[A-Z]/.test(token.slice(1)) ||
-      /\d/.test(token) ||
-      /[+#._-]/.test(token) ||
-      /^[A-Z][a-z]+[A-Z]/.test(token);
+      /[A-Z]/.test(token.slice(1)) || /\d/.test(token) || /[+#._-]/.test(token) || /^[A-Z][a-z]+[A-Z]/.test(token);
     const startsCapital = /^[A-Z]/.test(token);
     if (!looksTechnical && !startsCapital) continue;
     while (compoundIndex < compoundMentions.length && compoundMentions[compoundIndex].end <= match.index) {
@@ -116,7 +216,12 @@ export class EntityGraph {
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = FULL");
     this.db.pragma("temp_store = MEMORY");
-    try { this.init(); } catch (error) { this.db.close(); throw error; }
+    try {
+      this.init();
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   private init() {
@@ -125,7 +230,7 @@ export class EntityGraph {
 
   private initSchema() {
     const columns = this.db.pragma("table_info(graph_entities)") as Array<{ name: string }>;
-    const legacy = columns.length > 0 && !columns.some(column => column.name === "execution_mode");
+    const legacy = columns.length > 0 && !columns.some((column) => column.name === "execution_mode");
     if (legacy) {
       // Rebuild global primary/unique keys so identical ids and names can coexist.
       for (const table of ["graph_entities", "graph_docs", "graph_doc_entities"]) {
@@ -172,11 +277,15 @@ export class EntityGraph {
         ["graph_doc_entities", "doc_id, entity_id, count"],
       ];
       for (const [table, dataColumns] of tables) {
-        this.db.exec(`INSERT INTO ${table} (execution_mode, tenant_id, workspace_id, ${dataColumns}) SELECT 'local', 'local', 'local', ${dataColumns} FROM ${table}_legacy`);
+        this.db.exec(
+          `INSERT INTO ${table} (execution_mode, tenant_id, workspace_id, ${dataColumns}) SELECT 'local', 'local', 'local', ${dataColumns} FROM ${table}_legacy`,
+        );
         this.db.exec(`DROP TABLE ${table}_legacy`);
       }
     }
-    this.db.exec("CREATE INDEX IF NOT EXISTS idx_graph_doc_entities_scope_entity ON graph_doc_entities(execution_mode, tenant_id, workspace_id, entity_id)");
+    this.db.exec(
+      "CREATE INDEX IF NOT EXISTS idx_graph_doc_entities_scope_entity ON graph_doc_entities(execution_mode, tenant_id, workspace_id, entity_id)",
+    );
   }
 
   private authorize(permission: Permission): void {
@@ -192,12 +301,16 @@ export class EntityGraph {
 
     const run = this.db.transaction(() => {
       // Replace any previous index for this doc.
-      this.db.prepare(`DELETE FROM graph_doc_entities WHERE ${this.scopeWhere} AND doc_id = ?`).run(...this.scope, input.docId);
+      this.db
+        .prepare(`DELETE FROM graph_doc_entities WHERE ${this.scopeWhere} AND doc_id = ?`)
+        .run(...this.scope, input.docId);
       this.db.prepare(`DELETE FROM graph_docs WHERE ${this.scopeWhere} AND doc_id = ?`).run(...this.scope, input.docId);
 
-      this.db.prepare(
-        "INSERT INTO graph_docs (execution_mode, tenant_id, workspace_id, doc_id, source, title, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run(...this.scope, input.docId, input.source, input.title, timestamp);
+      this.db
+        .prepare(
+          "INSERT INTO graph_docs (execution_mode, tenant_id, workspace_id, doc_id, source, title, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run(...this.scope, input.docId, input.source, input.title, timestamp);
 
       const upsertEntity = this.db.prepare(`
         INSERT INTO graph_entities (execution_mode, tenant_id, workspace_id, id, name, mention_count) VALUES (?, ?, ?, ?, ?, ?)
@@ -220,19 +333,22 @@ export class EntityGraph {
 
   entitiesForDoc(docId: string): ExtractedEntity[] {
     this.authorize("knowledge:read");
-    return this.db.prepare(`
+    return this.db
+      .prepare(`
       SELECT e.name AS name, de.count AS count
       FROM graph_doc_entities de
       JOIN graph_entities e ON e.id = de.entity_id
         AND e.execution_mode = de.execution_mode AND e.tenant_id = de.tenant_id AND e.workspace_id = de.workspace_id
       WHERE de.execution_mode = ? AND de.tenant_id = ? AND de.workspace_id = ? AND de.doc_id = ?
       ORDER BY de.count DESC, e.name ASC
-    `).all(...this.scope, docId) as ExtractedEntity[];
+    `)
+      .all(...this.scope, docId) as ExtractedEntity[];
   }
 
   docsForEntity(name: string, limit: number = 10): EntityDocLink[] {
     this.authorize("knowledge:read");
-    return this.db.prepare(`
+    return this.db
+      .prepare(`
       SELECT d.doc_id AS docId, d.source AS source, d.title AS title, de.count AS count
       FROM graph_entities e
       JOIN graph_doc_entities de ON de.entity_id = e.id
@@ -242,12 +358,14 @@ export class EntityGraph {
       WHERE e.execution_mode = ? AND e.tenant_id = ? AND e.workspace_id = ? AND LOWER(e.name) = LOWER(?)
       ORDER BY de.count DESC, d.timestamp DESC
       LIMIT ?
-    `).all(...this.scope, name, limit) as EntityDocLink[];
+    `)
+      .all(...this.scope, name, limit) as EntityDocLink[];
   }
 
   relatedEntities(name: string, limit: number = 10): EntityNeighbor[] {
     this.authorize("knowledge:read");
-    return this.db.prepare(`
+    return this.db
+      .prepare(`
       SELECT e2.name AS name, COUNT(*) AS cooccurrence
       FROM graph_entities e1
       JOIN graph_doc_entities de1 ON de1.entity_id = e1.id
@@ -260,14 +378,27 @@ export class EntityGraph {
       GROUP BY e2.name
       ORDER BY cooccurrence DESC, e2.name ASC
       LIMIT ?
-    `).all(...this.scope, name, limit) as EntityNeighbor[];
+    `)
+      .all(...this.scope, name, limit) as EntityNeighbor[];
   }
 
   getStats(): { entityCount: number; docCount: number; linkCount: number } {
     this.authorize("knowledge:read");
-    const entityCount = (this.db.prepare(`SELECT COUNT(*) AS c FROM graph_entities WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }).c;
-    const docCount = (this.db.prepare(`SELECT COUNT(*) AS c FROM graph_docs WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }).c;
-    const linkCount = (this.db.prepare(`SELECT COUNT(*) AS c FROM graph_doc_entities WHERE ${this.scopeWhere}`).get(...this.scope) as { c: number }).c;
+    const entityCount = (
+      this.db.prepare(`SELECT COUNT(*) AS c FROM graph_entities WHERE ${this.scopeWhere}`).get(...this.scope) as {
+        c: number;
+      }
+    ).c;
+    const docCount = (
+      this.db.prepare(`SELECT COUNT(*) AS c FROM graph_docs WHERE ${this.scopeWhere}`).get(...this.scope) as {
+        c: number;
+      }
+    ).c;
+    const linkCount = (
+      this.db.prepare(`SELECT COUNT(*) AS c FROM graph_doc_entities WHERE ${this.scopeWhere}`).get(...this.scope) as {
+        c: number;
+      }
+    ).c;
     return { entityCount, docCount, linkCount };
   }
 

@@ -12,7 +12,12 @@ const locale: SearchLocale = { acceptLanguage: "en-US,en;q=0.9", market: "en-US"
 const hit = (url: string) => ({ title: url, url, snippet: "snippet", source: "mock" });
 const ok = (name: string): SearchProvider => ({ name, execute: async () => [hit(`https://${name}.example/1`)] });
 const empty = (name: string): SearchProvider => ({ name, execute: async () => [] });
-const failing = (name: string, message: string): SearchProvider => ({ name, execute: async () => { throw new Error(message); } });
+const failing = (name: string, message: string): SearchProvider => ({
+  name,
+  execute: async () => {
+    throw new Error(message);
+  },
+});
 
 function backedOff(name: string): ProviderHealthTracker {
   const tracker = new ProviderHealthTracker();
@@ -25,7 +30,10 @@ describe("provider attempt reporting", () => {
     const attempts: ProviderAttempt[] = [];
     const results = await executeProviderSearch({
       providers: [failing("bing", "HTTP 403\nCaptcha page"), empty("brave"), ok("duckduckgo"), ok("google")],
-      query: "q", locale, strategy: "fallback", healthTracker: new ProviderHealthTracker(),
+      query: "q",
+      locale,
+      strategy: "fallback",
+      healthTracker: new ProviderHealthTracker(),
       onAttempt: (attempt) => attempts.push(attempt),
     });
     expect(results).toHaveLength(1);
@@ -42,16 +50,25 @@ describe("provider attempt reporting", () => {
     const attempts: ProviderAttempt[] = [];
     await executeProviderSearch({
       providers: [ok("bing"), failing("brave", "x".repeat(500))],
-      query: "q", locale, strategy: "aggregate", healthTracker: backedOff("bing"),
+      query: "q",
+      locale,
+      strategy: "aggregate",
+      healthTracker: backedOff("bing"),
       onAttempt: (attempt) => attempts.push(attempt),
     });
-    expect(attempts.find((attempt) => attempt.provider === "bing")).toMatchObject({ status: "backoff", resultCount: 0 });
+    expect(attempts.find((attempt) => attempt.provider === "bing")).toMatchObject({
+      status: "backoff",
+      resultCount: 0,
+    });
     expect(attempts.find((attempt) => attempt.provider === "brave")?.error).toHaveLength(160);
   });
 });
 
 function handler(providers: SearchProvider[]) {
-  const cache = new SemanticCache({ getEmbedding: async () => [1, ...new Array(383).fill(0)], isAvailable: () => true }, new InMemoryVectorStore());
+  const cache = new SemanticCache(
+    { getEmbedding: async () => [1, ...new Array(383).fill(0)], isAvailable: () => true },
+    new InMemoryVectorStore(),
+  );
   vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
   return createSearchHandler({
     searchLimiter: new TokenBucket({ maxTokens: 100, refillRatePerSecond: 0 }),
@@ -79,7 +96,9 @@ describe("web_search provider report", () => {
   it("adds no note when the first provider succeeds", async () => {
     const result = await handler([ok("duckduckgo"), ok("bing")])({ query: "example" });
     expect(result.content[0].text).not.toContain("Provider notes");
-    expect(result.structuredContent?.providerAttempts).toEqual([expect.objectContaining({ provider: "duckduckgo", status: "ok" })]);
+    expect(result.structuredContent?.providerAttempts).toEqual([
+      expect.objectContaining({ provider: "duckduckgo", status: "ok" }),
+    ]);
   });
 
   it("explains why every provider failed", async () => {
@@ -87,7 +106,7 @@ describe("web_search provider report", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toBe(
       "Web search is currently unavailable (all providers returned no results: bing failed (HTTP 429); duckduckgo returned no results). " +
-      "Try using fetch_content with a direct URL instead, or retry the search later.",
+        "Try using fetch_content with a direct URL instead, or retry the search later.",
     );
   });
 

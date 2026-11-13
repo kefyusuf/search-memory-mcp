@@ -6,7 +6,10 @@ export type JwtKeyLease = Readonly<{ key: CryptoKey; isCurrent: () => boolean }>
 
 export class JwtVerificationKeyRing {
   #keys = new Map<string, Readonly<JwtVerificationKey>>();
-  constructor(readonly algorithm: JwtSignatureAlgorithm, keys: readonly JwtVerificationKey[]) {
+  constructor(
+    readonly algorithm: JwtSignatureAlgorithm,
+    keys: readonly JwtVerificationKey[],
+  ) {
     if (!["RS256", "ES256", "EdDSA"].includes(algorithm)) throw new InvocationError("invalid_key_ring");
     this.replace(keys);
     Object.freeze(this);
@@ -21,7 +24,10 @@ export class JwtVerificationKeyRing {
         throw new InvocationError("invalid_key_ring");
       }
       const previous = this.#keys.get(entry.kid);
-      next.set(entry.kid, previous && previous.key === entry.key ? previous : Object.freeze({ kid: entry.kid, key: entry.key }));
+      next.set(
+        entry.kid,
+        previous && previous.key === entry.key ? previous : Object.freeze({ kid: entry.kid, key: entry.key }),
+      );
     }
     // Preserve retained lease identities; publish only after the entire replacement validates.
     this.#keys = next;

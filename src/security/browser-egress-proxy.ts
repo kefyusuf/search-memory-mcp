@@ -1,5 +1,11 @@
 import { lookup as systemLookup } from "node:dns";
-import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingHttpHeaders,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { connect as connectSocket, isIP, type Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import { createGuardedLookup, isPublicConnectionAddress } from "./guarded-lookup.js";
@@ -61,7 +67,7 @@ async function allowedTarget(raw: string): Promise<URL | null> {
 
 function respondError(response: ServerResponse, code: 403 | 502 | 503): void {
   if (response.destroyed || response.writableEnded) return;
-  if (!response.headersSent) response.writeHead(code, { "content-type": "text/plain", "connection": "close" });
+  if (!response.headersSent) response.writeHead(code, { "content-type": "text/plain", connection: "close" });
   response.end("Outbound connection denied");
 }
 
@@ -69,7 +75,7 @@ function sanitizedHeaders(headers: IncomingHttpHeaders, host: string): IncomingH
   const clean: IncomingHttpHeaders = { ...headers, host };
   delete clean["proxy-authorization"];
   delete clean["proxy-connection"];
-  delete clean["connection"];
+  delete clean.connection;
   delete clean["keep-alive"];
   return clean;
 }
@@ -99,25 +105,31 @@ export async function startBrowserEgressProxy(
     let target: URL | null = null;
     try {
       target = request.url ? await allowedTarget(request.url) : null;
-    } catch { /* fail closed */ }
-    if (!target || target.protocol !== "http:") {
+    } catch {
+      /* fail closed */
+    }
+    if (target?.protocol !== "http:") {
       respondError(response, 403);
       return;
     }
 
     const headers = sanitizedHeaders(request.headers, target.host);
-    const outbound = httpRequest(target, {
-      method: request.method,
-      headers,
-      lookup,
-      agent: false,
-      timeout: TIMEOUT_MS,
-    }, (upstream) => {
-      // Preserve HTTP status/headers and stream the response; don't parse page
-      // data in the proxy. Chromium owns cookies, TLS and response decoding.
-      response.writeHead(upstream.statusCode ?? 502, upstream.headers);
-      upstream.pipe(response);
-    });
+    const outbound = httpRequest(
+      target,
+      {
+        method: request.method,
+        headers,
+        lookup,
+        agent: false,
+        timeout: TIMEOUT_MS,
+      },
+      (upstream) => {
+        // Preserve HTTP status/headers and stream the response; don't parse page
+        // data in the proxy. Chromium owns cookies, TLS and response decoding.
+        response.writeHead(upstream.statusCode ?? 502, upstream.headers);
+        upstream.pipe(response);
+      },
+    );
     outbound.on("timeout", () => outbound.destroy(new Error("Outbound connection timeout")));
     outbound.on("error", (error: NodeJS.ErrnoException) => {
       respondError(response, error.code === "EACCES" ? 403 : 502);
@@ -146,12 +158,13 @@ export async function startBrowserEgressProxy(
     let target: URL | null = null;
     try {
       target = await allowedTarget(`https://${authority}`);
-    } catch { /* fail closed */ }
+    } catch {
+      /* fail closed */
+    }
     if (!target) {
       closeSocket(client, 403);
       return;
     }
-
 
     const upstream = connectSocket({
       host: unwrapHostname(target.hostname),
@@ -194,7 +207,7 @@ export async function startBrowserEgressProxy(
     async close() {
       // CONNECT sockets are not closed by closeAllConnections: destroy all.
       for (const socket of sockets) socket.destroy();
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     },
   };
 }

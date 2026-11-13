@@ -10,12 +10,12 @@ Use a separate trusted, non-superuser owner role, preferably `NOLOGIN`, for the 
 
 ## Separate database roles
 
-| Role | Allowed access | Boundary |
-| --- | --- | --- |
-| Schema owner | Schema migration and owned objects | Trusted deployment only; never application credentials |
-| Membership operator | SELECT/INSERT/UPDATE/DELETE on the two identity tables | Trusted cross-tenant provisioning; no ownership, DDL, TRUNCATE, TRIGGER, audit writes or function execution |
-| Runtime membership reader | SELECT on the two identity tables | Existing bounded lookup resolver; no audit access or writes |
-| Audit reader | SELECT on the audit table | Separate controlled operational access; no identity or audit writes |
+| Role                      | Allowed access                                         | Boundary                                                                                                    |
+| ------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Schema owner              | Schema migration and owned objects                     | Trusted deployment only; never application credentials                                                      |
+| Membership operator       | SELECT/INSERT/UPDATE/DELETE on the two identity tables | Trusted cross-tenant provisioning; no ownership, DDL, TRUNCATE, TRIGGER, audit writes or function execution |
+| Runtime membership reader | SELECT on the two identity tables                      | Existing bounded lookup resolver; no audit access or writes                                                 |
+| Audit reader              | SELECT on the audit table                              | Separate controlled operational access; no identity or audit writes                                         |
 
 After creating roles through secret management, assign only explicit object privileges:
 

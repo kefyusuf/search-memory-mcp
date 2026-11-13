@@ -12,12 +12,8 @@ export function normalizeSearchUrl(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl);
     const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
-    const routeFragment = parsed.hash.startsWith("#/") || parsed.hash.startsWith("#!")
-      ? parsed.hash
-      : "";
-    const pathname = parsed.pathname === "/"
-      ? (routeFragment ? "/" : "")
-      : parsed.pathname.replace(/\/+$/, "");
+    const routeFragment = parsed.hash.startsWith("#/") || parsed.hash.startsWith("#!") ? parsed.hash : "";
+    const pathname = parsed.pathname === "/" ? (routeFragment ? "/" : "") : parsed.pathname.replace(/\/+$/, "");
 
     const params = Array.from(parsed.searchParams.entries())
       .filter(([key]) => !TRACKING_PARAM.test(key))
@@ -37,7 +33,7 @@ export function normalizeSearchUrl(rawUrl: string): string {
 
 export function fuseSearchResults(
   providerResults: ProviderResultSet[],
-  rrfK: number = DEFAULT_RRF_K
+  rrfK: number = DEFAULT_RRF_K,
 ): SearchResultItem[] {
   const fused = new Map<string, SearchResultItem>();
 
@@ -80,7 +76,5 @@ export function fuseSearchResults(
     });
   }
 
-  return Array.from(fused.values()).sort(
-    (a, b) => (b.fusionScore ?? 0) - (a.fusionScore ?? 0)
-  );
+  return Array.from(fused.values()).sort((a, b) => (b.fusionScore ?? 0) - (a.fusionScore ?? 0));
 }

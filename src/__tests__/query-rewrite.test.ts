@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  rewriteQuery,
-  expandQuery,
-  stripSiteOperator,
-  type QueryContext,
-} from "../search/query-rewrite.js";
+import { rewriteQuery, expandQuery, stripSiteOperator, type QueryContext } from "../search/query-rewrite.js";
 
 describe("stripSiteOperator", () => {
   it("removes trailing site: operator", () => {

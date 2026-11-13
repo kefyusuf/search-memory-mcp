@@ -5,8 +5,11 @@ import { interceptBoundedMainDocument } from "../security/bounded-chromium-docum
 
 type ReadReply = { data: string; base64Encoded?: boolean; eof?: boolean };
 type Paused = {
-  requestId: string; frameId: string; resourceType: string;
-  responseStatusCode: number; responseHeaders: { name: string; value: string }[];
+  requestId: string;
+  frameId: string;
+  resourceType: string;
+  responseStatusCode: number;
+  responseHeaders: { name: string; value: string }[];
 };
 
 const FRAME = "main-frame";
@@ -18,15 +21,19 @@ const headers = [
   { name: "set-cookie", value: "a=b; HttpOnly" },
 ];
 const mainResponse = (requestId = "main", overrides: Partial<Paused> = {}): Paused => ({
-  requestId, frameId: FRAME, resourceType: "Document",
-  responseStatusCode: 200, responseHeaders: headers, ...overrides,
+  requestId,
+  frameId: FRAME,
+  resourceType: "Document",
+  responseStatusCode: 200,
+  responseHeaders: headers,
+  ...overrides,
 });
 
 function fixture(reads: Array<ReadReply | Error>, stalledMethod?: string) {
   const events = new EventEmitter();
   let readIndex = 0;
   const sent: Array<{ method: string; args: Record<string, unknown> }> = [];
-  const send = vi.fn(async (method: string, args: Record<string, unknown> = {}): Promise<any> => {
+  const send = vi.fn(async (method: string, args: Record<string, unknown> = {}): Promise<unknown> => {
     sent.push({ method, args });
     if (method === stalledMethod) return new Promise<never>(() => {});
     if (method === "Page.getFrameTree") return { frameTree: { frame: { id: FRAME } } };
@@ -47,7 +54,9 @@ function fixture(reads: Array<ReadReply | Error>, stalledMethod?: string) {
 }
 
 const base64 = (text: string): ReadReply => ({
-  data: Buffer.from(text, "utf8").toString("base64"), base64Encoded: true, eof: true,
+  data: Buffer.from(text, "utf8").toString("base64"),
+  base64Encoded: true,
+  eof: true,
 });
 
 describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => {
@@ -59,13 +68,13 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     await gate.settle();
     expect(gate.terminal()).toBeNull();
     expect(gate.captured()?.body.toString("utf8")).toBe(html);
-    expect(f.sent.filter(x => x.method === "IO.read")).toHaveLength(1);
-    const fulfill = f.sent.find(x => x.method === "Fetch.fulfillRequest")?.args;
+    expect(f.sent.filter((x) => x.method === "IO.read")).toHaveLength(1);
+    const fulfill = f.sent.find((x) => x.method === "Fetch.fulfillRequest")?.args;
     expect(fulfill?.body).toBe(Buffer.from(html).toString("base64"));
     const replay = fulfill?.responseHeaders as typeof headers;
     expect(replay).toContainEqual({ name: "content-length", value: String(Buffer.byteLength(html)) });
     expect(replay).toContainEqual({ name: "set-cookie", value: "a=b; HttpOnly" });
-    expect(replay.some(x => ["content-encoding", "transfer-encoding", "etag"].includes(x.name))).toBe(false);
+    expect(replay.some((x) => ["content-encoding", "transfer-encoding", "etag"].includes(x.name))).toBe(false);
     await gate.close();
     expect(f.detach).toHaveBeenCalledOnce();
   });
@@ -80,9 +89,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     await gate.settle();
     expect(gate.terminal()).toBe("oversize");
     expect(gate.captured()).toBeNull();
-    expect(f.sent.filter(x => x.method === "Fetch.fulfillRequest")).toHaveLength(0);
-    expect(f.sent.filter(x => x.method === "Fetch.failRequest")).toHaveLength(1);
-    expect(f.sent.filter(x => x.method === "IO.close")).toHaveLength(1);
+    expect(f.sent.filter((x) => x.method === "Fetch.fulfillRequest")).toHaveLength(0);
+    expect(f.sent.filter((x) => x.method === "Fetch.failRequest")).toHaveLength(1);
+    expect(f.sent.filter((x) => x.method === "IO.close")).toHaveLength(1);
     await gate.close();
   });
 
@@ -99,7 +108,10 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
 
   it("counts UTF-8 bytes from valid non-base64 CDP Unicode chunks", async () => {
     const unicode = "café 日本語 🌍";
-    const f = fixture([{ data: "café ", eof: false }, { data: "日本語 🌍", eof: true }]);
+    const f = fixture([
+      { data: "café ", eof: false },
+      { data: "日本語 🌍", eof: true },
+    ]);
     const gate = await interceptBoundedMainDocument(f.context, f.page, Buffer.byteLength(unicode));
     f.events.emit("Fetch.requestPaused", mainResponse());
     await gate.settle();
@@ -115,8 +127,8 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     await gate.settle();
     expect(gate.terminal()).toBe("interception_failed");
     expect(gate.captured()).toBeNull();
-    expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
-    expect(f.sent.some(x => x.method === "Fetch.failRequest")).toBe(true);
+    expect(f.sent.some((x) => x.method === "Fetch.fulfillRequest")).toBe(false);
+    expect(f.sent.some((x) => x.method === "Fetch.failRequest")).toBe(true);
     await gate.close();
   });
 
@@ -127,7 +139,7 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     await gate.settle();
     expect(gate.terminal()).toBe("oversize");
     expect(gate.captured()).toBeNull();
-    expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
+    expect(f.sent.some((x) => x.method === "Fetch.fulfillRequest")).toBe(false);
     await gate.close();
   });
 
@@ -139,8 +151,8 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     f.events.emit("Fetch.requestPaused", mainResponse("script", { resourceType: "Script" }));
     f.events.emit("Fetch.requestPaused", mainResponse("final"));
     await gate.settle();
-    expect(f.sent.filter(x => x.method === "Fetch.continueResponse")).toHaveLength(3);
-    expect(f.sent.filter(x => x.method === "Fetch.takeResponseBodyAsStream")).toHaveLength(1);
+    expect(f.sent.filter((x) => x.method === "Fetch.continueResponse")).toHaveLength(3);
+    expect(f.sent.filter((x) => x.method === "Fetch.takeResponseBodyAsStream")).toHaveLength(1);
     expect(gate.captured()?.body.toString()).toBe("OK");
     await gate.close();
   });
@@ -152,20 +164,23 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
     await gate.settle();
     expect(gate.terminal()).toBe("interception_failed");
     expect(gate.captured()).toBeNull();
-    expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
-    expect(f.sent.some(x => x.method === "Fetch.failRequest")).toBe(true);
+    expect(f.sent.some((x) => x.method === "Fetch.fulfillRequest")).toBe(false);
+    expect(f.sent.some((x) => x.method === "Fetch.failRequest")).toBe(true);
     await gate.close();
   });
 
   it("fails closed on invalid response headers without fulfilling a partial response", async () => {
     const f = fixture([base64("<html/>")]);
     const gate = await interceptBoundedMainDocument(f.context, f.page, 100);
-    f.events.emit("Fetch.requestPaused", mainResponse("bad", {
-      responseHeaders: [{ name: "Content-Type", value: "text/html\r\nX-Injected: yes" }],
-    }));
+    f.events.emit(
+      "Fetch.requestPaused",
+      mainResponse("bad", {
+        responseHeaders: [{ name: "Content-Type", value: "text/html\r\nX-Injected: yes" }],
+      }),
+    );
     await gate.settle();
     expect(gate.terminal()).toBe("interception_failed");
-    expect(f.sent.some(x => x.method === "Fetch.fulfillRequest")).toBe(false);
+    expect(f.sent.some((x) => x.method === "Fetch.fulfillRequest")).toBe(false);
     await gate.close();
   });
 
@@ -182,7 +197,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
       expect(gate.captured()).toBeNull();
       await gate.close();
       expect(f.detach).toHaveBeenCalledOnce();
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("fails closed if Fetch.disable hangs, and still detaches the page-scoped session", async () => {
@@ -199,7 +216,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
       expect(gate.terminal()).toBe("interception_failed");
       expect(gate.captured()).toBeNull();
       expect(f.detach).toHaveBeenCalledOnce();
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("isolates captured bytes and oversize failures across concurrent page sessions", async () => {
@@ -234,7 +253,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
       await vi.advanceTimersByTimeAsync(15_001);
       await rejected;
       expect(context.newCDPSession).toHaveBeenCalledOnce();
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reclaims a CDP session resolving only after its setup deadline", async () => {
@@ -243,7 +264,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
       const f = fixture([]);
       const lateSession = await f.context.newCDPSession(f.page);
       let resolveCreation!: (session: CDPSession) => void;
-      const pending = new Promise<CDPSession>(resolve => { resolveCreation = resolve; });
+      const pending = new Promise<CDPSession>((resolve) => {
+        resolveCreation = resolve;
+      });
       const context = {
         newCDPSession: vi.fn(() => pending),
       } as unknown as BrowserContext;
@@ -256,7 +279,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
       await vi.advanceTimersByTimeAsync(0);
       expect(f.detach).toHaveBeenCalledOnce();
       expect(f.send).not.toHaveBeenCalled();
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   for (const method of ["Page.getFrameTree", "Fetch.enable"] as const) {
@@ -271,7 +296,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
         await vi.advanceTimersByTimeAsync(15_001);
         await rejected;
         expect(f.detach).toHaveBeenCalledOnce();
-      } finally { vi.useRealTimers(); }
+      } finally {
+        vi.useRealTimers();
+      }
     });
   }
 
@@ -289,7 +316,9 @@ describe("bounded Chromium main-document interceptor (offline/CDP-fake)", () => 
         expect(gate.captured()).toBeNull();
         await gate.close();
         expect(f.detach).toHaveBeenCalledOnce();
-      } finally { vi.useRealTimers(); }
+      } finally {
+        vi.useRealTimers();
+      }
     });
   }
 

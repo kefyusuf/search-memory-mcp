@@ -13,12 +13,14 @@ const locale: SearchLocale = {
 function provider(name: string, urls: string[]): SearchProvider {
   return {
     name,
-    execute: vi.fn(async () => urls.map((url, index) => ({
-      title: `${name} result ${index + 1}`,
-      url,
-      snippet: `${name} snippet ${index + 1}`,
-      source: name,
-    }))),
+    execute: vi.fn(async () =>
+      urls.map((url, index) => ({
+        title: `${name} result ${index + 1}`,
+        url,
+        snippet: `${name} snippet ${index + 1}`,
+        source: name,
+      })),
+    ),
   };
 }
 
@@ -27,7 +29,15 @@ describe("federated search", () => {
     const fused = fuseSearchResults([
       {
         provider: "tavily",
-        results: [{ title: "Guide", url: "https://example.com/guide", snippet: "s", source: "tavily", publishedAt: "2026-10-01" }],
+        results: [
+          {
+            title: "Guide",
+            url: "https://example.com/guide",
+            snippet: "s",
+            source: "tavily",
+            publishedAt: "2026-10-01",
+          },
+        ],
       },
       {
         provider: "bing",
@@ -41,24 +51,24 @@ describe("federated search", () => {
   });
 
   it("normalizes tracking parameters, fragments, www, and trailing slashes for deduplication", () => {
-    expect(normalizeSearchUrl("https://www.Example.com/docs/?utm_source=test&b=2&a=1#intro"))
-      .toBe("https://example.com/docs?a=1&b=2");
+    expect(normalizeSearchUrl("https://www.Example.com/docs/?utm_source=test&b=2&a=1#intro")).toBe(
+      "https://example.com/docs?a=1&b=2",
+    );
   });
 
   it("preserves SPA route fragments while dropping ordinary document anchors", () => {
-    expect(normalizeSearchUrl("https://example.com/#/article-a"))
-      .toBe("https://example.com/#/article-a");
-    expect(normalizeSearchUrl("https://example.com/#!/article-b"))
-      .toBe("https://example.com/#!/article-b");
-    expect(normalizeSearchUrl("https://example.com/docs#intro"))
-      .toBe("https://example.com/docs");
+    expect(normalizeSearchUrl("https://example.com/#/article-a")).toBe("https://example.com/#/article-a");
+    expect(normalizeSearchUrl("https://example.com/#!/article-b")).toBe("https://example.com/#!/article-b");
+    expect(normalizeSearchUrl("https://example.com/docs#intro")).toBe("https://example.com/docs");
   });
 
   it("preserves repeated query-parameter value order while sorting distinct keys", () => {
-    expect(normalizeSearchUrl("https://example.com/search?b=2&id=primary&id=fallback&a=1"))
-      .toBe("https://example.com/search?a=1&b=2&id=primary&id=fallback");
-    expect(normalizeSearchUrl("https://example.com/search?b=2&id=fallback&id=primary&a=1"))
-      .toBe("https://example.com/search?a=1&b=2&id=fallback&id=primary");
+    expect(normalizeSearchUrl("https://example.com/search?b=2&id=primary&id=fallback&a=1")).toBe(
+      "https://example.com/search?a=1&b=2&id=primary&id=fallback",
+    );
+    expect(normalizeSearchUrl("https://example.com/search?b=2&id=fallback&id=primary&a=1")).toBe(
+      "https://example.com/search?a=1&b=2&id=fallback&id=primary",
+    );
   });
 
   it("fuses duplicate URLs across providers, preserves the representative URL, and records provider ranks", () => {
@@ -106,14 +116,8 @@ describe("federated search", () => {
   });
 
   it("aggregates successful providers and ranks consensus URLs first", async () => {
-    const brave = provider("brave", [
-      "https://example.com/shared?utm_source=brave",
-      "https://example.com/brave-only",
-    ]);
-    const google = provider("google", [
-      "https://www.example.com/shared#top",
-      "https://example.com/google-only",
-    ]);
+    const brave = provider("brave", ["https://example.com/shared?utm_source=brave", "https://example.com/brave-only"]);
+    const google = provider("google", ["https://www.example.com/shared#top", "https://example.com/google-only"]);
 
     const results = await executeProviderSearch({
       providers: [brave, google],

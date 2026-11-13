@@ -23,7 +23,11 @@ describe("searchBrave with BRAVE_SEARCH_API_KEY", () => {
       return jsonResponse({
         web: {
           results: [
-            { title: "Pooling <strong>guide</strong>", url: "https://example.com/pool", description: "PgBouncer <strong>basics</strong>" },
+            {
+              title: "Pooling <strong>guide</strong>",
+              url: "https://example.com/pool",
+              description: "PgBouncer <strong>basics</strong>",
+            },
             { title: "No URL" },
           ],
         },
@@ -39,12 +43,15 @@ describe("searchBrave with BRAVE_SEARCH_API_KEY", () => {
 
   it("reports API errors such as an invalid key or exhausted quota", async () => {
     process.env.BRAVE_SEARCH_API_KEY = "bad-key";
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: "unauthorized" }, 401)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ error: "unauthorized" }, 401)),
+    );
     await expect(searchBrave("q", locale)).rejects.toThrow("brave api returned HTTP 401");
   });
 
   it("scrapes the website when no key is set", async () => {
-    const fetchMock = vi.fn(async () => new Response("<html></html>", { status: 200 }));
+    const fetchMock = vi.fn(async (_input: string | URL) => new Response("<html></html>", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     await searchBrave("q", locale);
     expect(String(fetchMock.mock.calls[0][0])).toMatch(/^https:\/\/search\.brave\.com\/search\?/);

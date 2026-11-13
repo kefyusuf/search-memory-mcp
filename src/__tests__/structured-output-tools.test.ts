@@ -11,18 +11,23 @@ type Internals = { cache: SemanticCache; embeddingProvider: { getEmbedding(text:
 // structuredContent or content that does not match the schema.
 async function connect() {
   const server = new WebSearchServer();
-  server.overrideSearchProvidersForTesting([{
-    name: "mock",
-    execute: async () => [
-      { title: "First", url: "https://a.example/1", snippet: "first result", source: "mock" },
-      { title: "Second", url: "https://b.example/2", snippet: "second result", source: "mock" },
-    ],
-  }]);
+  server.overrideSearchProvidersForTesting([
+    {
+      name: "mock",
+      execute: async () => [
+        { title: "First", url: "https://a.example/1", snippet: "first result", source: "mock" },
+        { title: "Second", url: "https://b.example/2", snippet: "second result", source: "mock" },
+      ],
+    },
+  ]);
   // Keep model downloads out of the test: CI has network access, so the real
   // embedding provider would start downloading and exceed the test timeout.
   const internals = server as unknown as Internals;
   internals.cache.close();
-  internals.cache = new SemanticCache({ getEmbedding: async () => [], isAvailable: () => false }, new InMemoryVectorStore());
+  internals.cache = new SemanticCache(
+    { getEmbedding: async () => [], isAvailable: () => false },
+    new InMemoryVectorStore(),
+  );
   vi.spyOn(internals.embeddingProvider, "getEmbedding").mockResolvedValue([]);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
@@ -36,12 +41,18 @@ describe("structured tool output", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("CACHE_DB_PATH", ":memory:");
   });
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
 
   it("advertises object output schemas for search, research, index search and status", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
-    const withSchema = tools.filter((tool) => tool.outputSchema).map((tool) => tool.name).sort();
+    const withSchema = tools
+      .filter((tool) => tool.outputSchema)
+      .map((tool) => tool.name)
+      .sort();
     expect(withSchema).toEqual(["research", "search_index", "server_status", "web_search"]);
     for (const tool of tools.filter((entry) => entry.outputSchema)) {
       expect(tool.outputSchema?.type).toBe("object");
@@ -74,9 +85,16 @@ describe("structured tool output", () => {
     const empty = await client.callTool({ name: "search_index", arguments: { query: "nothing" } });
     expect(empty.structuredContent).toEqual({ query: "nothing", hitCount: 0, hits: [] });
 
-    await client.callTool({ name: "ingest_document", arguments: { content: "PgBouncer pools Postgres connections.", title: "Pooling", source: "notes.md" } });
+    await client.callTool({
+      name: "ingest_document",
+      arguments: { content: "PgBouncer pools Postgres connections.", title: "Pooling", source: "notes.md" },
+    });
     const hit = await client.callTool({ name: "search_index", arguments: { query: "PgBouncer" } });
-    expect(hit.structuredContent).toMatchObject({ query: "PgBouncer", hitCount: 1, hits: [{ title: "Pooling", source: "notes.md" }] });
+    expect(hit.structuredContent).toMatchObject({
+      query: "PgBouncer",
+      hitCount: 1,
+      hits: [{ title: "Pooling", source: "notes.md" }],
+    });
   });
 
   it("returns the server status as structured content", async () => {
@@ -89,7 +107,10 @@ describe("structured tool output", () => {
 
   it("does not attach structured content to errors", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "web_search", arguments: { query: "example", domain: "nomatch.example" } });
+    const result = await client.callTool({
+      name: "web_search",
+      arguments: { query: "example", domain: "nomatch.example" },
+    });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toBeUndefined();
   });

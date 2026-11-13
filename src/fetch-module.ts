@@ -4,7 +4,7 @@ import { extractDocument } from "./documents/extract.js";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
 import { LRUCache } from "lru-cache";
-import type { BrowserContext } from "playwright";
+import type { BrowserContext, Response as PlaywrightResponse } from "playwright";
 import { interceptBoundedMainDocument, type BoundedDocumentInterceptor } from "./security/bounded-chromium-document.js";
 import TurndownService from "turndown";
 import iconv from "iconv-lite";
@@ -36,10 +36,13 @@ type FetchArticleResult = {
 };
 
 /** Internal-only browser terminal outcome: never exposed via FetchContentResult. */
-type BrowserFetchResult = FetchArticleResult | FetchFailure | {
-  kind: "terminal_browser_failure";
-  cause: "oversize" | "interception_failed";
-};
+type BrowserFetchResult =
+  | FetchArticleResult
+  | FetchFailure
+  | {
+      kind: "terminal_browser_failure";
+      cause: "oversize" | "interception_failed";
+    };
 
 type HttpFetchResult =
   | { kind: "html"; html: string; buffer: Buffer }
@@ -94,7 +97,8 @@ type ContentFetcherOptions = {
   readerFallbackUrl?: string;
 };
 
-const DOCUMENT_CONTENT_TYPES = /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/epub\+zip)\b/i;
+const DOCUMENT_CONTENT_TYPES =
+  /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/epub\+zip)\b/i;
 const DOCUMENT_EXTENSIONS = /\.(pdf|docx|epub)$/i;
 
 /** Document responses are recognized by content type, or by extension when served as a generic binary. */
@@ -107,11 +111,12 @@ function safeDecode(value: string): string {
 }
 
 const BROWSER_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.9",
 };
-const PLAIN_HEADERS = { "Accept": "*/*" };
+const PLAIN_HEADERS = { Accept: "*/*" };
 const CHALLENGE_STATUSES = new Set([403, 503]);
 
 function httpGet(url: string, headers: Record<string, string>): Promise<Response> {
@@ -130,8 +135,7 @@ async function readLimitedBody(response: Response, maxBytes: number): Promise<Ui
   // Node fetch may transparently decode gzip/br while retaining the compressed
   // Content-Length. Only trust the declared length for unencoded bodies; the
   // stream check below always enforces the decoded-byte limit.
-  if (!response.headers.has("content-encoding") &&
-      Number.isFinite(declared) && declared > maxBytes) {
+  if (!response.headers.has("content-encoding") && Number.isFinite(declared) && declared > maxBytes) {
     await response.body?.cancel().catch(() => {});
     return null;
   }
@@ -256,7 +260,7 @@ export class ContentFetcher {
       allowPageCache: boolean;
       persistContentCache: boolean;
       useConfiguredWaitUntil: boolean;
-    }
+    },
   ): Promise<FetchArticleResult | FetchFailure> {
     if (!(await this.isFetchUrlAllowed(url))) {
       return { kind: "error", reason: "blocked_url" };
@@ -353,7 +357,7 @@ export class ContentFetcher {
       let response: Response | null = null;
       for (let redirects = 0; redirects <= ContentFetcher.MAX_HTTP_REDIRECTS; redirects += 1) {
         response = await guardedHttpFetch(currentUrl, {
-          headers: { "Accept": "text/plain, text/markdown;q=0.9, */*;q=0.1" },
+          headers: { Accept: "text/plain, text/markdown;q=0.9, */*;q=0.1" },
           signal: AbortSignal.timeout(20_000),
         });
         if (!isRedirectStatus(response.status)) break;
@@ -392,14 +396,14 @@ export class ContentFetcher {
       allowPageCache: boolean;
       persistContentCache: boolean;
       useConfiguredWaitUntil: boolean;
-    }
+    },
   ): Promise<BrowserFetchResult> {
     const context = await this.getBrowserContext();
     const page = await context.newPage();
     let documentBudget: BoundedDocumentInterceptor | null = null;
 
     try {
-      let response;
+      let response: PlaywrightResponse | null;
       const waitUntil = options.useConfiguredWaitUntil ? this.fetchWaitUntil : "domcontentloaded";
 
       await page.route("**/*", async (route) => {
@@ -501,7 +505,7 @@ export class ContentFetcher {
     options: {
       allowPageCache: boolean;
       persistContentCache: boolean;
-    }
+    },
   ): Promise<void> {
     sanitizeArticle(article);
     if (options.allowPageCache) {
@@ -513,10 +517,12 @@ export class ContentFetcher {
     }
 
     const intent = await this.detectArticleIntent(article);
-      await this.cache.setCachedContent(article.url, article.fullText, article.title, intent, article.publishedAt);
+    await this.cache.setCachedContent(article.url, article.fullText, article.title, intent, article.publishedAt);
   }
 
-  private async fetchViaFastPath(url: string): Promise<FetchArticleResult | { kind: "blocked" } | { kind: "response_too_large" } | null> {
+  private async fetchViaFastPath(
+    url: string,
+  ): Promise<FetchArticleResult | { kind: "blocked" } | { kind: "response_too_large" } | null> {
     const githubArticle = await this.fetchGitHubRawArticle(url);
     if (githubArticle === "blocked") return { kind: "blocked" };
     if (githubArticle === "response_too_large") return { kind: "response_too_large" };
@@ -563,7 +569,10 @@ export class ContentFetcher {
     if (candidates.length === 0) return null;
 
     for (const candidate of candidates) {
-      const result = await this.fetchText(candidate, "application/rss+xml,application/atom+xml,text/xml,application/xml,*/*");
+      const result = await this.fetchText(
+        candidate,
+        "application/rss+xml,application/atom+xml,text/xml,application/xml,*/*",
+      );
       if (result?.kind === "blocked") return "blocked";
       if (result?.kind === "response_too_large") return "response_too_large";
       if (!result || !looksLikeFeed(result.text)) continue;
@@ -589,7 +598,11 @@ export class ContentFetcher {
       : markdown;
   }
 
-  private async parseDocumentToArticle(document: { data: Uint8Array; contentType: string; url: string }): Promise<FetchArticle | null> {
+  private async parseDocumentToArticle(document: {
+    data: Uint8Array;
+    contentType: string;
+    url: string;
+  }): Promise<FetchArticle | null> {
     const filename = safeDecode(new URL(document.url).pathname.split("/").pop() ?? "");
     try {
       const extracted = await extractDocument(
@@ -600,11 +613,17 @@ export class ContentFetcher {
       const title = extracted.title || filename || document.url;
       const content = this.truncateContent(extracted.text);
       return {
-        url: document.url, title, content, fullText: `# ${title}\n\n${content}`,
+        url: document.url,
+        title,
+        content,
+        fullText: `# ${title}\n\n${content}`,
         ...(extracted.publishedAt ? { publishedAt: extracted.publishedAt } : {}),
       };
     } catch (error) {
-      console.error(`Document extraction failed for ${document.url}:`, error instanceof Error ? error.message : String(error));
+      console.error(
+        `Document extraction failed for ${document.url}:`,
+        error instanceof Error ? error.message : String(error),
+      );
       return null;
     }
   }
@@ -707,8 +726,9 @@ export class ContentFetcher {
 
         const response = await guardedHttpFetch(currentUrl, {
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-            "Accept": accept,
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            Accept: accept,
           },
           signal: AbortSignal.timeout(10000),
         });
@@ -780,12 +800,16 @@ export class ContentFetcher {
     if (items.length === 0) return null;
 
     const title = extractFeedTitle(xml) || extractTitleFromUrl(originalUrl);
-    const content = this.truncateContent(items.map((item, index) => {
-      const parts = [`${index + 1}. ${item.title || item.url}`];
-      if (item.url) parts.push(`   ${item.url}`);
-      if (item.snippet) parts.push(`   ${item.snippet}`);
-      return parts.join("\n");
-    }).join("\n\n"));
+    const content = this.truncateContent(
+      items
+        .map((item, index) => {
+          const parts = [`${index + 1}. ${item.title || item.url}`];
+          if (item.url) parts.push(`   ${item.url}`);
+          if (item.snippet) parts.push(`   ${item.snippet}`);
+          return parts.join("\n");
+        })
+        .join("\n\n"),
+    );
 
     return {
       url: finalUrl,
@@ -832,7 +856,7 @@ function toGitHubRawCandidates(url: string): string[] {
 
   if (parts.length === 2) {
     return ["main", "master"].flatMap((branch) =>
-      README_NAMES.map((name) => `${GITHUB_RAW_BASE}/${owner}/${repo}/${branch}/${name}`)
+      README_NAMES.map((name) => `${GITHUB_RAW_BASE}/${owner}/${repo}/${branch}/${name}`),
     );
   }
 
@@ -859,7 +883,8 @@ function toRssCandidates(url: string): string[] {
   }
 
   const pathname = parsed.pathname.toLowerCase();
-  const shouldProbe = pathname.endsWith(".xml") ||
+  const shouldProbe =
+    pathname.endsWith(".xml") ||
     pathname.includes("/feed") ||
     pathname.includes("/rss") ||
     /\/(blog|news|articles|posts?)\/?$/.test(pathname);
@@ -874,7 +899,9 @@ function toRssCandidates(url: string): string[] {
     return candidate.toString();
   });
 
-  return [parsed.toString(), ...rootCandidates].filter((candidate, index, values) => values.indexOf(candidate) === index);
+  return [parsed.toString(), ...rootCandidates].filter(
+    (candidate, index, values) => values.indexOf(candidate) === index,
+  );
 }
 
 function stripMarkdown(text: string): string {
@@ -923,34 +950,39 @@ function stripXmlTags(text: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function extractFeedTitle(xml: string): string {
-  const match = xml.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) ||
-    xml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const match =
+    xml.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) || xml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   return match ? stripXmlTags(match[1]).slice(0, 120) : "";
 }
 
 function extractFeedItems(xml: string): Array<{ title: string; url: string; snippet: string }> {
   const blocks = xml.match(/<item[\s\S]*?<\/item>/gi) || xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
 
-  return blocks.slice(0, 25).map((block) => {
-    const titleMatch = block.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) ||
-      block.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const linkMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/i) ||
-      block.match(/<link>([^<]+)<\/link>/i);
-    const descriptionMatch = block.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/i) ||
-      block.match(/<description[^>]*>([\s\S]*?)<\/description>/i) ||
-      block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
+  return blocks
+    .slice(0, 25)
+    .map((block) => {
+      const titleMatch =
+        block.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) ||
+        block.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const linkMatch =
+        block.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/i) || block.match(/<link>([^<]+)<\/link>/i);
+      const descriptionMatch =
+        block.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/i) ||
+        block.match(/<description[^>]*>([\s\S]*?)<\/description>/i) ||
+        block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
 
-    return {
-      title: titleMatch ? stripXmlTags(titleMatch[1]).slice(0, 140) : "",
-      url: linkMatch ? stripXmlTags(linkMatch[1]) : "",
-      snippet: descriptionMatch ? stripXmlTags(descriptionMatch[1]).slice(0, 240) : "",
-    };
-  }).filter((item) => item.title || item.url);
+      return {
+        title: titleMatch ? stripXmlTags(titleMatch[1]).slice(0, 140) : "",
+        url: linkMatch ? stripXmlTags(linkMatch[1]) : "",
+        snippet: descriptionMatch ? stripXmlTags(descriptionMatch[1]).slice(0, 240) : "",
+      };
+    })
+    .filter((item) => item.title || item.url);
 }

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  extractPublishDate,
-  filterResultsByDate,
-  isWithinDateRange,
-} from "../search/date-filter.js";
+import { extractPublishDate, filterResultsByDate, isWithinDateRange } from "../search/date-filter.js";
 import type { SearchResultItem } from "../cache/types.js";
 
 function result(overrides: Partial<SearchResultItem> & { snippet: string }): SearchResultItem {
@@ -79,10 +75,7 @@ describe("filterResultsByDate", () => {
   });
 
   it("returns all results when no range is provided", () => {
-    const results = [
-      result({ snippet: "2020-01-01", title: "A" }),
-      result({ snippet: "nothing", title: "B" }),
-    ];
+    const results = [result({ snippet: "2020-01-01", title: "A" }), result({ snippet: "nothing", title: "B" })];
     expect(filterResultsByDate(results, undefined)).toHaveLength(2);
   });
 

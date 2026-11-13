@@ -40,6 +40,12 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm run typecheck:tests
+
+      - run: npm run lint
+
+      - run: npm run format:check
+
       - run: npm test
 
       - name: Verify Chromium outbound socket policy (real browser)

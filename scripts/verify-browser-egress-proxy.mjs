@@ -25,9 +25,11 @@ const destination = createServer((request, response) => {
   destinationRequests.push(request.url);
   response.end("unsafe private fixture");
 });
-destination.on("connection", () => { destinationSockets += 1; });
+destination.on("connection", () => {
+  destinationSockets += 1;
+});
 destination.on("upgrade", (request, socket) => {
-  destinationRequests.push("UPGRADE " + request.url);
+  destinationRequests.push(`UPGRADE ${request.url}`);
   socket.destroy();
 });
 
@@ -35,10 +37,12 @@ function mappedResolver(host, opts, callback) {
   if (host === HOST) {
     queueMicrotask(() => callback(null, [{ address: "127.0.0.1", family: 4 }]));
   } else if (host === MIXED_HOST) {
-    queueMicrotask(() => callback(null, [
-      { address: "1.1.1.1", family: 4 },
-      { address: "127.0.0.1", family: 4 },
-    ]));
+    queueMicrotask(() =>
+      callback(null, [
+        { address: "1.1.1.1", family: 4 },
+        { address: "127.0.0.1", family: 4 },
+      ]),
+    );
   } else if (host === EMPTY_HOST) {
     queueMicrotask(() => callback(null, []));
   } else if (host === ERROR_HOST) {
@@ -47,18 +51,17 @@ function mappedResolver(host, opts, callback) {
 }
 
 function navigation(page, url) {
-  return page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 })
-    .then((response) => response ? response.status() : null)
-    .catch((error) => "failed: " + String(error.message).slice(0, 100));
+  return page
+    .goto(url, { waitUntil: "domcontentloaded", timeout: 15000 })
+    .then((response) => (response ? response.status() : null))
+    .catch((error) => `failed: ${String(error.message).slice(0, 100)}`);
 }
 
 try {
   await new Promise((resolve) => destination.listen(0, "127.0.0.1", resolve));
   const port = destination.address().port;
-  dns.resolve4 = async (hostname, ...args) =>
-    PROBE_HOSTS.has(hostname) ? ["8.8.8.8"] : original4(hostname, ...args);
-  dns.resolve6 = async (hostname, ...args) =>
-    PROBE_HOSTS.has(hostname) ? [] : original6(hostname, ...args);
+  dns.resolve4 = async (hostname, ...args) => (PROBE_HOSTS.has(hostname) ? ["8.8.8.8"] : original4(hostname, ...args));
+  dns.resolve6 = async (hostname, ...args) => (PROBE_HOSTS.has(hostname) ? [] : original6(hostname, ...args));
 
   proxy = await startBrowserEgressProxy(mappedResolver);
   browser = await chromium.launch({
@@ -112,10 +115,7 @@ try {
   const imageUrl = `http://127.0.0.1:${port}/image-private`;
   const scriptUrl = `http://${HOST}:${port}/script-rebound-private`;
   const browserFetchUrl = `http://${HOST}:${port}/browser-fetch-rebound-private`;
-  await page.setContent(
-    `<img src="${imageUrl}" />` +
-    `<script src="${scriptUrl}"></script>`,
-  );
+  await page.setContent(`<img src="${imageUrl}" />` + `<script src="${scriptUrl}"></script>`);
   await page.waitForTimeout(250);
   assert.ok(observedBrowserUrls.has(imageUrl), "Chromium did not request the image subresource");
   assert.ok(observedBrowserUrls.has(scriptUrl), "Chromium did not request the script subresource");
@@ -136,13 +136,26 @@ try {
   assert.notEqual(browserFetchResult, "http_200", "Browser-side fetch unexpectedly returned success");
   assert.equal(destinationSockets, 0, "Browser-side fetch reached a private TCP socket");
 
-  const wsResult = await page.evaluate(async (targetPort) =>
-    await new Promise((resolve) => {
-      const ws = new WebSocket(`ws://127.0.0.1:${targetPort}/ws`);
-      const timeout = setTimeout(() => { ws.close(); resolve("timeout"); }, 5000);
-      ws.onopen = () => { clearTimeout(timeout); ws.close(); resolve("opened"); };
-      ws.onerror = () => { clearTimeout(timeout); resolve("rejected"); };
-    }), port);
+  const wsResult = await page.evaluate(
+    async (targetPort) =>
+      await new Promise((resolve) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${targetPort}/ws`);
+        const timeout = setTimeout(() => {
+          ws.close();
+          resolve("timeout");
+        }, 5000);
+        ws.onopen = () => {
+          clearTimeout(timeout);
+          ws.close();
+          resolve("opened");
+        };
+        ws.onerror = () => {
+          clearTimeout(timeout);
+          resolve("rejected");
+        };
+      }),
+    port,
+  );
   assert.notEqual(wsResult, "opened", "WebSocket unexpectedly connected");
   assert.equal(destinationSockets, 0, "WebSocket reached private socket");
 
@@ -150,7 +163,9 @@ try {
   // Chromium is launched with disable_non_proxied_udp; verify against a real
   // private datagram listener, not just navigator/network instrumentation.
   udpSocket = createDatagramSocket("udp4");
-  udpSocket.on("message", () => { privateUdpPackets += 1; });
+  udpSocket.on("message", () => {
+    privateUdpPackets += 1;
+  });
   await new Promise((resolve) => udpSocket.bind(0, "127.0.0.1", resolve));
   const udpPort = udpSocket.address().port;
   const rtcOutcome = await page.evaluate(async (stunPort) => {
@@ -161,7 +176,9 @@ try {
       await rtc.setLocalDescription(offer);
       await new Promise((resolve) => setTimeout(resolve, 1200));
       return rtc.iceGatheringState;
-    } finally { rtc.close(); }
+    } finally {
+      rtc.close();
+    }
   }, udpPort);
   assert.equal(privateUdpPackets, 0, "Browser WebRTC sent STUN datagram to private IP");
 
@@ -176,7 +193,8 @@ try {
   proxy = production.proxy;
   const realPage = await context.newPage();
   const secure = await realPage.goto("https://example.com/", {
-    waitUntil: "domcontentloaded", timeout: 20000,
+    waitUntil: "domcontentloaded",
+    timeout: 20000,
   });
   assert.ok(secure?.ok(), "Legitimate HTTPS navigation failed in the actual production guarded context");
   assert.equal(new URL(realPage.url()).hostname, "example.com");
@@ -188,26 +206,29 @@ try {
   const afterStop = await navigation(realPage, `http://127.0.0.1:${port}/after-shutdown`);
   assert.equal(destinationSockets, preShutdownCount, "Chromium used DIRECT after proxy shutdown");
 
-  console.log("GUARDED_BROWSER_EGRESS", JSON.stringify({
-    literal_private: literalStatus,
-    rebound_private: reboundStatus,
-    mixed_dns_private: mixedStatus,
-    empty_dns: emptyStatus,
-    dns_failure: failedDnsStatus,
-    redirect_to_private: redirectStatus,
-    private_image_blocked: !destinationRequests.includes("/image-private"),
-    private_script_blocked: !destinationRequests.includes("/script-rebound-private"),
-    browser_fetch: browserFetchResult,
-    browser_fetch_private_blocked: !destinationRequests.includes("/browser-fetch-rebound-private"),
-    websocket: wsResult,
-    webrtc_ice_state: rtcOutcome,
-    private_udp_packets: privateUdpPackets,
-    https_status: secure.status(),
-    https_hostname: new URL(secure.url()).hostname,
-    after_proxy_shutdown: afterStop,
-    private_tcp_connections: destinationSockets,
-    private_http_requests: destinationRequests,
-  }));
+  console.log(
+    "GUARDED_BROWSER_EGRESS",
+    JSON.stringify({
+      literal_private: literalStatus,
+      rebound_private: reboundStatus,
+      mixed_dns_private: mixedStatus,
+      empty_dns: emptyStatus,
+      dns_failure: failedDnsStatus,
+      redirect_to_private: redirectStatus,
+      private_image_blocked: !destinationRequests.includes("/image-private"),
+      private_script_blocked: !destinationRequests.includes("/script-rebound-private"),
+      browser_fetch: browserFetchResult,
+      browser_fetch_private_blocked: !destinationRequests.includes("/browser-fetch-rebound-private"),
+      websocket: wsResult,
+      webrtc_ice_state: rtcOutcome,
+      private_udp_packets: privateUdpPackets,
+      https_status: secure.status(),
+      https_hostname: new URL(secure.url()).hostname,
+      after_proxy_shutdown: afterStop,
+      private_tcp_connections: destinationSockets,
+      private_http_requests: destinationRequests,
+    }),
+  );
   console.log("GUARDED_BROWSER_EGRESS_PASS");
 } catch (error) {
   console.error("GUARDED_BROWSER_EGRESS_FAILURE", error);

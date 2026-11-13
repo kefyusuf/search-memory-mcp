@@ -27,8 +27,9 @@ describe("chunkText", () => {
   });
 
   it("splits oversized blocks near sentence boundaries", () => {
-    const longSentence = "This is a very long sentence that keeps going and going with technical detail about database internals. ";
-    const content = (longSentence.repeat(20)).trim();
+    const longSentence =
+      "This is a very long sentence that keeps going and going with technical detail about database internals. ";
+    const content = longSentence.repeat(20).trim();
 
     const chunks = chunkText(content, { minChars: 10, maxChars: 400, overlapChars: 40 });
     expect(chunks.length).toBeGreaterThan(1);

@@ -38,9 +38,14 @@ describe("multi-query result fusion", () => {
   });
 
   it("retains provider provenance from an aggregate result", () => {
-    const result = { ...hit("https://example.com/a"), sources: ["bing", "google"], providerRanks: { bing: 2, google: 1 } };
+    const result = {
+      ...hit("https://example.com/a"),
+      sources: ["bing", "google"],
+      providerRanks: { bing: 2, google: 1 },
+    };
     expect(fuseQueryResults([[result], []])[0]).toMatchObject({
-      sources: ["bing", "google"], providerRanks: { bing: 2, google: 1 },
+      sources: ["bing", "google"],
+      providerRanks: { bing: 2, google: 1 },
     });
   });
 });

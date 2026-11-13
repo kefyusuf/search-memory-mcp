@@ -15,7 +15,9 @@ function createMockEmbedding(vectors: Record<string, number[]>): IEmbeddingProvi
 
 function makeVec(values: number[]): number[] {
   const vec = new Array(384).fill(0);
-  values.forEach((v, i) => { vec[i] = v; });
+  values.forEach((v, i) => {
+    vec[i] = v;
+  });
   return vec;
 }
 
@@ -30,7 +32,11 @@ describe("SemanticCache", () => {
   it("finds an eligible namespace even when five closer entries use other namespaces", async () => {
     cache = new SemanticCache(createMockEmbedding({}), store);
     for (let i = 0; i < 6; i++) {
-      await cache.set(`query ${i}`, [{ title: `Result ${i}`, url: `https://example.com/${i}`, snippet: "s", source: "test" }], `namespace-${i}`);
+      await cache.set(
+        `query ${i}`,
+        [{ title: `Result ${i}`, url: `https://example.com/${i}`, snippet: "s", source: "test" }],
+        `namespace-${i}`,
+      );
     }
     expect((await cache.get("query", "namespace-5"))?.[0].title).toBe("Result 5");
   });
@@ -38,32 +44,40 @@ describe("SemanticCache", () => {
   it("skips expired candidates and still uses a later valid hit", async () => {
     cache = new SemanticCache(createMockEmbedding({}), store);
     const vector = new Array(384).fill(0.01);
-    await store.add("expired", vector, { query: "q", timestamp: Date.now() - 7_200_000, results: [{ title: "Expired", url: "https://example.com/old", snippet: "s", source: "test" }] });
+    await store.add("expired", vector, {
+      query: "q",
+      timestamp: Date.now() - 7_200_000,
+      results: [{ title: "Expired", url: "https://example.com/old", snippet: "s", source: "test" }],
+    });
     await cache.set("fresh", [{ title: "Fresh", url: "https://example.com/new", snippet: "s", source: "test" }]);
     expect((await cache.get("q", "fallback"))?.[0].title).toBe("Fresh");
   });
 
   it("should return cached results for semantically similar query", async () => {
     const mockEmbed = createMockEmbedding({
-      "weather london":  makeVec([1, 0]),
+      "weather london": makeVec([1, 0]),
       "london forecast": makeVec([0.99, 0.14]),
     });
-    cache = new SemanticCache(mockEmbed, store, 0.70);
+    cache = new SemanticCache(mockEmbed, store, 0.7);
 
-    await cache.set("weather london", [{ title: "London Weather" }]);
+    await cache.set("weather london", [
+      { title: "London Weather", url: "https://example.com/weather", snippet: "s", source: "test" },
+    ]);
     const hit = await cache.get("london forecast");
     expect(hit).not.toBeNull();
-    expect(hit[0].title).toBe("London Weather");
+    expect(hit?.[0].title).toBe("London Weather");
   });
 
   it("should miss for unrelated queries", async () => {
     const mockEmbed = createMockEmbedding({
       "weather london": makeVec([1, 0]),
-      "unrelated":       makeVec([0, 1]),
+      unrelated: makeVec([0, 1]),
     });
-    cache = new SemanticCache(mockEmbed, store, 0.70);
+    cache = new SemanticCache(mockEmbed, store, 0.7);
 
-    await cache.set("weather london", [{ title: "London Weather" }]);
+    await cache.set("weather london", [
+      { title: "London Weather", url: "https://example.com/weather", snippet: "s", source: "test" },
+    ]);
     const hit = await cache.get("unrelated");
     expect(hit).toBeNull();
   });
@@ -79,15 +93,15 @@ describe("SemanticCache", () => {
 
   it("should re-rank results by semantic relevance", async () => {
     const mockEmbed = createMockEmbedding({
-      "MCP protocol":        makeVec([1, 0]),
-      "MCP Guide A guide on Model Context Protocol":   makeVec([0.95, 0.3]),
-      "Cooking Pasta How to cook pasta at home":        makeVec([0.1, 1]),
+      "MCP protocol": makeVec([1, 0]),
+      "MCP Guide A guide on Model Context Protocol": makeVec([0.95, 0.3]),
+      "Cooking Pasta How to cook pasta at home": makeVec([0.1, 1]),
     });
     cache = new SemanticCache(mockEmbed, store);
 
     const raw = [
-      { title: "Cooking Pasta", snippet: "How to cook pasta at home", url: "1" },
-      { title: "MCP Guide", snippet: "A guide on Model Context Protocol", url: "2" },
+      { title: "Cooking Pasta", snippet: "How to cook pasta at home", url: "1", source: "test" },
+      { title: "MCP Guide", snippet: "A guide on Model Context Protocol", url: "2", source: "test" },
     ];
     const ranked = await cache.reRankResults("MCP protocol", raw);
     expect(ranked[0].title).toBe("MCP Guide");
@@ -126,7 +140,9 @@ describe("SemanticCache", () => {
     };
     cache = new SemanticCache(lazyProvider, store, 0.7);
 
-    await cache.set("gold price", [{ title: "Gold", url: "https://example.com/gold", snippet: "live market rate", source: "test" }]);
+    await cache.set("gold price", [
+      { title: "Gold", url: "https://example.com/gold", snippet: "live market rate", source: "test" },
+    ]);
     const hit = await cache.get("gold price");
 
     expect(hit).not.toBeNull();
@@ -137,10 +153,18 @@ describe("SemanticCache", () => {
     const mockEmbed = createMockEmbedding({
       "postgres pooling": makeVec([1, 0]),
     });
-    cache = new SemanticCache(mockEmbed, store, 0.70);
+    cache = new SemanticCache(mockEmbed, store, 0.7);
 
-    await cache.set("postgres pooling", [{ title: "Fallback hit", url: "https://a.example", snippet: "s", source: "test" }], "fallback");
-    await cache.set("postgres pooling", [{ title: "Aggregate hit", url: "https://b.example", snippet: "s", source: "test" }], "aggregate");
+    await cache.set(
+      "postgres pooling",
+      [{ title: "Fallback hit", url: "https://a.example", snippet: "s", source: "test" }],
+      "fallback",
+    );
+    await cache.set(
+      "postgres pooling",
+      [{ title: "Aggregate hit", url: "https://b.example", snippet: "s", source: "test" }],
+      "aggregate",
+    );
 
     const fallbackHit = await cache.get("postgres pooling", "fallback");
     const aggregateHit = await cache.get("postgres pooling", "aggregate");
@@ -155,7 +179,7 @@ describe("SemanticCache", () => {
     const mockEmbed = createMockEmbedding({
       "weather london": makeVec([1, 0]),
     });
-    cache = new SemanticCache(mockEmbed, store, 0.70);
+    cache = new SemanticCache(mockEmbed, store, 0.7);
 
     // Simulate a pre-upgrade cache entry with no namespace field.
     await store.add("legacy-id", makeVec([1, 0]), {

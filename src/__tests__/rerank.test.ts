@@ -13,7 +13,7 @@ function result(title: string, snippet: string): SearchResultItem {
 
 describe("rerankResults", () => {
   it("reorders results by cross-encoder scores", async () => {
-    const scorer = vi.fn(async (query: string, texts: string[]) => {
+    const scorer = vi.fn(async (_query: string, texts: string[]) => {
       // Higher score for results that mention pooling.
       return texts.map((text) => (/pooling/i.test(text) ? 0.9 : 0.1));
     });

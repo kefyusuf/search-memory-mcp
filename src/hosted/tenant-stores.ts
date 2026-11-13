@@ -29,7 +29,8 @@ export class ScopeCache<T> {
   private readonly maxEntries: number;
 
   constructor(options: { maxEntries: number; onClose?: (item: T) => void }) {
-    if (!Number.isSafeInteger(options.maxEntries) || options.maxEntries <= 0) throw new InvocationError("invalid_scope_cache");
+    if (!Number.isSafeInteger(options.maxEntries) || options.maxEntries <= 0)
+      throw new InvocationError("invalid_scope_cache");
     this.maxEntries = options.maxEntries;
     this.onClose = options.onClose ?? (() => {});
   }
@@ -54,14 +55,22 @@ export class ScopeCache<T> {
       if (oldestKey === undefined) break;
       const oldest = this.entries.get(oldestKey);
       this.entries.delete(oldestKey);
-      try { this.onClose(oldest as T); } catch { /* already closed */ }
+      try {
+        this.onClose(oldest as T);
+      } catch {
+        /* already closed */
+      }
     }
     return item;
   }
 
   closeAll(): void {
     for (const item of this.entries.values()) {
-      try { this.onClose(item); } catch { /* already closed */ }
+      try {
+        this.onClose(item);
+      } catch {
+        /* already closed */
+      }
     }
     this.entries.clear();
   }
@@ -99,7 +108,11 @@ export class TenantStoreCache {
 
   close(): void {
     for (const store of this.entries.values()) {
-      try { store.close(); } catch { /* already closed */ }
+      try {
+        store.close();
+      } catch {
+        /* already closed */
+      }
     }
     this.entries.clear();
   }
@@ -110,7 +123,11 @@ export class TenantStoreCache {
       if (oldestKey === undefined) break;
       const oldest = this.entries.get(oldestKey);
       this.entries.delete(oldestKey);
-      try { oldest?.close(); } catch { /* already closed */ }
+      try {
+        oldest?.close();
+      } catch {
+        /* already closed */
+      }
     }
   }
 }

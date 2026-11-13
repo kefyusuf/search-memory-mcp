@@ -12,11 +12,16 @@ const PDF_TYPE = "application/pdf";
 const DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 function createFetcher(options: { maxDocumentBytes?: number } = {}) {
-  const cache = new SemanticCache({ getEmbedding: async () => new Array(384).fill(0.01), isAvailable: () => true }, new InMemoryVectorStore());
-  const newPage = vi.fn(async () => { throw new Error("browser should not be used for documents"); });
+  const cache = new SemanticCache(
+    { getEmbedding: async () => new Array(384).fill(0.01), isAvailable: () => true },
+    new InMemoryVectorStore(),
+  );
+  const newPage = vi.fn(async () => {
+    throw new Error("browser should not be used for documents");
+  });
   const fetcher = new ContentFetcher({
     cache,
-    getBrowserContext: async () => ({ newPage } as unknown as BrowserContext),
+    getBrowserContext: async () => ({ newPage }) as unknown as BrowserContext,
     fetchWaitUntil: "networkidle",
     ...options,
   });
@@ -24,7 +29,13 @@ function createFetcher(options: { maxDocumentBytes?: number } = {}) {
 }
 
 function respond(body: Uint8Array, contentType: string, headers: Record<string, string> = {}) {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": contentType, ...headers } })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(Buffer.from(body), { status: 200, headers: { "content-type": contentType, ...headers } }),
+    ),
+  );
 }
 
 describe("ContentFetcher documents", () => {
@@ -32,7 +43,10 @@ describe("ContentFetcher documents", () => {
     vi.spyOn(dns, "resolve4").mockResolvedValue(["93.184.216.34"] as never);
     vi.spyOn(dns, "resolve6").mockResolvedValue([] as never);
   });
-  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   it("extracts a PDF response without opening a browser", async () => {
     const { fetcher, newPage } = createFetcher();
@@ -62,8 +76,14 @@ describe("ContentFetcher documents", () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const userAgent = new Headers(init?.headers).get("user-agent") ?? "";
       return userAgent.includes("Chrome")
-        ? new Response("<!DOCTYPE html><title>Just a moment...</title>", { status: 403, headers: { "content-type": "text/html" } })
-        : new Response(pdf("Dummy PDF file"), { status: 200, headers: { "content-type": "application/pdf; qs=0.001" } });
+        ? new Response("<!DOCTYPE html><title>Just a moment...</title>", {
+            status: 403,
+            headers: { "content-type": "text/html" },
+          })
+        : new Response(Buffer.from(pdf("Dummy PDF file")), {
+            status: 200,
+            headers: { "content-type": "application/pdf; qs=0.001" },
+          });
     });
     vi.stubGlobal("fetch", fetchMock);
     const result = await fetcher.fetchContent("https://example.com/dummy.pdf");
@@ -81,17 +101,26 @@ describe("ContentFetcher documents", () => {
   it("rejects documents above the size limit", async () => {
     const { fetcher, newPage } = createFetcher({ maxDocumentBytes: 100 });
     respond(pdf("too big for the limit"), PDF_TYPE);
-    await expect(fetcher.fetchContent("https://example.com/big.pdf")).resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    await expect(fetcher.fetchContent("https://example.com/big.pdf")).resolves.toEqual({
+      kind: "error",
+      reason: "fetch_failed",
+    });
 
     respond(new Uint8Array(10), PDF_TYPE, { "content-length": "5000" });
-    await expect(fetcher.fetchContent("https://example.com/declared-big.pdf")).resolves.toEqual({ kind: "error", reason: "fetch_failed" });
+    await expect(fetcher.fetchContent("https://example.com/declared-big.pdf")).resolves.toEqual({
+      kind: "error",
+      reason: "fetch_failed",
+    });
     expect(newPage).not.toHaveBeenCalled();
   });
 
   it("fails without a browser fallback when a document cannot be parsed", async () => {
     const { fetcher, newPage } = createFetcher();
     respond(new TextEncoder().encode("%PDF-1.4 broken"), PDF_TYPE);
-    await expect(fetcher.fetchContent("https://example.com/broken.pdf")).resolves.toEqual({ kind: "error", reason: "parse_failed" });
+    await expect(fetcher.fetchContent("https://example.com/broken.pdf")).resolves.toEqual({
+      kind: "error",
+      reason: "parse_failed",
+    });
     expect(newPage).not.toHaveBeenCalled();
   });
 
@@ -99,9 +128,19 @@ describe("ContentFetcher documents", () => {
     const { fetcher } = createFetcher();
     respond(docx(["Cached once."], "Cache test"), DOCX_TYPE);
     await fetcher.fetchContent("https://example.com/cache.docx");
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("should use cache"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("should use cache");
+      }),
+    );
     const cached = await fetcher.fetchContent("https://example.com/cache.docx");
-    expect(cached).toEqual({ kind: "content", source: "content-cache", text: "# Cache test\n\nCached once.", fetchedAt: expect.any(String) });
+    expect(cached).toEqual({
+      kind: "content",
+      source: "content-cache",
+      text: "# Cache test\n\nCached once.",
+      fetchedAt: expect.any(String),
+    });
   });
 
   it("lets index_url add a PDF to the knowledge base", async () => {
@@ -113,11 +152,19 @@ describe("ContentFetcher documents", () => {
     vi.spyOn(internals.embeddingProvider, "getEmbedding").mockResolvedValue([]);
     respond(pdf("PgBouncer pools Postgres connections"), PDF_TYPE);
 
-    const indexed = await server.callTool("index_url", { url: "https://example.com/pooling.pdf" }, createLocalRequestContext());
+    const indexed = await server.callTool(
+      "index_url",
+      { url: "https://example.com/pooling.pdf" },
+      createLocalRequestContext(),
+    );
     expect(indexed.isError).toBeUndefined();
     expect(indexed.content[0].text).toMatch(/^Indexed https:\/\/example\.com\/pooling\.pdf\n/);
 
-    const found = await server.callTool("search_index", { query: "PgBouncer", format: "json" }, createLocalRequestContext());
+    const found = await server.callTool(
+      "search_index",
+      { query: "PgBouncer", format: "json" },
+      createLocalRequestContext(),
+    );
     expect(JSON.parse(found.content[0].text).hits[0]).toMatchObject({ source: "https://example.com/pooling.pdf" });
     vi.unstubAllEnvs();
   });

@@ -51,7 +51,7 @@ export interface IVectorStore {
   clear(): Promise<void>;
   getStats(): { contentCount: number; vectorCount: number };
   close(): void;
-  
+
   // Content Cache Methods
   getContent(url: string): Promise<ContentEntry | null>;
   setContent(url: string, content: string, category: string, publishedAt?: string): Promise<void>;

@@ -30,7 +30,10 @@ export type ExtractionLimits = {
 };
 
 export class DocumentExtractionError extends Error {
-  constructor(readonly code: "unsupported_format" | "too_large" | "invalid_document", message: string) {
+  constructor(
+    readonly code: "unsupported_format" | "too_large" | "invalid_document",
+    message: string,
+  ) {
     super(message);
     this.name = "DocumentExtractionError";
   }
@@ -84,7 +87,11 @@ function startsWith(data: Uint8Array, signature: string): boolean {
 }
 
 function normalizeText(text: string): string {
-  return text.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return text
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 async function extractPdf(data: Uint8Array): Promise<ExtractedDocument> {
@@ -96,15 +103,23 @@ async function extractPdf(data: Uint8Array): Promise<ExtractedDocument> {
       getMeta(pdf).catch(() => ({ info: {} as Record<string, unknown> })),
     ]);
     const title = typeof meta.info?.Title === "string" && meta.info.Title.trim() ? meta.info.Title.trim() : undefined;
-    const publishedAt = typeof meta.info?.CreationDate === "string" ? normalizePublishedDate(meta.info.CreationDate) : undefined;
+    const publishedAt =
+      typeof meta.info?.CreationDate === "string" ? normalizePublishedDate(meta.info.CreationDate) : undefined;
     return { format: "pdf", title, publishedAt, text: (text as string[]).join("\n\n") };
   } catch (error) {
-    throw new DocumentExtractionError("invalid_document", `Could not read PDF: ${error instanceof Error ? error.message : String(error)}`);
+    throw new DocumentExtractionError(
+      "invalid_document",
+      `Could not read PDF: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
 /** Unzips only the entries `wanted` accepts, refusing archives that expand past the limit. */
-function unzipEntries(data: Uint8Array, wanted: (name: string) => boolean, maxExpandedBytes: number): Record<string, Uint8Array> {
+function unzipEntries(
+  data: Uint8Array,
+  wanted: (name: string) => boolean,
+  maxExpandedBytes: number,
+): Record<string, Uint8Array> {
   let expanded = 0;
   try {
     return unzipSync(data, {
@@ -119,14 +134,18 @@ function unzipEntries(data: Uint8Array, wanted: (name: string) => boolean, maxEx
     });
   } catch (error) {
     if (error instanceof DocumentExtractionError) throw error;
-    throw new DocumentExtractionError("invalid_document", `Could not read archive: ${error instanceof Error ? error.message : String(error)}`);
+    throw new DocumentExtractionError(
+      "invalid_document",
+      `Could not read archive: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
 function extractArchive(data: Uint8Array, maxExpandedBytes: number): ExtractedDocument {
   const index = unzipEntries(data, (name) => name === "mimetype" || name === "word/document.xml", maxExpandedBytes);
   if (index["word/document.xml"]) return extractDocx(data, maxExpandedBytes);
-  if (index.mimetype && strFromU8(index.mimetype).trim() === "application/epub+zip") return extractEpub(data, maxExpandedBytes);
+  if (index.mimetype && strFromU8(index.mimetype).trim() === "application/epub+zip")
+    return extractEpub(data, maxExpandedBytes);
   throw new DocumentExtractionError("unsupported_format", "ZIP archive is not a DOCX or EPUB document.");
 }
 
@@ -135,10 +154,16 @@ function parseXml(xml: string): Document {
 }
 
 function extractDocx(data: Uint8Array, maxExpandedBytes: number): ExtractedDocument {
-  const files = unzipEntries(data, (name) => name === "word/document.xml" || name === "docProps/core.xml", maxExpandedBytes);
+  const files = unzipEntries(
+    data,
+    (name) => name === "word/document.xml" || name === "docProps/core.xml",
+    maxExpandedBytes,
+  );
   const document = parseXml(strFromU8(files["word/document.xml"]));
   const paragraphs = [...document.getElementsByTagNameNS(WORD_NS, "p")]
-    .map((paragraph) => [...paragraph.getElementsByTagNameNS(WORD_NS, "t")].map((node) => node.textContent ?? "").join(""))
+    .map((paragraph) =>
+      [...paragraph.getElementsByTagNameNS(WORD_NS, "t")].map((node) => node.textContent ?? "").join(""),
+    )
     .filter((text) => text.trim().length > 0);
   const core = files["docProps/core.xml"] ? parseXml(strFromU8(files["docProps/core.xml"])) : null;
   const title = core?.getElementsByTagNameNS(DC_NS, "title")[0]?.textContent?.trim() || undefined;
@@ -156,15 +181,20 @@ function resolvePath(base: string, href: string): string {
 }
 
 function extractEpub(data: Uint8Array, maxExpandedBytes: number): ExtractedDocument {
-  const container = unzipEntries(data, (name) => name === "META-INF/container.xml", maxExpandedBytes)["META-INF/container.xml"];
-  const opfPath = container && parseXml(strFromU8(container)).getElementsByTagName("rootfile")[0]?.getAttribute("full-path");
+  const container = unzipEntries(data, (name) => name === "META-INF/container.xml", maxExpandedBytes)[
+    "META-INF/container.xml"
+  ];
+  const opfPath =
+    container && parseXml(strFromU8(container)).getElementsByTagName("rootfile")[0]?.getAttribute("full-path");
   if (!opfPath) throw new DocumentExtractionError("invalid_document", "EPUB has no package document.");
 
   const opfData = unzipEntries(data, (name) => name === opfPath, maxExpandedBytes)[opfPath];
   if (!opfData) throw new DocumentExtractionError("invalid_document", "EPUB package document is missing.");
   const opf = parseXml(strFromU8(opfData));
   const title = opf.getElementsByTagNameNS(DC_NS, "title")[0]?.textContent?.trim() || undefined;
-  const manifest = new Map([...opf.getElementsByTagName("item")].map((item) => [item.getAttribute("id"), item.getAttribute("href")]));
+  const manifest = new Map(
+    [...opf.getElementsByTagName("item")].map((item) => [item.getAttribute("id"), item.getAttribute("href")]),
+  );
   const chapterPaths = [...opf.getElementsByTagName("itemref")]
     .map((ref) => manifest.get(ref.getAttribute("idref")))
     .filter((href): href is string => Boolean(href))
@@ -173,7 +203,7 @@ function extractEpub(data: Uint8Array, maxExpandedBytes: number): ExtractedDocum
   const wanted = new Set(chapterPaths);
   const chapters = unzipEntries(data, (name) => wanted.has(name), maxExpandedBytes);
   const text = chapterPaths
-    .map((path) => chapters[path] ? htmlToMarkdown(strFromU8(chapters[path])).text : "")
+    .map((path) => (chapters[path] ? htmlToMarkdown(strFromU8(chapters[path])).text : ""))
     .filter(Boolean)
     .join("\n\n");
   return { format: "epub", title, text };
@@ -181,7 +211,9 @@ function extractEpub(data: Uint8Array, maxExpandedBytes: number): ExtractedDocum
 
 function htmlToMarkdown(html: string): { title?: string; text: string } {
   const document = new JSDOM(html).window.document;
-  document.querySelectorAll("script, style, noscript").forEach((node) => node.remove());
+  document.querySelectorAll("script, style, noscript").forEach((node) => {
+    node.remove();
+  });
   const title = document.title.trim() || undefined;
   const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
   return { title, text: turndown.turndown(document.body?.innerHTML ?? "") };

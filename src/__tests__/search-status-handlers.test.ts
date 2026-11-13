@@ -12,9 +12,14 @@ const hit = (url: string): SearchResultItem => ({ title: `Title ${url}`, url, sn
 const text = (result: { content: Array<{ text: string }> }) => result.content[0].text;
 
 function deps(overrides: Partial<SearchToolDeps> = {}): SearchToolDeps {
-  const cache = new SemanticCache({ getEmbedding: async () => [], isAvailable: () => false }, new InMemoryVectorStore());
+  const cache = new SemanticCache(
+    { getEmbedding: async () => [], isAvailable: () => false },
+    new InMemoryVectorStore(),
+  );
   vi.spyOn(cache, "reRankResults").mockImplementation(async (_query, results, limit) => results.slice(0, limit));
-  const providers: SearchProvider[] = [{ name: "mock", execute: async () => [hit("https://a.example/1"), hit("https://b.example/2")] }];
+  const providers: SearchProvider[] = [
+    { name: "mock", execute: async () => [hit("https://a.example/1"), hit("https://b.example/2")] },
+  ];
   return {
     searchLimiter: new TokenBucket({ maxTokens: 100, refillRatePerSecond: 0 }),
     cache: () => cache,
@@ -37,13 +42,18 @@ describe("web_search handler", () => {
     expect(result.isError).toBeUndefined();
     expect(text(result)).toContain("https://a.example/1");
     expect(text(result)).not.toContain("https://b.example/2");
-    expect(traces.recent()).toEqual([expect.objectContaining({ query: "example", cache: "miss", strategy: "fallback", resultCount: 1 })]);
+    expect(traces.recent()).toEqual([
+      expect.objectContaining({ query: "example", cache: "miss", strategy: "fallback", resultCount: 1 }),
+    ]);
   });
 
   it("returns structured JSON when requested", async () => {
     const search = createSearchHandler(deps());
     const parsed = JSON.parse(text(await search({ query: "example", format: "json" })));
-    expect(parsed).toMatchObject({ query: "example", results: [{ url: "https://a.example/1" }, { url: "https://b.example/2" }] });
+    expect(parsed).toMatchObject({
+      query: "example",
+      results: [{ url: "https://a.example/1" }, { url: "https://b.example/2" }],
+    });
   });
 
   it("explains empty and domain-filtered results", async () => {
@@ -53,26 +63,39 @@ describe("web_search handler", () => {
     expect(text(none)).toMatch(/^Web search is currently unavailable/);
 
     const filtered = await createSearchHandler(deps())({ query: "example", domain: "c.example" });
-    expect(text(filtered)).toBe('No results matched the domain filter "c.example". Try a broader search or fetch_content with a direct URL.');
+    expect(text(filtered)).toBe(
+      'No results matched the domain filter "c.example". Try a broader search or fetch_content with a direct URL.',
+    );
   });
 
   it("enforces the search rate limit before validating input", async () => {
-    const search = createSearchHandler(deps({ searchLimiter: new TokenBucket({ maxTokens: 0, refillRatePerSecond: 0 }) }));
+    const search = createSearchHandler(
+      deps({ searchLimiter: new TokenBucket({ maxTokens: 0, refillRatePerSecond: 0 }) }),
+    );
     const result = await search({ query: "" });
     expect(result.isError).toBe(true);
     expect(text(result)).toMatch(/^Rate limit exceeded: web_search allows 10 requests per minute/);
   });
 
   it("answers deep searches from fetched pages", async () => {
-    const search = createSearchHandler(deps({
-      fetchPage: async (url) => ({ url, title: "Doc", content: "Example answers explain the example topic in detail." }),
-    }));
+    const search = createSearchHandler(
+      deps({
+        fetchPage: async (url) => ({
+          url,
+          title: "Doc",
+          content: "Example answers explain the example topic in detail.",
+        }),
+      }),
+    );
     const result = await search({ query: "example topic", deep: true });
     expect(text(result)).toContain("https://a.example/1");
   });
 
   it("appends a repeat-query note to text output when results come from cache", async () => {
-    const cache = new SemanticCache({ getEmbedding: async () => [], isAvailable: () => false }, new InMemoryVectorStore());
+    const cache = new SemanticCache(
+      { getEmbedding: async () => [], isAvailable: () => false },
+      new InMemoryVectorStore(),
+    );
     vi.spyOn(cache, "get").mockResolvedValue([hit("https://a.example/1")]);
     const search = createSearchHandler(deps({ cache: () => cache }));
 
@@ -88,7 +111,8 @@ describe("web_search handler", () => {
 describe("SearchTraceHistory", () => {
   it("keeps the newest entries up to its limit", () => {
     const history = new SearchTraceHistory(2);
-    for (const query of ["a", "b", "c"]) history.push({ query, totalMs: 1, cache: "miss", strategy: "fallback", resultCount: 0 });
+    for (const query of ["a", "b", "c"])
+      history.push({ query, totalMs: 1, cache: "miss", strategy: "fallback", resultCount: 0 });
     expect(history.recent().map((entry) => entry.query)).toEqual(["c", "b"]);
   });
 });

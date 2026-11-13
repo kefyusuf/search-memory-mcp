@@ -12,7 +12,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
 const { KnowledgeIndex } = await import(pathToFileURL(join(root, "build/knowledge/index-store.js")).href);
-const { evaluateRetrieval, formatEvalReport } = await import(pathToFileURL(join(root, "build/eval/retrieval-eval.js")).href);
+const { evaluateRetrieval, formatEvalReport } = await import(
+  pathToFileURL(join(root, "build/eval/retrieval-eval.js")).href
+);
 
 const casesPath = process.argv[2] || join(root, "evals/retrieval/cases.jsonl");
 if (!existsSync(casesPath)) {

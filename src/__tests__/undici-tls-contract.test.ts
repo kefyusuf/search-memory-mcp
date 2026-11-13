@@ -22,25 +22,40 @@ describe.skipIf(!opensslAvailable)("Undici TLS hostname contract (local HTTPS fi
     tempDirs.push(temp);
     const keyPath = join(temp, "tls-key.pem");
     const certPath = join(temp, "tls-cert.pem");
-    const generated = spawnSync("openssl", [
-      "req", "-x509", "-newkey", "rsa:2048", "-sha256", "-nodes",
-      "-keyout", keyPath, "-out", certPath, "-days", "1",
-      "-subj", "/CN=public.example.test",
-      "-addext", "subjectAltName=DNS:public.example.test",
-    ], { encoding: "utf8", timeout: 10000 });
+    const generated = spawnSync(
+      "openssl",
+      [
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-sha256",
+        "-nodes",
+        "-keyout",
+        keyPath,
+        "-out",
+        certPath,
+        "-days",
+        "1",
+        "-subj",
+        "/CN=public.example.test",
+        "-addext",
+        "subjectAltName=DNS:public.example.test",
+      ],
+      { encoding: "utf8", timeout: 10000 },
+    );
     expect(generated.status, generated.stderr).toBe(0);
 
     const cert = readFileSync(certPath);
-    const server = createServer(
-      { key: readFileSync(keyPath), cert },
-      (request, response) => {
-        expect(request.headers.host).toBe(`public.example.test:${port}`);
-        response.writeHead(200, { "content-type": "text/plain" });
-        response.end("verified TLS fixture");
-      },
-    );
+    const server = createServer({ key: readFileSync(keyPath), cert }, (request, response) => {
+      expect(request.headers.host).toBe(`public.example.test:${port}`);
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("verified TLS fixture");
+    });
     let servername: string | undefined;
-    server.on("secureConnection", (socket) => { servername = socket.servername; });
+    server.on("secureConnection", (socket) => {
+      servername = socket.servername || undefined;
+    });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const port = (server.address() as { port: number }).port;
 
@@ -66,13 +81,16 @@ describe.skipIf(!opensslAvailable)("Undici TLS hostname contract (local HTTPS fi
 
       const error = await fetch(`https://other.example.test:${port}/page`, {
         dispatcher: agent,
-      } as RequestInit).then(() => null, (caught: unknown) => caught);
+      } as RequestInit).then(
+        () => null,
+        (caught: unknown) => caught,
+      );
       expect(error).toBeInstanceOf(TypeError);
       const tlsCause = (error as Error & { cause?: { code?: string } }).cause;
       expect(tlsCause?.code).toBe("ERR_TLS_CERT_ALTNAME_INVALID");
     } finally {
       await agent.close();
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }
   }, 20000);
 });

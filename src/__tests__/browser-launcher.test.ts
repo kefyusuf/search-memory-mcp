@@ -19,7 +19,8 @@ describe("launchWithAutoInstall", () => {
   });
 
   it("installs Chromium once and retries when the executable is missing", async () => {
-    const launch = vi.fn<() => Promise<Browser>>()
+    const launch = vi
+      .fn<() => Promise<Browser>>()
       .mockRejectedValueOnce(missingBrowser)
       .mockResolvedValueOnce(fakeBrowser);
     const install = vi.fn(async () => {});
@@ -32,32 +33,49 @@ describe("launchWithAutoInstall", () => {
   it("rethrows unrelated launch errors without installing", async () => {
     const install = vi.fn(async () => {});
     await expect(
-      launchWithAutoInstall(async () => { throw new Error("spawn EACCES"); }, install),
+      launchWithAutoInstall(async () => {
+        throw new Error("spawn EACCES");
+      }, install),
     ).rejects.toThrow("spawn EACCES");
     expect(install).not.toHaveBeenCalled();
   });
 
   it("propagates install failures", async () => {
     await expect(
-      launchWithAutoInstall(async () => { throw missingBrowser; }, async () => { throw new Error("offline"); }),
+      launchWithAutoInstall(
+        async () => {
+          throw missingBrowser;
+        },
+        async () => {
+          throw new Error("offline");
+        },
+      ),
     ).rejects.toThrow("offline");
   });
 });
 
 function isAlive(pid: number): boolean {
-  try { process.kill(pid, 0); return true; } catch { return false; }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 describe("installChromium", () => {
   const node = process.execPath;
 
   it("resolves when the installer exits with code 0", async () => {
-    await expect(installChromium({ command: { file: node, args: ["-e", "process.exit(0)"] } })).resolves.toBeUndefined();
+    await expect(
+      installChromium({ command: { file: node, args: ["-e", "process.exit(0)"] } }),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects with a manual-install hint when the installer fails", async () => {
-    await expect(installChromium({ command: { file: node, args: ["-e", "process.exit(3)"] } }))
-      .rejects.toThrow(/exited with code 3.*npx playwright install chromium/);
+    await expect(installChromium({ command: { file: node, args: ["-e", "process.exit(3)"] } })).rejects.toThrow(
+      /exited with code 3.*npx playwright install chromium/,
+    );
   });
 
   it("stops a stalled installer and its child process after the timeout", async () => {
@@ -72,8 +90,9 @@ describe("installChromium", () => {
     ].join("\n");
 
     const started = Date.now();
-    await expect(installChromium({ timeoutMs: 1500, command: { file: node, args: ["-e", script] } }))
-      .rejects.toThrow(/did not finish within 2 seconds.*npx playwright install chromium/);
+    await expect(installChromium({ timeoutMs: 1500, command: { file: node, args: ["-e", script] } })).rejects.toThrow(
+      /did not finish within 2 seconds.*npx playwright install chromium/,
+    );
     expect(Date.now() - started).toBeLessThan(5000);
 
     const workerPid = Number(readFileSync(pidFile, "utf8"));

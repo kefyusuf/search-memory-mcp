@@ -1,12 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { promises as dns, lookup as systemLookup, type LookupAddress } from "node:dns";
+import { promises as dns, type lookup as systemLookup, type LookupAddress } from "node:dns";
 import { createServer, request as httpRequest } from "node:http";
 import { connect as netConnect, type AddressInfo } from "node:net";
 import type { Browser, BrowserContext } from "playwright";
-import { openGuardedBrowserContext, parseConnectAuthority, startBrowserEgressProxy, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
+import {
+  openGuardedBrowserContext,
+  parseConnectAuthority,
+  startBrowserEgressProxy,
+  type BrowserEgressProxy,
+} from "../security/browser-egress-proxy.js";
 
 function fakeResolver(records: LookupAddress[], error: NodeJS.ErrnoException | null = null): typeof systemLookup {
-  return ((_host: string, _opts: unknown, cb: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void) => {
+  return ((
+    _host: string,
+    _opts: unknown,
+    cb: (err: NodeJS.ErrnoException | null, records: LookupAddress[]) => void,
+  ) => {
     queueMicrotask(() => cb(error, records));
   }) as typeof systemLookup;
 }
@@ -14,17 +23,20 @@ function fakeResolver(records: LookupAddress[], error: NodeJS.ErrnoException | n
 async function proxyGet(proxy: BrowserEgressProxy, targetUrl: string): Promise<{ status: number; body: string }> {
   return await new Promise((resolve, reject) => {
     const proxyUrl = new URL(proxy.url);
-    const req = httpRequest({
-      hostname: proxyUrl.hostname,
-      port: Number(proxyUrl.port),
-      path: targetUrl,
-      method: "GET",
-      agent: false,
-    }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on("data", (chunk: Buffer) => chunks.push(chunk));
-      res.on("end", () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") }));
-    });
+    const req = httpRequest(
+      {
+        hostname: proxyUrl.hostname,
+        port: Number(proxyUrl.port),
+        path: targetUrl,
+        method: "GET",
+        agent: false,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") }));
+      },
+    );
     req.once("error", reject);
     req.end();
   });
@@ -80,7 +92,9 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
   it("rejects a DNS rebinding destination before opening any HTTP socket", async () => {
     const destination = createServer((_request, response) => response.end("private"));
     let connects = 0;
-    destination.on("connection", () => { connects += 1; });
+    destination.on("connection", () => {
+      connects += 1;
+    });
     await new Promise<void>((resolve) => destination.listen(0, "127.0.0.1", resolve));
     const port = (destination.address() as AddressInfo).port;
 
@@ -90,15 +104,17 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
       expect(result.status).toBe(403);
       expect(connects).toBe(0);
     } finally {
-      await new Promise<void>((resolve) => destination.close(resolve));
+      await new Promise<void>((resolve) => destination.close(() => resolve()));
     }
   });
 
   it("rejects mixed public/private DNS results at the socket boundary", async () => {
-    proxy = await startBrowserEgressProxy(fakeResolver([
-      { address: "1.1.1.1", family: 4 },
-      { address: "127.0.0.1", family: 4 },
-    ]));
+    proxy = await startBrowserEgressProxy(
+      fakeResolver([
+        { address: "1.1.1.1", family: 4 },
+        { address: "127.0.0.1", family: 4 },
+      ]),
+    );
     const result = await proxyGet(proxy, "http://browser-egress-probe.invalid:81/private");
     expect(result.status).toBe(403);
   });
@@ -111,9 +127,16 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
     expect(parseConnectAuthority("example.org:443")).toEqual({ port: 443 });
     expect(parseConnectAuthority("example.org:65535")).toEqual({ port: 65535 });
     for (const malformed of [
-      "[::1]", "[::1]:0", "[::1]:65536", "example.org:0",
-      "example.org", "example.org:abc", "example.org:443/path",
-      "user@example.org:443", "[::1]:80:90", "[2606:4700::1111:443",
+      "[::1]",
+      "[::1]:0",
+      "[::1]:65536",
+      "example.org:0",
+      "example.org",
+      "example.org:abc",
+      "example.org:443/path",
+      "user@example.org:443",
+      "[::1]:80:90",
+      "[2606:4700::1111:443",
     ]) {
       expect(parseConnectAuthority(malformed)).toBeNull();
     }
@@ -132,10 +155,12 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
   });
 
   it("rejects private IPv6, mapped IPv4-in-IPv6 and mixed-family answers", async () => {
-    proxy = await startBrowserEgressProxy(fakeResolver([
-      { address: "2606:4700:4700::1111", family: 6 },
-      { address: "::1", family: 6 },
-    ]));
+    proxy = await startBrowserEgressProxy(
+      fakeResolver([
+        { address: "2606:4700:4700::1111", family: 6 },
+        { address: "::1", family: 6 },
+      ]),
+    );
     expect((await proxyGet(proxy, "http://browser-egress-probe.invalid:81/private")).status).toBe(403);
     expect(await proxyConnect(proxy, "[::ffff:7f00:1]:443")).toContain("403 Denied");
     expect(await proxyConnect(proxy, "[::]:443")).toContain("403 Denied");
@@ -168,7 +193,8 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
       expect(opened.context).toBe(fakeContext);
       expect(newContext).toHaveBeenCalledTimes(1);
       const options = newContext.mock.calls[0][0] as {
-        userAgent: string; serviceWorkers: string;
+        userAgent: string;
+        serviceWorkers: string;
         proxy: { server: string; bypass: string };
       };
       expect(options.userAgent).toBe("Security fixture");
@@ -193,11 +219,16 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
     expect(proxyUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
 
     const port = Number(new URL(proxyUrl).port);
-    await expect(new Promise((resolve, reject) => {
-      const socket = netConnect({ host: "127.0.0.1", port });
-      socket.once("connect", () => { socket.destroy(); resolve("unexpected proxy still listening"); });
-      socket.once("error", reject);
-    })).rejects.toMatchObject({ code: "ECONNREFUSED" });
+    await expect(
+      new Promise((resolve, reject) => {
+        const socket = netConnect({ host: "127.0.0.1", port });
+        socket.once("connect", () => {
+          socket.destroy();
+          resolve("unexpected proxy still listening");
+        });
+        socket.once("error", reject);
+      }),
+    ).rejects.toMatchObject({ code: "ECONNREFUSED" });
   });
 
   it("stops listening and cannot serve new proxy requests after close", async () => {
@@ -206,10 +237,15 @@ describe("browser outbound proxy (core only, not yet wired into Chromium)", () =
     await proxy.close();
     proxy = undefined;
     const direct = new URL(url);
-    await expect(new Promise((resolve, reject) => {
-      const socket = netConnect({ host: "127.0.0.1", port: Number(direct.port) });
-      socket.once("connect", () => { socket.destroy(); resolve("connected"); });
-      socket.once("error", reject);
-    })).rejects.toMatchObject({ code: "ECONNREFUSED" });
+    await expect(
+      new Promise((resolve, reject) => {
+        const socket = netConnect({ host: "127.0.0.1", port: Number(direct.port) });
+        socket.once("connect", () => {
+          socket.destroy();
+          resolve("connected");
+        });
+        socket.once("error", reject);
+      }),
+    ).rejects.toMatchObject({ code: "ECONNREFUSED" });
   });
 });

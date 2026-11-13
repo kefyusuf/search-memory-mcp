@@ -128,11 +128,10 @@ describe("extractAnswerFromContent back-compat", () => {
       "PostgreSQL pooling improves efficiency under concurrent load.\n\n---\n\n" +
       "Pool size should be tuned to workload and hardware.";
 
-    const answer = extractAnswerFromContent(
-      "PostgreSQL pooling",
-      combined,
-      ["https://example.com/a", "https://example.com/b"],
-    );
+    const answer = extractAnswerFromContent("PostgreSQL pooling", combined, [
+      "https://example.com/a",
+      "https://example.com/b",
+    ]);
 
     expect(answer).toContain("Answer:");
     expect(answer).toContain("https://example.com/a");
