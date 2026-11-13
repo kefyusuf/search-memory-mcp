@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { WebSearchServer } from "../index.js";
 import { SemanticCache } from "../cache/semantic-cache.js";
 import { InMemoryVectorStore } from "./helpers.js";
+import { UNTRUSTED_NOTICE } from "../security/untrusted.js";
 
 type Internals = { cache: SemanticCache; embeddingProvider: { getEmbedding(text: string): Promise<number[]> } };
 
@@ -72,6 +73,12 @@ describe("structured tool output", () => {
     }
   });
 
+  it("marks untrusted web_search JSON output with a data notice", async () => {
+    const client = await connect();
+    const result = await client.callTool({ name: "web_search", arguments: { query: "example", format: "json" } });
+    expect(result.structuredContent).toMatchObject({ untrustedContentNotice: UNTRUSTED_NOTICE });
+  });
+
   it("keeps the existing text content for clients that ignore structured output", async () => {
     const client = await connect();
     const result = await client.callTool({ name: "web_search", arguments: { query: "example" } });
@@ -83,7 +90,12 @@ describe("structured tool output", () => {
   it("returns schema-valid index hits, including an empty result", async () => {
     const client = await connect();
     const empty = await client.callTool({ name: "search_index", arguments: { query: "nothing" } });
-    expect(empty.structuredContent).toEqual({ query: "nothing", hitCount: 0, hits: [] });
+    expect(empty.structuredContent).toEqual({
+      untrustedContentNotice: UNTRUSTED_NOTICE,
+      query: "nothing",
+      hitCount: 0,
+      hits: [],
+    });
 
     await client.callTool({
       name: "ingest_document",
@@ -95,6 +107,16 @@ describe("structured tool output", () => {
       hitCount: 1,
       hits: [{ title: "Pooling", source: "notes.md" }],
     });
+  });
+
+  it("marks untrusted search_index output with a data notice", async () => {
+    const client = await connect();
+    await client.callTool({
+      name: "ingest_document",
+      arguments: { content: "PgBouncer pools connections.", title: "Pooling", source: "notes.md" },
+    });
+    const result = await client.callTool({ name: "search_index", arguments: { query: "PgBouncer" } });
+    expect(result.structuredContent).toMatchObject({ untrustedContentNotice: UNTRUSTED_NOTICE });
   });
 
   it("returns the server status as structured content", async () => {

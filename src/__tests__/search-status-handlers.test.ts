@@ -6,6 +6,7 @@ import type { SearchProvider } from "../providers/base.js";
 import { TokenBucket } from "../rate-limiter.js";
 import { createSearchHandler, SearchTraceHistory, type SearchToolDeps } from "../tools/search.js";
 import { createStatusHandler } from "../tools/status.js";
+import { UNTRUSTED_NOTICE } from "../security/untrusted.js";
 import { InMemoryVectorStore } from "./helpers.js";
 
 const hit = (url: string): SearchResultItem => ({ title: `Title ${url}`, url, snippet: "snippet", source: "mock" });
@@ -89,6 +90,20 @@ describe("web_search handler", () => {
     );
     const result = await search({ query: "example topic", deep: true });
     expect(text(result)).toContain("https://a.example/1");
+  });
+
+  it("marks untrusted deep-answer JSON output with a data notice", async () => {
+    const search = createSearchHandler(
+      deps({
+        fetchPage: async (url) => ({
+          url,
+          title: "Doc",
+          content: "Example answers explain the example topic in detail.",
+        }),
+      }),
+    );
+    const result = await search({ query: "example topic", deep: true, format: "json" });
+    expect(result.structuredContent).toMatchObject({ untrustedContentNotice: UNTRUSTED_NOTICE });
   });
 
   it("appends a repeat-query note to text output when results come from cache", async () => {

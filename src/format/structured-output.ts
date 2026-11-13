@@ -1,9 +1,11 @@
 import type { SearchResultItem } from "../cache/types.js";
 import type { KnowledgeChunkHit } from "../knowledge/index-store.js";
+import { UNTRUSTED_NOTICE } from "../security/untrusted.js";
 
 export type OutputFormat = "text" | "json";
 
 export type SearchJsonPayload = {
+  untrustedContentNotice: string;
   query: string;
   resultCount: number;
   results: Array<{
@@ -19,6 +21,7 @@ export type SearchJsonPayload = {
 };
 
 export type IndexHitJsonPayload = {
+  untrustedContentNotice: string;
   query: string;
   hitCount: number;
   hits: Array<{
@@ -32,6 +35,7 @@ export type IndexHitJsonPayload = {
 };
 
 export type AnswerJsonPayload = {
+  untrustedContentNotice: string;
   query: string;
   answer: string;
   sources: Array<{ index: number; url: string; title?: string }>;
@@ -48,6 +52,7 @@ export function buildSearchJson(
   }
 
   return {
+    untrustedContentNotice: UNTRUSTED_NOTICE,
     query,
     resultCount: results.length,
     results: results.map((result) => {
@@ -68,6 +73,7 @@ export function buildSearchJson(
 
 export function buildIndexHitJson(query: string, hits: KnowledgeChunkHit[]): IndexHitJsonPayload {
   return {
+    untrustedContentNotice: UNTRUSTED_NOTICE,
     query,
     hitCount: hits.length,
     hits: hits.map((hit) => ({
@@ -87,6 +93,7 @@ export function buildAnswerJson(
   sources: Array<{ url: string; title?: string }>,
 ): AnswerJsonPayload {
   return {
+    untrustedContentNotice: UNTRUSTED_NOTICE,
     query,
     answer,
     sources: sources.map((source, index) => ({

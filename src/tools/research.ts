@@ -4,7 +4,7 @@ import type { EntityGraph } from "../graph/entity-graph.js";
 import type { KnowledgeIndex } from "../knowledge/index-store.js";
 import type { TokenBucket } from "../rate-limiter.js";
 import type { ContentLoader } from "./fetch.js";
-import { wrapUntrusted } from "../security/untrusted.js";
+import { wrapUntrusted, UNTRUSTED_NOTICE } from "../security/untrusted.js";
 import { errorResult, textResult, type ToolResult } from "./types.js";
 
 const ResearchSchema = z.object({
@@ -162,6 +162,6 @@ export function createResearchHandler(deps: ResearchToolDeps) {
       ...(searchNote ? ["", `Web search note: ${searchNote}`] : []),
     ].join("\n");
 
-    return textResult(text, { query, answer, sources, indexedCount });
+    return textResult(text, { untrustedContentNotice: UNTRUSTED_NOTICE, query, answer, sources, indexedCount });
   };
 }
