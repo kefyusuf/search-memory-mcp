@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveRateLimits } from "../hosted/config.js";
+import { isValidAdminToken, resolveAdminBind, resolveRateLimits } from "../hosted/config.js";
 
 describe("resolveRateLimits", () => {
   it("stays concurrency-only when no rate window is configured", () => {
@@ -41,5 +41,27 @@ describe("resolveRateLimits", () => {
 
   it.each(["0", "-1", "1.5", "abc"])("rejects an invalid rate window: %s", (invalid) => {
     expect(() => resolveRateLimits({ ...valid, HOSTED_RATE_WINDOW_MS: invalid })).toThrow(/HOSTED_RATE_WINDOW_MS/);
+  });
+});
+
+describe("resolveAdminBind", () => {
+  it("defaults the admin surface to loopback", () => {
+    expect(resolveAdminBind({})).toBe("127.0.0.1");
+    expect(resolveAdminBind({ HOSTED_ADMIN_BIND: "   " })).toBe("127.0.0.1");
+  });
+
+  it("honors an explicit admin bind without inheriting the public MCP bind", () => {
+    expect(resolveAdminBind({ HOSTED_ADMIN_BIND: "0.0.0.0" })).toBe("0.0.0.0");
+    expect(resolveAdminBind({ HOSTED_ADMIN_BIND: " 10.0.0.1 " })).toBe("10.0.0.1");
+    expect(resolveAdminBind({ HOSTED_BIND: "0.0.0.0" })).toBe("127.0.0.1");
+  });
+});
+
+describe("isValidAdminToken", () => {
+  it("requires at least 32 characters", () => {
+    expect(isValidAdminToken("")).toBe(false);
+    expect(isValidAdminToken("a".repeat(31))).toBe(false);
+    expect(isValidAdminToken("a".repeat(32))).toBe(true);
+    expect(isValidAdminToken("a".repeat(64))).toBe(true);
   });
 });

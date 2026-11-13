@@ -31,3 +31,18 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string): number {
   }
   return value;
 }
+
+/**
+ * Admin/provisioning bind defaults to loopback, independent of the public MCP
+ * HOSTED_BIND, so the operator-token surface is not exposed by default (ADR-0006).
+ */
+export function resolveAdminBind(env: NodeJS.ProcessEnv): string {
+  return (env.HOSTED_ADMIN_BIND ?? "").trim() || "127.0.0.1";
+}
+
+/** Operator bearer token guards the provisioning surface; require a non-trivial secret. */
+const ADMIN_TOKEN_MIN_LENGTH = 32;
+
+export function isValidAdminToken(token: string): boolean {
+  return token.length >= ADMIN_TOKEN_MIN_LENGTH;
+}
