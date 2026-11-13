@@ -19,6 +19,7 @@ const searchResult = {
 export const WEB_SEARCH_OUTPUT_SCHEMA = {
   type: "object",
   properties: {
+    untrustedContentNotice: { type: "string" },
     query: { type: "string" },
     resultCount: { type: "number" },
     results: { type: "array", items: searchResult },
@@ -53,6 +54,7 @@ export const WEB_SEARCH_OUTPUT_SCHEMA = {
 export const RESEARCH_OUTPUT_SCHEMA = {
   type: "object",
   properties: {
+    untrustedContentNotice: { type: "string" },
     query: { type: "string" },
     answer: { type: "string" },
     indexedCount: { type: "number" },
@@ -81,6 +83,7 @@ export const RESEARCH_OUTPUT_SCHEMA = {
 export const SEARCH_INDEX_OUTPUT_SCHEMA = {
   type: "object",
   properties: {
+    untrustedContentNotice: { type: "string" },
     query: { type: "string" },
     hitCount: { type: "number" },
     hits: {

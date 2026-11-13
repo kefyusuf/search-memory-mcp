@@ -28,4 +28,24 @@ describe("UsageCounters", () => {
     expect(second.totals.calls).toBe(1);
     expect(new Date(second.since).getTime()).toBeLessThanOrEqual(Date.now());
   });
+
+  it("bounds tracked scope keys and keeps counting existing ones", () => {
+    const usage = new UsageCounters({ maxEntries: 1 });
+    usage.record("t", "w", "tool-a", true);
+    usage.record("t", "w", "tool-b", true);
+    usage.record("t", "w", "tool-a", false);
+    const snapshot = usage.snapshot();
+    expect(snapshot.scopes).toEqual([{ tenantId: "t", workspaceId: "w", tool: "tool-a", calls: 2, errors: 1 }]);
+  });
+
+  it("counts overflow calls in totals while keeping scopes bounded", () => {
+    const usage = new UsageCounters({ maxEntries: 2 });
+    usage.record("t", "w", "tool-a", true);
+    usage.record("t", "w", "tool-b", true);
+    usage.record("t", "w", "tool-c", true);
+    usage.record("t", "w", "tool-d", false);
+    const snapshot = usage.snapshot();
+    expect(snapshot.scopes.length).toBe(2);
+    expect(snapshot.totals).toEqual({ calls: 4, errors: 1 });
+  });
 });

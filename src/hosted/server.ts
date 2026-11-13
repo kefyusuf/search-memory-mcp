@@ -21,7 +21,7 @@ import { PostgresMembershipResolver } from "../identity/postgres-membership.js";
 import { InvocationError } from "../runtime/request-context.js";
 import { createHostedHttpAuthHandler } from "../runtime/hosted-http-auth.js";
 import { ToolDispatcher } from "../runtime/tool-dispatcher.js";
-import { InMemoryInvocationAdmission } from "../runtime/invocation-admission.js";
+import { InMemoryInvocationAdmission, type RateLimits } from "../runtime/invocation-admission.js";
 import { TransformersEmbeddingProvider } from "../cache/embedding.js";
 import { SQLiteVectorStore } from "../cache/sqlite-store.js";
 import { SemanticCache } from "../cache/semantic-cache.js";
@@ -43,6 +43,7 @@ import { launchWithAutoInstall } from "../browser-launcher.js";
 import { openGuardedBrowserContext, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 import { TenantStoreCache, ScopeCache } from "./tenant-stores.js";
 import { UsageCounters } from "./usage.js";
+import { isValidAdminToken, resolveAdminBind, resolveRateLimits } from "./config.js";
 import { startProvisioningServer } from "./provisioning.js";
 import { ContentFetcher } from "../fetch-module.js";
 
@@ -88,6 +89,13 @@ const admit = {
   workspace: requireInt("HOSTED_ADMIT_WORKSPACE"),
   principal: requireInt("HOSTED_ADMIT_PRINCIPAL"),
 };
+let rateLimits: RateLimits | undefined;
+try {
+  rateLimits = resolveRateLimits(process.env);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 const maxTenantStores = Number(process.env.HOSTED_MAX_TENANT_STORES ?? "64");
 const maxScopeCaches = Number(process.env.HOSTED_MAX_SCOPE_CACHES ?? "64");
 const lookupConcurrency = Number(process.env.HOSTED_LOOKUP_CONCURRENCY ?? "8");
@@ -177,7 +185,7 @@ const resolver = new PostgresMembershipResolver({
   lookupTimeoutMs,
 });
 const storeCache = new TenantStoreCache({ appDbPath: appDb, maxStores: maxTenantStores });
-const admission = new InMemoryInvocationAdmission(admit);
+const admission = new InMemoryInvocationAdmission(admit, rateLimits ? { rateLimits } : {});
 const usage = new UsageCounters();
 
 // Per-scope (tenant|workspace) search caches and content fetchers. The
@@ -530,6 +538,11 @@ server.listen(port, bind, () => {
   console.error(
     `Authority: ${issuer}; admission caps global=${admit.global} tenant=${admit.tenant} workspace=${admit.workspace} principal=${admit.principal}.`,
   );
+  console.error(
+    rateLimits
+      ? `Rate limits: global=${rateLimits.global} tenant=${rateLimits.tenant} workspace=${rateLimits.workspace} principal=${rateLimits.principal} per ${rateLimits.windowMs}ms window.`
+      : "Rate limits: disabled (concurrency-only; set HOSTED_RATE_WINDOW_MS to enable).",
+  );
 });
 
 // Provisioning surface (Faz C, ADR-0006): a separate admin port with operator
@@ -537,7 +550,8 @@ server.listen(port, bind, () => {
 // never accepts user JWTs and connects with the operator DSN (DML role).
 const adminPort = process.env.HOSTED_ADMIN_PORT ? Number(process.env.HOSTED_ADMIN_PORT) : null;
 if (adminPort !== null) {
-  const adminToken = requireEnv("HOSTED_ADMIN_TOKEN");
+  const adminBind = resolveAdminBind(process.env);
+  const adminToken = requireEnv("HOSTED_ADMIN_TOKEN", isValidAdminToken);
   const adminDatabaseUrl = requireEnv("HOSTED_ADMIN_DATABASE_URL");
   const privatePemFile = requireEnv("HOSTED_TOKEN_PRIVATE_KEY_FILE");
   const tokenPrivateKey = await importPKCS8(readFileSync(privatePemFile, "utf8"), algorithm);
@@ -563,7 +577,7 @@ if (adminPort !== null) {
     audience,
     tokenPrivateKey,
     tokenAlgorithm: algorithm as "ES256" | "RS256" | "EdDSA",
-    bind,
+    bind: adminBind,
     hostedEnabledTools: Object.keys(hostedHandlers).length,
     usageSnapshot: () => usage.snapshot(),
   });
@@ -574,5 +588,5 @@ if (adminPort !== null) {
       /* already closed */
     }
   });
-  console.error(`Provisioning API listening on ${bind}:${provisioning.port} (operator token auth).`);
+  console.error(`Provisioning API listening on ${adminBind}:${provisioning.port} (operator token auth).`);
 }

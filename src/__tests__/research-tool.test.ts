@@ -5,6 +5,7 @@ import { TokenBucket } from "../rate-limiter.js";
 import type { FetchContentResult } from "../fetch-module.js";
 import { createResearchHandler } from "../tools/research.js";
 import { textResult, errorResult, type ToolResult } from "../tools/types.js";
+import { UNTRUSTED_NOTICE } from "../security/untrusted.js";
 
 const stores: Array<{ close(): void }> = [];
 afterEach(() => {
@@ -83,6 +84,12 @@ describe("research tool", () => {
         .sort(),
     ).toEqual(["https://guide.example/pooling", "https://pgbouncer.example/docs"]);
     expect(knowledgeIndex.listDocs()[0].category).toBe("research");
+  });
+
+  it("marks untrusted research output with a data notice", async () => {
+    const { research } = setup();
+    const result = await research({ query: "what is pgbouncer connection pooling", max_sources: 3 });
+    expect(result.structuredContent).toMatchObject({ untrustedContentNotice: UNTRUSTED_NOTICE });
   });
 
   it("does not index the same source twice", async () => {
