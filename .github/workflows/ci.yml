@@ -8,7 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # playwright 1.59 does not ship chromium builds for ubuntu-26.04 (ubuntu-latest since 2026-11).
+    runs-on: ubuntu-24.04
     services:
       membership-postgres:
         image: postgres:17-alpine
