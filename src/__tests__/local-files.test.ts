@@ -32,9 +32,10 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("parseAllowedDirs", () => {
   it("splits on commas, trims, expands ~ and drops empty entries", () => {
+    const home = process.platform === "win32" ? "C:\\Users\\me" : "/home/me";
     expect(parseAllowedDirs(undefined)).toEqual([]);
     expect(parseAllowedDirs(" ,  ")).toEqual([]);
-    expect(parseAllowedDirs(`${allowed}, ~/Documents`, "/home/me")).toEqual([allowed, "/home/me/Documents"]);
+    expect(parseAllowedDirs(`${allowed}, ~/Documents`, home)).toEqual([allowed, join(home, "Documents")]);
   });
 });
 

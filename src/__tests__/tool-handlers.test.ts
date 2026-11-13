@@ -73,6 +73,21 @@ describe("knowledge tool handlers", () => {
     expect(text(await tools.find_related({ entity: "Nobody" }))).toContain('No graph links found for entity "Nobody"');
   });
 
+  it("validates list_index limits", async () => {
+    const tools = knowledge();
+    await tools.ingest_document({ content: "First document about pooling.", title: "First", source: "first.md" });
+    await tools.ingest_document({ content: "Second document about caching.", title: "Second", source: "second.md" });
+
+    const listed = text(await tools.list_index({ limit: 1 }));
+    expect(listed).toMatch(/^Knowledge index: 2 docs, 2 chunks, 0 vectors\n\n1\. /);
+    expect(listed).not.toContain("\n2. ");
+    expect(text(await tools.list_index({ limit: 200 }))).toContain("2. ");
+
+    for (const limit of [0, -1, 201, 1.5, "10", null]) {
+      await expect(tools.list_index({ limit })).rejects.toThrow();
+    }
+  });
+
   it("indexes a fetched URL", async () => {
     const tools = knowledge();
     const result = await tools.index_url({ url: "https://example.com/doc" });
