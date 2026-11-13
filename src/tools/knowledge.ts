@@ -46,6 +46,10 @@ const FindRelatedSchema = z.object({
   limit: z.number().int().min(1).max(20).optional().describe("Maximum related items (default 10)"),
 });
 
+const ListIndexSchema = z.object({
+  limit: z.number().int().min(1).max(200).optional().describe("Maximum documents to return (1-200, default 50)."),
+});
+
 export type KnowledgeToolDeps = {
   knowledgeIndex: KnowledgeIndex;
   entityGraph: EntityGraph;
@@ -162,10 +166,7 @@ export function createKnowledgeHandlers({
     },
 
     async list_index(args: unknown): Promise<ToolResult> {
-      const limit =
-        typeof args === "object" && args !== null && "limit" in args
-          ? Number((args as { limit?: unknown }).limit) || 50
-          : 50;
+      const { limit = 50 } = ListIndexSchema.parse(args ?? {});
 
       const docs = knowledgeIndex.listDocs(limit);
       const stats = knowledgeIndex.getStats();

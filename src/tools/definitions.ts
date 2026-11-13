@@ -162,7 +162,7 @@ export const TOOL_DEFINITIONS = [
     inputSchema: {
       type: "object",
       properties: {
-        limit: { type: "number", description: "Maximum documents to return (default 50)" },
+        limit: { type: "number", description: "Maximum documents to return, 1-200 (default 50)" },
       },
       required: [],
     },

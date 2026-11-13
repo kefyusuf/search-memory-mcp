@@ -325,20 +325,24 @@ export class WebSearchServer {
   }
 
   private setupShutdownHandlers() {
-    const shutdown = async () => {
-      if (this.browserShuttingDown) return; // ignore concurrent signals
-      console.error("Shutting down Search Memory MCP Server...");
-      await this.closeBrowserResources();
-      this.contentFetcher.close();
-      this.cache.close();
-      this.knowledgeIndex.close();
-      this.sessionMemory.close();
-      this.entityGraph.close();
-    };
-
+    const shutdown = () => { void this.shutdown(); };
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
     process.on("SIGHUP", shutdown);
+  }
+
+  /** Stdio keeps the event loop alive after cleanup, so exit explicitly. */
+  private async shutdown(): Promise<void> {
+    if (this.browserShuttingDown) return; // ignore concurrent signals
+    console.error("Shutting down Search Memory MCP Server...");
+    await this.closeBrowserResources();
+    this.contentFetcher.close();
+    this.cache.close();
+    this.knowledgeIndex.close();
+    this.sessionMemory.close();
+    this.entityGraph.close();
+    try { await this.server.close(); } catch {}
+    process.exit(0);
   }
 
   private setupTools() {
