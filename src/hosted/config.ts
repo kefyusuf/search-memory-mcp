@@ -57,5 +57,8 @@ export function resolveAdminRateLimit(env: NodeJS.ProcessEnv): AdminRateLimit | 
   const limitRaw = (env.HOSTED_ADMIN_RATE_LIMIT ?? "").trim();
   const windowRaw = (env.HOSTED_ADMIN_RATE_WINDOW_MS ?? "").trim();
   if (!limitRaw && !windowRaw) return undefined;
-  return { limit: positiveInt(env, "HOSTED_ADMIN_RATE_LIMIT"), windowMs: positiveInt(env, "HOSTED_ADMIN_RATE_WINDOW_MS") };
+  return {
+    limit: positiveInt(env, "HOSTED_ADMIN_RATE_LIMIT"),
+    windowMs: positiveInt(env, "HOSTED_ADMIN_RATE_WINDOW_MS"),
+  };
 }
