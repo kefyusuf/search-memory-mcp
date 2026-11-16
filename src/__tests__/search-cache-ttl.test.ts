@@ -96,15 +96,21 @@ describe("web_search cache TTL", () => {
     const store = cache();
     const set = vi.spyOn(store, "set");
     await search(store)({ query });
-    expect(set).toHaveBeenCalledWith(query, [hit], "fallback", { ttlMs });
+    expect(set).toHaveBeenCalledWith(query, [hit], "fallback", { ttlMs }, expect.any(Array));
   });
 
   it("uses the planned intent for strategy=auto", async () => {
     const store = cache();
     const set = vi.spyOn(store, "set");
     await search(store, "news")({ query: "how tall is mount everest", strategy: "auto" });
-    expect(set).toHaveBeenCalledWith("how tall is mount everest", expect.any(Array), "auto:v3:news:brave", {
-      ttlMs: 15 * MINUTE,
-    });
+    expect(set).toHaveBeenCalledWith(
+      "how tall is mount everest",
+      expect.any(Array),
+      "auto:v3:news:brave",
+      {
+        ttlMs: 15 * MINUTE,
+      },
+      expect.any(Array),
+    );
   });
 });

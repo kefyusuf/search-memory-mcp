@@ -147,15 +147,16 @@ export function createSearchHandler(deps: SearchToolDeps) {
     }
   };
 
-  const rankResults = (query: string, results: SearchResultItem[], limit: number) =>
+  const rankResults = (query: string, results: SearchResultItem[], limit: number, queryVector?: number[] | null) =>
     reranker
       ? rerankResults(query, results, { scorer: reranker.asScorer(), limit })
-      : deps.cache().reRankResults(query, results, limit);
+      : deps.cache().reRankResults(query, results, limit, queryVector);
 
   const buildDeepResponse = async (
     query: string,
     results: SearchResultItem[],
     format: OutputFormat,
+    queryVector?: number[] | null,
   ): Promise<ToolResult> => {
     const urls = results
       .slice(0, 2)
@@ -177,7 +178,7 @@ export function createSearchHandler(deps: SearchToolDeps) {
       return textResult(format === "json" ? formatToolResult(payload, "json") : wrapUntrusted(answer), payload);
     }
 
-    const rankedResults = await deps.cache().reRankResults(query, results, results.length);
+    const rankedResults = await deps.cache().reRankResults(query, results, results.length, queryVector);
     const payload = buildSearchJson(query, rankedResults, { deep: true, pagesFetched: 0 });
     return textResult(
       format === "json" ? formatToolResult(payload, "json") : wrapUntrusted(formatSearchResults(query, rankedResults)),
@@ -202,6 +203,17 @@ export function createSearchHandler(deps: SearchToolDeps) {
     } = SearchSchema.parse(args);
     const outputFormat: OutputFormat = format;
     const cache = deps.cache();
+    // Share one query embedding across cache get/set/re-rank for this request.
+    // Keyed by text so a domain-filtered cache key and the raw query stay distinct.
+    const vectorMemo = new Map<string, Promise<number[] | null>>();
+    const embedOnce = (text: string): Promise<number[] | null> => {
+      let pending = vectorMemo.get(text);
+      if (!pending) {
+        pending = cache.embedQuery(text);
+        vectorMemo.set(text, pending);
+      }
+      return pending;
+    };
     const providers = deps.providers();
     const normalizedDomain = normalizeDomainFilter(domain);
     const cacheKey = normalizedDomain ? `${query} domain:${normalizedDomain}` : query;
@@ -260,7 +272,8 @@ export function createSearchHandler(deps: SearchToolDeps) {
     }
 
     trace.startStage("cache.lookup");
-    const cacheCandidates = await cache.get(cacheKey, cacheNamespace);
+    const cacheKeyVector = await embedOnce(cacheKey);
+    const cacheCandidates = await cache.get(cacheKey, cacheNamespace, cacheKeyVector);
     const cached = cacheCandidates === null ? null : applyFilters(cacheCandidates);
 
     if (cached !== null && cached.length > 0) {
@@ -269,9 +282,12 @@ export function createSearchHandler(deps: SearchToolDeps) {
       finalizeTrace(trace, cached.length);
       console.error(`Semantic cache hit for query: ${query} [${cacheNamespace}]`);
       if (deep) {
-        return buildDeepResponse(query, cached.slice(0, max_results), outputFormat);
+        return buildDeepResponse(query, cached.slice(0, max_results), outputFormat, await embedOnce(query));
       }
-      const limitedResults = (await rankResults(query, cached, max_results)).slice(0, max_results);
+      const limitedResults = (await rankResults(query, cached, max_results, await embedOnce(query))).slice(
+        0,
+        max_results,
+      );
       const payload = buildSearchJson(query, limitedResults, { strategy, cache: "hit" });
       // Give looping clients a visible repeat signal: an identical query
       // always returns these same cached results, so searching again cannot
@@ -340,10 +356,10 @@ export function createSearchHandler(deps: SearchToolDeps) {
     trace.endStage("filters", { status: "ok", resultCount: results.length });
     // Preserve provider candidates; reapply filters on every hit before output/fetch.
     const cacheIntent = searchPlan?.intent ?? detectHeuristicIntent(query) ?? "general";
-    await cache.set(cacheKey, rawResults, cacheNamespace, { ttlMs: searchCacheTtlMs(cacheIntent) });
+    await cache.set(cacheKey, rawResults, cacheNamespace, { ttlMs: searchCacheTtlMs(cacheIntent) }, cacheKeyVector);
 
     if (!deep) {
-      const ranked = await rankResults(query, results, max_results);
+      const ranked = await rankResults(query, results, max_results, await embedOnce(query));
       finalizeTrace(trace, ranked.length);
       const limitedResults = ranked.slice(0, max_results);
       const payload = {
@@ -359,6 +375,6 @@ export function createSearchHandler(deps: SearchToolDeps) {
     }
 
     finalizeTrace(trace, results.length);
-    return buildDeepResponse(query, results.slice(0, max_results), outputFormat);
+    return buildDeepResponse(query, results.slice(0, max_results), outputFormat, await embedOnce(query));
   };
 }

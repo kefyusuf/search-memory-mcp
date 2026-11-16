@@ -171,16 +171,17 @@ describe("WebSearchServer auto routing", () => {
     expect(detector.detect).toHaveBeenCalledWith("react server components");
 
     // Cache is now plan-aware: lookups/stores are namespaced by intent + profile + providers.
-    expect(cacheGet).toHaveBeenCalledWith(
+    // The trailing precomputed query vector is incidental here; assert the namespacing args.
+    expect(cacheGet.mock.calls[0].slice(0, 2)).toEqual([
       "react server components domain:react.dev",
       expect.stringContaining("auto:v3:technical:"),
-    );
-    expect(cacheSet).toHaveBeenCalledWith(
+    ]);
+    expect(cacheSet.mock.calls[0].slice(0, 4)).toEqual([
       "react server components domain:react.dev",
       expect.any(Array),
       expect.stringContaining("auto:v3:technical:"),
       { ttlMs: 24 * 60 * 60 * 1000 },
-    );
+    ]);
 
     expect(brave.execute).toHaveBeenCalledWith("react server components site:react.dev", expect.any(Object));
     expect(duckduckgo.execute).toHaveBeenCalledWith("react server components site:react.dev", expect.any(Object));

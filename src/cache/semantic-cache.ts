@@ -16,6 +16,8 @@ const TTL_MAP: Record<string, number> = {
 
 const SEMANTIC_RANK_WEIGHT = 0.7;
 const FUSION_RANK_WEIGHT = 0.3;
+/** Cap in-flight result embeddings per re-rank so a large candidate set cannot overflow the provider's bounded inference queue. */
+const RERANK_EMBED_BATCH_SIZE = 8;
 
 export class SemanticCache {
   private embeddingProvider: IEmbeddingProvider;
@@ -43,19 +45,24 @@ export class SemanticCache {
     this.vectorStore.close();
   }
 
-  private async getQueryVector(query: string): Promise<number[] | null> {
+  private async getQueryVector(query: string, precomputed?: number[] | null): Promise<number[] | null> {
     this.vectorStore.assertAccess?.("search:read");
-    const vector = await this.embeddingProvider.getEmbedding(query);
+    const vector = precomputed !== undefined ? precomputed : await this.embeddingProvider.getEmbedding(query);
     this.vectorStore.assertAccess?.("search:read");
-    if (vector.length === 0) return null;
+    if (!vector || vector.length === 0) return null;
     return vector;
+  }
+
+  /** Compute the query vector once so a request can share it across get/set/re-rank. */
+  async embedQuery(query: string): Promise<number[] | null> {
+    return this.getQueryVector(query);
   }
 
   // --- Semantic Search Cache ---
 
-  async get(query: string, namespace?: string): Promise<SearchResultItem[] | null> {
+  async get(query: string, namespace?: string, queryVector?: number[] | null): Promise<SearchResultItem[] | null> {
     try {
-      const vector = await this.getQueryVector(query);
+      const vector = await this.getQueryVector(query, queryVector);
       if (!vector) return null;
 
       const matches = await this.vectorStore.search(vector, 5, namespace);
@@ -87,9 +94,10 @@ export class SemanticCache {
     results: SearchResultItem[],
     namespace?: string,
     options: { ttlMs?: number } = {},
+    queryVector?: number[] | null,
   ): Promise<void> {
     try {
-      const vector = await this.getQueryVector(query);
+      const vector = await this.getQueryVector(query, queryVector);
       if (!vector) return;
 
       const ns = namespace ?? "fallback";
@@ -193,22 +201,32 @@ export class SemanticCache {
 
   // --- Semantic Re-ranking ---
 
-  async reRankResults(query: string, results: SearchResultItem[], limit: number = 5): Promise<SearchResultItem[]> {
+  async reRankResults(
+    query: string,
+    results: SearchResultItem[],
+    limit: number = 5,
+    precomputed?: number[] | null,
+  ): Promise<SearchResultItem[]> {
     if (results.length === 0) return results;
 
-    const queryVector = await this.getQueryVector(query);
+    const queryVector = await this.getQueryVector(query, precomputed);
     if (!queryVector) return results;
 
     try {
-      const semanticallyScored = await Promise.all(
-        results.map(async (res) => {
-          const text = `${res.title} ${res.snippet}`;
-          const resVector = await this.embeddingProvider.getEmbedding(text);
-          if (resVector.length === 0) return { ...res, semanticScore: 0 };
-          const score = cosineSimilarity(queryVector, resVector);
-          return { ...res, semanticScore: score };
-        }),
-      );
+      const semanticallyScored: Array<SearchResultItem & { semanticScore: number }> = [];
+      for (let start = 0; start < results.length; start += RERANK_EMBED_BATCH_SIZE) {
+        const batch = results.slice(start, start + RERANK_EMBED_BATCH_SIZE);
+        const scored = await Promise.all(
+          batch.map(async (res) => {
+            const text = `${res.title} ${res.snippet}`;
+            const resVector = await this.embeddingProvider.getEmbedding(text);
+            if (resVector.length === 0) return { ...res, semanticScore: 0 };
+            const score = cosineSimilarity(queryVector, resVector);
+            return { ...res, semanticScore: score };
+          }),
+        );
+        semanticallyScored.push(...scored);
+      }
 
       const maxFusionScore = semanticallyScored.reduce((max, result) => Math.max(max, result.fusionScore ?? 0), 0);
 
