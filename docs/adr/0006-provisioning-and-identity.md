@@ -19,11 +19,13 @@ Proje açık kaynak ve tek bakımcılıdır; local stdio kullanıcıları için 
 
 - **Gerçek IdP/OAuth ertelendi:** yönetilen OAuth'un ücretsiz kademeleri, self-hosted Zitadel/Keycloak seçenekleri belgelenmiştir; JWT adapter issuer-pluggable olduğu için geçiş araçlara dokunmadan yapılabilir. Pilot token'ları gerçek OAuth deneyimi değildir; davetli sentetik/pilot kapsamı içindir.
 - Şifre sıfırlama, kullanıcı self-servis kaydı, e-posta doğrulama, oturum devri — bunlar IdP kararına aittir.
-- Admin yüzeyinde rate limit — sonraki dilim (admin token gizliliği birincil kontroldür).
+- ~~Admin yüzeyinde rate limit — sonraki dilim~~ — **uygulandı (2026-11-16):** opt-in `HOSTED_ADMIN_RATE_LIMIT` + `HOSTED_ADMIN_RATE_WINDOW_MS`; aşağıdaki durum güncellemesine bakın. Admin token gizliliği ve loopback default birincil kontroller olmaya devam eder.
 
 **Durum güncellemesi (2026-10-30):** Faz D minimal panel bu ADR kapsamında uygulandı — `GET /admin/panel` (operator token korumalı, tek-dosya HTML, sıfır dış varlık): workspace listesi/oluşturma, üyelik verme/iptal, pilot token mint (bir-kez-gösterim) ve MCP bağlantı bilgisi. Kullanım sayaçları ve kullanıcı girişi sonraki dilimlerdedir.
 
 **Durum güncellemesi (2026-11-13):** Hosted sertleştirme dilimi (PR #128) admin yüzeyini varsayılan olarak loopback'e bağladı: `HOSTED_ADMIN_BIND` verilmezse `127.0.0.1` (public MCP `HOSTED_BIND`'den bağımsız), böylece operatör token yüzeyi varsayılan olarak dışarı açılmaz. `HOSTED_ADMIN_TOKEN` artık en az 32 karakter olmalıdır (`isValidAdminToken`, trim sonrası); kısa token başlangıç hatasıdır. Admin rate limit hâlâ ertelenmiştir — token gizliliği + loopback default birincil kontroldür. Env referansı: [hosted-env.md](../hosted-env.md).
+
+**Durum güncellemesi (2026-11-16, admin rate limit):** Admin yüzeyi için opt-in bir sliding-window hız sınırı uygulandı: `HOSTED_ADMIN_RATE_LIMIT` + `HOSTED_ADMIN_RATE_WINDOW_MS` birlikte verilirse aktif, kısmi/geçersiz konfigürasyon başlangıç hatasıdır. Sınır, token doğrulamasından **önce** ve yalnızca socket peer adresi bazında çalışır (proxy başlıkları asla güvenilmez); reddedilen denemeler de pencereye yazılır. Sınır konfigüre edilmemişse davranış değişmez. Provisioning verifier'ı (bölüm 8) ikinci bir sunucu örneğiyle 429 davranışını kanıtlar.
 
 ## Güvenlik sınırı
 

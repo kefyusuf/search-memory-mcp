@@ -2,6 +2,7 @@ import { timingSafeEqual, createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { SignJWT } from "jose";
 import { Pool } from "pg";
+import { AdminRateLimiter, type AdminRateLimit } from "./admin-rate-limit.js";
 import { panelHtml } from "./panel.js";
 import type { UsageSnapshot } from "./usage.js";
 
@@ -21,6 +22,8 @@ export type ProvisioningOptions = {
   hostedEnabledTools?: number;
   /** Live usage counters from the hosted server (in-memory, since server start). */
   usageSnapshot: () => UsageSnapshot;
+  /** Opt-in sliding-window throttle for the whole admin surface (ADR-0006). */
+  rateLimit?: AdminRateLimit;
 };
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -62,8 +65,16 @@ export type ProvisioningServer = {
 export async function startProvisioningServer(options: ProvisioningOptions): Promise<ProvisioningServer> {
   const pool = new Pool({ connectionString: options.operatorDatabaseUrl, connectionTimeoutMillis: 2000 });
   pool.on("error", () => {});
+  const limiter = options.rateLimit ? new AdminRateLimiter(options.rateLimit) : null;
 
   const handler = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    // Throttle before token auth so repeated guesses never reach the timing-safe
+    // compare. Keyed by the socket peer address only; proxy headers are not trusted.
+    if (limiter && !limiter.check(request.socket.remoteAddress ?? "unknown")) {
+      fail(response, 429, "rate_exceeded");
+      return;
+    }
+
     const header = request.headers.authorization ?? "";
     const authorized =
       typeof header === "string" &&

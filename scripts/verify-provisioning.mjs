@@ -113,12 +113,12 @@ async function stopChild() {
   await exited;
   child = undefined;
 }
-async function waitForLine(stderr, pattern, message) {
-  const existing = childStderrLines.find((line) => pattern.test(line));
+async function waitForLineOn(childProcess, stderr, lines, pattern, message) {
+  const existing = lines.find((line) => pattern.test(line));
   if (existing) return existing;
   return new Promise((resolve, reject) => {
     const onLine = (line) => {
-      childStderrLines.push(line);
+      lines.push(line);
       if (pattern.test(line)) {
         cleanup();
         resolve(line);
@@ -127,24 +127,23 @@ async function waitForLine(stderr, pattern, message) {
     const onExit = (code) => {
       cleanup();
       reject(
-        new Error(
-          `${message} (server exited, code ${code}): ${childStderrLines.slice(-14).join(String.fromCharCode(10))}`,
-        ),
+        new Error(`${message} (server exited, code ${code}): ${lines.slice(-14).join(String.fromCharCode(10))}`),
       );
     };
     const cleanup = () => {
       stderr.off("line", onLine);
-      child.off("exit", onExit);
+      childProcess.off("exit", onExit);
       clearTimeout(timer);
     };
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error(`${message} (timeout): ${childStderrLines.slice(-6).join(" | ")}`));
+      reject(new Error(`${message} (timeout): ${lines.slice(-6).join(" | ")}`));
     }, 15_000);
     stderr.on("line", onLine);
-    child.once("exit", onExit);
+    childProcess.once("exit", onExit);
   });
 }
+const waitForLine = (stderr, pattern, message) => waitForLineOn(child, stderr, childStderrLines, pattern, message);
 let childStderrLines = [];
 let childExited = false;
 try {
@@ -340,8 +339,79 @@ try {
   assert.equal(panelWrongToken.status, 401);
   checks++;
 
+  // 8. Opt-in admin rate limit: a second server instance configured with a tiny
+  // window throttles BEFORE token authentication. The main instance above ran
+  // without HOSTED_ADMIN_RATE_LIMIT and served far more than 2 admin calls,
+  // implicitly proving the throttle is off by default. A separate app DB path
+  // avoids SQLite contention with the still-running main instance.
+  const rateLimitToken = randomBytes(32).toString("hex");
+  const throttledChild = spawn(process.execPath, [join(process.cwd(), "build/hosted/server.js")], {
+    env: {
+      ...process.env,
+      HOSTED_HTTP_PORT: "0",
+      HOSTED_ADMIN_PORT: "0",
+      HOSTED_BIND: "127.0.0.1",
+      HOSTED_ISSUER: issuer,
+      HOSTED_AUDIENCE: resource,
+      HOSTED_ALLOWED_ORIGINS: "https://app.example.com",
+      HOSTED_JWT_ALGORITHM: "ES256",
+      HOSTED_PUBLIC_KEY_FILE: publicFile,
+      HOSTED_TOKEN_PRIVATE_KEY_FILE: privateFile,
+      HOSTED_ADMIN_TOKEN: rateLimitToken,
+      HOSTED_ADMIN_DATABASE_URL: operatorUrl.href,
+      HOSTED_MEMBERSHIP_DATABASE_URL: readerUrl.href,
+      HOSTED_APP_DB: join(scratch, "app-rate.db"),
+      HOSTED_ADMIT_GLOBAL: "8",
+      HOSTED_ADMIT_TENANT: "8",
+      HOSTED_ADMIT_WORKSPACE: "8",
+      HOSTED_ADMIT_PRINCIPAL: "8",
+      SEARCH_PROVIDERS: "duckduckgo",
+      HOSTED_ADMIN_RATE_LIMIT: "2",
+      HOSTED_ADMIN_RATE_WINDOW_MS: "60000",
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  const throttledLines = [];
+  try {
+    const throttledStderr = createInterface({ input: throttledChild.stderr });
+    const throttledAdminPort = Number(
+      (
+        await waitForLineOn(
+          throttledChild,
+          throttledStderr,
+          throttledLines,
+          /Provisioning API listening on [^\s]*:(\d+)/,
+          "throttled admin port",
+        )
+      ).match(/:(\d+)/)[1],
+    );
+    assert.equal((await adminSend(throttledAdminPort, "/admin/usage", rateLimitToken, "GET")).status, 200);
+    checks++;
+    assert.equal((await adminSend(throttledAdminPort, "/admin/usage", rateLimitToken, "GET")).status, 200);
+    checks++;
+    const exceeded = await adminSend(throttledAdminPort, "/admin/usage", rateLimitToken, "GET");
+    assert.equal(exceeded.status, 429);
+    assert.equal(JSON.parse(exceeded.text).error, "rate_exceeded");
+    checks++;
+    // The throttle gates before authentication: an invalid token sees 429, not 401.
+    assert.equal((await adminSend(throttledAdminPort, "/admin/usage", "wrong-token", "GET")).status, 429);
+    checks++;
+  } finally {
+    if (throttledChild.exitCode === null) {
+      throttledChild.kill("SIGTERM");
+      await Promise.race([
+        new Promise((resolve) => throttledChild.once("exit", resolve)),
+        new Promise((resolve) => {
+          const timer = setTimeout(resolve, 5000);
+          timer.unref();
+        }),
+      ]);
+    }
+  }
+  if (throttledLines.length > 0) console.error("throttled child stderr tail:", throttledLines.slice(-4).join(" | "));
+
   console.log(
-    `Provisioning verification passed: ${checks} checks (admin auth, provisioning, minted-token chain, revocation, audit, panel)`,
+    `Provisioning verification passed: ${checks} checks (admin auth, provisioning, minted-token chain, revocation, audit, panel, admin rate limit)`,
   );
 } finally {
   if (childStderrLines.length > 0) console.error("child stderr tail:", childStderrLines.slice(-6).join(" | "));

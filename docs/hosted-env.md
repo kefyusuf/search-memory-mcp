@@ -68,5 +68,7 @@ Disabled entirely unless `HOSTED_ADMIN_PORT` is set. The admin API never accepts
 | `HOSTED_ADMIN_TOKEN`            | yes (if admin enabled) | —                | Operator bearer token; at least 32 characters after trimming. A shorter token is a startup error.                                                   |
 | `HOSTED_ADMIN_DATABASE_URL`     | yes (if admin enabled) | —                | Operator DSN with DML rights on the identity tables; distinct from the read-only runtime role.                                                      |
 | `HOSTED_TOKEN_PRIVATE_KEY_FILE` | yes (if admin enabled) | —                | Path to a PKCS#8 private key PEM used to mint pilot tokens. Must match `HOSTED_PUBLIC_KEY_FILE`; a mismatched pair is a startup error.              |
+| `HOSTED_ADMIN_RATE_LIMIT`       | no                     | unset (disabled) | Positive integer. Max admin requests per socket peer address per window; both variables must be set together.                                       |
+| `HOSTED_ADMIN_RATE_WINDOW_MS`   | no                     | unset (disabled) | Positive integer. Sliding-window length in ms. The throttle gates before token authentication; a partial pair is a startup error.                   |
 
-Admin rate limiting remains deferred; the operator token secret and the loopback default are the primary controls.
+The admin rate limit is **opt-in** and off by default; when enabled it counts every request (allowed or not) per socket peer address, and proxy headers are never trusted. The operator token secret and the loopback default remain the primary controls.
