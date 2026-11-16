@@ -20,9 +20,7 @@ describe("resolveAdminRateLimit", () => {
     expect(() =>
       resolveAdminRateLimit({ HOSTED_ADMIN_RATE_LIMIT: "5.5", HOSTED_ADMIN_RATE_WINDOW_MS: "1000" }),
     ).toThrow();
-    expect(() =>
-      resolveAdminRateLimit({ HOSTED_ADMIN_RATE_LIMIT: "5", HOSTED_ADMIN_RATE_WINDOW_MS: "abc" }),
-    ).toThrow();
+    expect(() => resolveAdminRateLimit({ HOSTED_ADMIN_RATE_LIMIT: "5", HOSTED_ADMIN_RATE_WINDOW_MS: "abc" })).toThrow();
   });
 
   it("parses a valid pair", () => {

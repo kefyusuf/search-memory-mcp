@@ -126,9 +126,7 @@ async function waitForLineOn(childProcess, stderr, lines, pattern, message) {
     };
     const onExit = (code) => {
       cleanup();
-      reject(
-        new Error(`${message} (server exited, code ${code}): ${lines.slice(-14).join(String.fromCharCode(10))}`),
-      );
+      reject(new Error(`${message} (server exited, code ${code}): ${lines.slice(-14).join(String.fromCharCode(10))}`));
     };
     const cleanup = () => {
       stderr.off("line", onLine);
