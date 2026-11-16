@@ -16,9 +16,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: ".nvmrc"
           registry-url: "https://registry.npmjs.org"
@@ -53,6 +53,9 @@ jobs:
           fi
 
       - name: Publish to the MCP Registry
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.9
+          MCP_PUBLISHER_SHA256: 4d527ca8f1ced0394c962dc925c2a4a4addef441cbefd62501c875e9481823a8 # mcp-publisher_linux_amd64.tar.gz
         run: |
           # The registry checks the npm package, which can take a minute to become visible.
           version="$(node -p "require('./package.json').version")"
@@ -61,6 +64,10 @@ jobs:
             echo "Waiting for search-memory-mcp@$version on npm ($attempt/30)"
             sleep 10
           done
-          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          # Pinned release; the digest above was recorded when v1.8.9 shipped (2026-11-10).
+          # Releases also publish .sigstore.json bundles if verification is hardened later.
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz" -o mcp-publisher.tar.gz
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
