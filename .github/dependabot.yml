@@ -21,3 +21,8 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    ignore:
+      # Node 26 is excluded project-wide (`engines` <26 in package.json, .nvmrc = 24;
+      # better-sqlite3 and part of the test suite do not hold on Node 26 yet).
+      - dependency-name: node
+        versions: [">=26"]
