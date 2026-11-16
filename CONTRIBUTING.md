@@ -24,16 +24,16 @@ If your package manager skipped install scripts, run `npx playwright install chr
 
 CI runs the same pipeline locally, and every pull request must keep it green:
 
-| Command | What it does |
-| --- | --- |
-| `npm test` | Unit/integration suite (vitest, `*.test.ts` under `src/`) |
-| `npm run typecheck` | `tsc --noEmit` over `src/` |
-| `npm run typecheck:tests` | Typecheck over the tests as well |
-| `npm run lint` / `npm run format:check` | Biome lint and formatting |
-| `npm run smoke:mcp` | Spawns the server over stdio and exercises the protocol |
-| `npm run eval:quality` | Offline retrieval-quality set (deterministic) |
-| `npm run test:coverage` | The suite with a v8 coverage report |
-| `npm audit --audit-level=moderate` | Dependency gate; moderate-or-worse fails CI |
+| Command                                 | What it does                                              |
+| --------------------------------------- | --------------------------------------------------------- |
+| `npm test`                              | Unit/integration suite (vitest, `*.test.ts` under `src/`) |
+| `npm run typecheck`                     | `tsc --noEmit` over `src/`                                |
+| `npm run typecheck:tests`               | Typecheck over the tests as well                          |
+| `npm run lint` / `npm run format:check` | Biome lint and formatting                                 |
+| `npm run smoke:mcp`                     | Spawns the server over stdio and exercises the protocol   |
+| `npm run eval:quality`                  | Offline retrieval-quality set (deterministic)             |
+| `npm run test:coverage`                 | The suite with a v8 coverage report                       |
+| `npm audit --audit-level=moderate`      | Dependency gate; moderate-or-worse fails CI               |
 
 Some verifications need services. The Postgres-backed scripts (`npm run test:postgres`, `test:restore-authorization`, …) expect `MEMBERSHIP_TEST_DATABASE_URL`, and the browser-egress drill (`scripts/verify-browser-egress-proxy.mjs`) drives a real Chromium. CI runs them on Linux; locally, a local Postgres or Docker works.
 
