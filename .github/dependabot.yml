@@ -1,0 +1,23 @@
+# Weekly dependency updates. npm updates are grouped into one PR to limit noise;
+# CI validates every PR, including the native-module overrides (better-sqlite3, sharp).
+# The `github-actions` ecosystem bumps the SHA-pinned workflow actions in place.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
