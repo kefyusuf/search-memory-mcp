@@ -54,3 +54,7 @@ HTTP listen (HOSTED_HTTP_PORT)
 - Hosted bootstrap ilk kez gerçek bir dinleyiciyi kompoze eder; bu, public pilot onayı değildir — staging/D2-E tatbikatı ayrı kapılardır.
 - Kademeli araç açılımı, her dilimin kendi sentetik kabulünü üretmesini sağlar (ingress e2e deseni genişletilerek).
 - Provisioning/admin API (Faz C), minimal panel (Faz D) ve IdP seçimi ayrı onaylı iş birimleridir.
+
+## Durum güncellemesi (2026-11-13)
+
+Hosted sertleştirme dilimi (PR #128) admission rate limit'lerini bootstrap'a bağladı — "rate limitler sonraki dilim" notu artık geçerli değil. `InMemoryInvocationAdmission` opt-in sliding-window rate policy alır: `HOSTED_RATE_WINDOW_MS` verilmezse concurrency-only davranış korunur; verilirse dört boyut bütçesi (`HOSTED_RATE_GLOBAL/TENANT/WORKSPACE/PRINCIPAL`) açıkça zorunludur ve geçersiz değer başlangıç hatasıdır (ADR-0002 kuralı). Çözümleme saf `src/hosted/config.ts` modülündedir (sunucu/DB olmadan birim testli); bootstrap canlı sürece bağlar. Tüm `HOSTED_*` değişkenlerinin varsayılan/zorunluluk/doğrulama referansı: [hosted-env.md](../hosted-env.md).

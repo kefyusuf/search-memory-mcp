@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work the way the README documents it
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the existing issues and the README's Troubleshooting and Known limitations sections — some expected quirks are documented there.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Ask the assistant to "..."
+        2. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version (`node -v`), MCP client, and package version
+      placeholder: "Windows 11, Node 24.3, Claude Desktop, search-memory-mcp 1.2.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      description: Server or MCP-client output. Redact anything private before pasting.
+    validations:
+      required: false

@@ -23,6 +23,8 @@ Proje açık kaynak ve tek bakımcılıdır; local stdio kullanıcıları için 
 
 **Durum güncellemesi (2026-10-30):** Faz D minimal panel bu ADR kapsamında uygulandı — `GET /admin/panel` (operator token korumalı, tek-dosya HTML, sıfır dış varlık): workspace listesi/oluşturma, üyelik verme/iptal, pilot token mint (bir-kez-gösterim) ve MCP bağlantı bilgisi. Kullanım sayaçları ve kullanıcı girişi sonraki dilimlerdedir.
 
+**Durum güncellemesi (2026-11-13):** Hosted sertleştirme dilimi (PR #128) admin yüzeyini varsayılan olarak loopback'e bağladı: `HOSTED_ADMIN_BIND` verilmezse `127.0.0.1` (public MCP `HOSTED_BIND`'den bağımsız), böylece operatör token yüzeyi varsayılan olarak dışarı açılmaz. `HOSTED_ADMIN_TOKEN` artık en az 32 karakter olmalıdır (`isValidAdminToken`, trim sonrası); kısa token başlangıç hatasıdır. Admin rate limit hâlâ ertelenmiştir — token gizliliği + loopback default birincil kontroldür. Env referansı: [hosted-env.md](../hosted-env.md).
+
 ## Güvenlik sınırı
 
 - Admin token repoya girmez; sızarsa rotasyon = env değişimi + yeniden başlatma.

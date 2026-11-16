@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     # playwright 1.59 does not ship chromium builds for ubuntu-26.04 (ubuntu-latest since 2026-11).
@@ -25,9 +28,9 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
@@ -46,7 +49,14 @@ jobs:
 
       - run: npm run format:check
 
-      - run: npm test
+      - run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-report
+          path: coverage/
 
       - name: Verify Chromium outbound socket policy (real browser)
         run: node scripts/verify-browser-egress-proxy.mjs
@@ -100,3 +110,40 @@ jobs:
         run: npm audit --audit-level=moderate
 
       - run: npm pack --dry-run --json
+
+  test-windows:
+    # Windows is a large share of MCP clients (Claude Desktop, Cursor), so the core
+    # offline suite should hold there too. Postgres-backed verifications, the browser
+    # egress proxy drill and the audit stay on the Linux job (service containers are
+    # Linux-only; the egress drill is validated there and locally per release).
+    runs-on: windows-latest
+    steps:
+      # The runner image converts LF to CRLF on checkout by default, which breaks
+      # fixture expectations and Biome format:check; tests run against LF content.
+      - name: Disable git line-ending conversion
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npx playwright install chromium
+
+      - run: npm run build
+
+      - run: npm run typecheck
+
+      - run: npm run typecheck:tests
+
+      - run: npm run lint
+
+      - run: npm run format:check
+
+      - run: npm test
+
+      - run: npm run smoke:mcp
