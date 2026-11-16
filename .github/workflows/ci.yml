@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     # playwright 1.59 does not ship chromium builds for ubuntu-26.04 (ubuntu-latest since 2026-11).
