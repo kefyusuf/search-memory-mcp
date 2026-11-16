@@ -1,3 +1,4 @@
+import type { AdminRateLimit } from "./admin-rate-limit.js";
 import type { RateLimits } from "../runtime/invocation-admission.js";
 
 /**
@@ -45,4 +46,19 @@ const ADMIN_TOKEN_MIN_LENGTH = 32;
 
 export function isValidAdminToken(token: string): boolean {
   return token.length >= ADMIN_TOKEN_MIN_LENGTH;
+}
+
+/**
+ * Opt-in sliding-window throttle for the admin surface (ADR-0006). Both variables
+ * must be set together; a partial or invalid pair is a startup error instead of a
+ * silently degraded throttle, mirroring resolveRateLimits strictness.
+ */
+export function resolveAdminRateLimit(env: NodeJS.ProcessEnv): AdminRateLimit | undefined {
+  const limitRaw = (env.HOSTED_ADMIN_RATE_LIMIT ?? "").trim();
+  const windowRaw = (env.HOSTED_ADMIN_RATE_WINDOW_MS ?? "").trim();
+  if (!limitRaw && !windowRaw) return undefined;
+  return {
+    limit: positiveInt(env, "HOSTED_ADMIN_RATE_LIMIT"),
+    windowMs: positiveInt(env, "HOSTED_ADMIN_RATE_WINDOW_MS"),
+  };
 }

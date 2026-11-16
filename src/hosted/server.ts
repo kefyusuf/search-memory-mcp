@@ -43,7 +43,7 @@ import { launchWithAutoInstall } from "../browser-launcher.js";
 import { openGuardedBrowserContext, type BrowserEgressProxy } from "../security/browser-egress-proxy.js";
 import { TenantStoreCache, ScopeCache } from "./tenant-stores.js";
 import { UsageCounters } from "./usage.js";
-import { isValidAdminToken, resolveAdminBind, resolveRateLimits } from "./config.js";
+import { isValidAdminToken, resolveAdminBind, resolveAdminRateLimit, resolveRateLimits } from "./config.js";
 import { startProvisioningServer } from "./provisioning.js";
 import { ContentFetcher } from "../fetch-module.js";
 
@@ -551,6 +551,7 @@ server.listen(port, bind, () => {
 const adminPort = process.env.HOSTED_ADMIN_PORT ? Number(process.env.HOSTED_ADMIN_PORT) : null;
 if (adminPort !== null) {
   const adminBind = resolveAdminBind(process.env);
+  const adminRateLimit = resolveAdminRateLimit(process.env);
   const adminToken = requireEnv("HOSTED_ADMIN_TOKEN", isValidAdminToken);
   const adminDatabaseUrl = requireEnv("HOSTED_ADMIN_DATABASE_URL");
   const privatePemFile = requireEnv("HOSTED_TOKEN_PRIVATE_KEY_FILE");
@@ -580,6 +581,7 @@ if (adminPort !== null) {
     bind: adminBind,
     hostedEnabledTools: Object.keys(hostedHandlers).length,
     usageSnapshot: () => usage.snapshot(),
+    rateLimit: adminRateLimit,
   });
   shuttingDownHooks.push(async () => {
     try {
@@ -589,4 +591,9 @@ if (adminPort !== null) {
     }
   });
   console.error(`Provisioning API listening on ${adminBind}:${provisioning.port} (operator token auth).`);
+  console.error(
+    adminRateLimit
+      ? `Admin rate limit: ${adminRateLimit.limit} requests per ${adminRateLimit.windowMs}ms window per peer.`
+      : "Admin rate limit: disabled (set HOSTED_ADMIN_RATE_LIMIT and HOSTED_ADMIN_RATE_WINDOW_MS to enable).",
+  );
 }
