@@ -25,6 +25,8 @@ Proje açık kaynak ve tek bakımcılıdır; local stdio kullanıcıları için 
 
 **Durum güncellemesi (2026-11-13):** Hosted sertleştirme dilimi (PR #128) admin yüzeyini varsayılan olarak loopback'e bağladı: `HOSTED_ADMIN_BIND` verilmezse `127.0.0.1` (public MCP `HOSTED_BIND`'den bağımsız), böylece operatör token yüzeyi varsayılan olarak dışarı açılmaz. `HOSTED_ADMIN_TOKEN` artık en az 32 karakter olmalıdır (`isValidAdminToken`, trim sonrası); kısa token başlangıç hatasıdır. Admin rate limit hâlâ ertelenmiştir — token gizliliği + loopback default birincil kontroldür. Env referansı: [hosted-env.md](../hosted-env.md).
 
+**Durum güncellemesi (2026-11-16):** Kullanım sayaçları bu ADR kapsamında uygulandı (PR #121/#122): hosted MCP yüzeyinde her dispatcher denemesi — reddedilen çağrılar hata olarak dahil — `tenant|workspace|tool` anahtarlı, süreç ömrü bellek-içi sayaçlara yazılır (10.000 anahtar üst sınırı; taşan çağrılar anahtarsız toplamlara yansır — PR #128 sertleştirmesi). Admin yüzeyi `GET /admin/usage` anlık görüntüsü verir (`since` etiketiyle; kalıcılık ve çapraz-süreç toplama bilinçli olarak sonraki kararlar) ve panelde bir kullanım bölümü vardır. Kullanıcı girişi (end-user login) sonraki dilimdir.
+
 ## Güvenlik sınırı
 
 - Admin token repoya girmez; sızarsa rotasyon = env değişimi + yeniden başlatma.
