@@ -48,4 +48,23 @@ describe("multi-query result fusion", () => {
       providerRanks: { bing: 2, google: 1 },
     });
   });
+
+  it("keeps the best (minimum) provider rank across query sets", () => {
+    const slow = { ...hit("https://example.com/a"), providerRanks: { bing: 5 } };
+    const fast = { ...hit("https://example.com/a", "brave"), providerRanks: { bing: 2, brave: 1 } };
+
+    const results = fuseQueryResults([[slow], [fast]]);
+
+    expect(results[0].providerRanks).toEqual({ bing: 2, brave: 1 });
+  });
+
+  it("does not mutate the input result items", () => {
+    const first = { ...hit("https://example.com/a"), sources: ["bing"], providerRanks: { bing: 1 } };
+    const second = { ...hit("https://example.com/a", "brave"), sources: ["brave"], providerRanks: { brave: 1 } };
+
+    fuseQueryResults([[first], [second]]);
+
+    expect(first.sources).toEqual(["bing"]);
+    expect(first.providerRanks).toEqual({ bing: 1 });
+  });
 });

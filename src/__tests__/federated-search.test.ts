@@ -98,6 +98,34 @@ describe("federated search", () => {
     expect(fused[0].fusionScore).toBeGreaterThan(fused[1].fusionScore ?? 0);
   });
 
+  it("counts a URL only once per provider set", () => {
+    const fused = fuseSearchResults([
+      {
+        provider: "brave",
+        results: [
+          { title: "A", url: "https://example.com/a", snippet: "s", source: "brave" },
+          { title: "A2", url: "https://example.com/a?utm_medium=x", snippet: "s2", source: "brave" },
+        ],
+      },
+    ]);
+
+    expect(fused).toHaveLength(1);
+    expect(fused[0].fusionScore).toBeCloseTo(1 / 61);
+    expect(fused[0].providerRanks).toEqual({ brave: 1 });
+  });
+
+  it("honors a custom RRF k parameter", () => {
+    const fused = fuseSearchResults(
+      [
+        { provider: "brave", results: [{ title: "A", url: "https://example.com/a", snippet: "s", source: "brave" }] },
+        { provider: "google", results: [{ title: "A", url: "https://example.com/a", snippet: "s", source: "google" }] },
+      ],
+      10,
+    );
+
+    expect(fused[0].fusionScore).toBeCloseTo(1 / 11 + 1 / 11);
+  });
+
   it("keeps fallback behavior by stopping after the first successful provider", async () => {
     const brave = provider("brave", ["https://example.com/brave"]);
     const google = provider("google", ["https://example.com/google"]);

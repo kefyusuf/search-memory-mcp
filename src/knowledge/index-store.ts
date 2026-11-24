@@ -3,6 +3,7 @@ import * as sqlite_vec from "sqlite-vec";
 import { randomUUID } from "node:crypto";
 import { chunkText } from "./chunker.js";
 import type { TransformersEmbeddingProvider } from "../cache/embedding.js";
+import { rrfRank } from "../search/rrf.js";
 import {
   assertRequestContext,
   InvocationError,
@@ -515,41 +516,17 @@ export class KnowledgeIndex {
   }
 }
 
-const RRF_K = 60;
-
 export function fuseChunkHits(
   ftsHits: KnowledgeChunkHit[],
   vectorHits: KnowledgeChunkHit[],
   limit: number,
 ): KnowledgeChunkHit[] {
-  const scores = new Map<string, { hit: KnowledgeChunkHit; score: number; sources: Set<string> }>();
-
-  const addList = (hits: KnowledgeChunkHit[], label: "fts" | "vector") => {
-    hits.forEach((hit, index) => {
-      const existing = scores.get(hit.chunkId);
-      const contribution = 1 / (RRF_K + index + 1);
-      if (existing) {
-        existing.score += contribution;
-        existing.sources.add(label);
-      } else {
-        scores.set(hit.chunkId, {
-          hit,
-          score: contribution,
-          sources: new Set([label]),
-        });
-      }
-    });
-  };
-
-  addList(ftsHits, "fts");
-  addList(vectorHits, "vector");
-
-  return [...scores.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((entry) => ({
-      ...entry.hit,
-      score: entry.score,
-      matchedBy: entry.sources.size >= 2 ? "hybrid" : entry.hit.matchedBy,
-    }));
+  const ranked = rrfRank([ftsHits, vectorHits], {
+    key: (hit) => hit.chunkId,
+    merge: (existing, incoming) => {
+      if (existing.matchedBy !== incoming.matchedBy) existing.matchedBy = "hybrid";
+    },
+    limit,
+  });
+  return ranked.map(({ item, score }) => ({ ...item, score }));
 }
