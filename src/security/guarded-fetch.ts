@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit } from "undici";
 import { lookup as systemLookup } from "node:dns";
 import { isIP } from "node:net";
 import { createGuardedLookup, isPublicConnectionAddress } from "./guarded-lookup.js";
@@ -54,10 +54,10 @@ export function createGuardedHttpFetcher(
       throw new BlockedFetchUrlError();
     }
 
-    // Node's built-in fetch supports a request-specific Undici dispatcher.
-    // RequestInit omits this documented Node-specific extension in its DOM type.
+    // Node's built-in fetch rejects an external undici 8 dispatcher (handler
+    // contract); the casts bridge undici's Node-typed fetch declarations.
     const options = { ...init, redirect: "manual" as const, dispatcher: httpAgent };
-    return fetch(url, options);
+    return undiciFetch(url, options as unknown as UndiciRequestInit) as unknown as Promise<Response>;
   };
 }
 

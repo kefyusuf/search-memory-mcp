@@ -13,6 +13,16 @@ import { normalizePublishedDate } from "../documents/dates.js";
 import { InMemoryVectorStore } from "./helpers.js";
 import { pdf } from "./document-fixtures.js";
 
+// Delegate undici's fetch to the global fetch stub these network simulations use.
+vi.mock("undici", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("undici")>();
+  return {
+    ...actual,
+    fetch: (...args: Parameters<typeof actual.fetch>) =>
+      (globalThis.fetch as (...args: Parameters<typeof actual.fetch>) => Promise<Response>)(...args),
+  };
+});
+
 const ARTICLE = (meta: string) => `<!DOCTYPE html><html><head><title>Pooling guide</title>${meta}</head><body><article>
 <h1>Pooling guide</h1>${"<p>PgBouncer keeps a small pool of server connections and hands them to many clients. ".repeat(8)}</p>
 </article></body></html>`;
