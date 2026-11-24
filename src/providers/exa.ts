@@ -2,6 +2,7 @@ import { normalizePublishedDate } from "../documents/dates.js";
 import type { SearchResultItem } from "../cache/types.js";
 import type { SearchLocale } from "../search-utils.js";
 import { extractSiteFilter } from "./api-query.js";
+import { stripTags } from "./shared.js";
 
 type ExaApiResponse = {
   results?: Array<{
@@ -12,10 +13,6 @@ type ExaApiResponse = {
     text?: string;
   }>;
 };
-
-function stripTags(text: string): string {
-  return text.replace(/<[^>]*>/g, "").trim();
-}
 
 /**
  * Exa Search API (https://api.exa.ai), used when EXA_API_KEY is set. type:auto
