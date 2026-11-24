@@ -34,4 +34,18 @@ describe("Google provider", () => {
       expect.objectContaining({ url: "https://nodejs.org/en/blog/release/v22.0.0", title: "Node.js 22 release" }),
     ]);
   });
+
+  it("sends a browser User-Agent header", async () => {
+    const html = `<html><body><div><a href="https://nodejs.org/en"><h3>Node.js</h3></a></div></body></html>`;
+    let userAgent = "";
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      userAgent = new Headers(init?.headers).get("user-agent") ?? "";
+      return new Response(html, { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await searchGoogle("node.js", locale);
+    expect(userAgent).toBe(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    );
+  });
 });
