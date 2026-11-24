@@ -18,19 +18,6 @@ jobs:
     # playwright 1.59 does not ship chromium builds for ubuntu-26.04 (ubuntu-latest since 2026-11).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    services:
-      membership-postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: websearch_membership_test
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d websearch_membership_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -71,50 +58,67 @@ jobs:
       - name: Offline quality set (P1-03, FTS baseline)
         run: npm run eval:quality
 
-      - name: Verify membership against real PostgreSQL
-        run: npm run test:postgres
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify fixture cleanup with delayed connection shutdown
-        run: npm run test:postgres:shutdown
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify restore authorization (TR-03/TR-04/TR-05, synthetic)
-        run: npm run test:restore-authorization
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify hosted HTTP ingress end-to-end (synthetic)
-        run: npm run test:hosted-ingress
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify activation/fencing (TA-01..TA-07, synthetic)
-        run: npm run test:activation-fencing
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify hosted bootstrap end-to-end (synthetic)
-        run: npm run test:hosted-bootstrap
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify D2-E operational drill (synthetic)
-        run: npm run test:d2e-drill
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
-      - name: Verify provisioning API (Faz C, synthetic)
-        run: npm run test:provisioning
-        env:
-          MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
-
       - name: Dependency security audit
         run: npm audit --audit-level=moderate
 
       - run: npm pack --dry-run --json
+
+  verify-postgres:
+    # Synthetic Postgres-backed verifications run in parallel with the core suite.
+    # They need only the build output, not Chromium.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MEMBERSHIP_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/websearch_membership_test
+    services:
+      membership-postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: websearch_membership_test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d websearch_membership_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Verify membership against real PostgreSQL
+        run: npm run test:postgres
+
+      - name: Verify fixture cleanup with delayed connection shutdown
+        run: npm run test:postgres:shutdown
+
+      - name: Verify restore authorization (TR-03/TR-04/TR-05, synthetic)
+        run: npm run test:restore-authorization
+
+      - name: Verify hosted HTTP ingress end-to-end (synthetic)
+        run: npm run test:hosted-ingress
+
+      - name: Verify activation/fencing (TA-01..TA-07, synthetic)
+        run: npm run test:activation-fencing
+
+      - name: Verify hosted bootstrap end-to-end (synthetic)
+        run: npm run test:hosted-bootstrap
+
+      - name: Verify D2-E operational drill (synthetic)
+        run: npm run test:d2e-drill
+
+      - name: Verify provisioning API (Faz C, synthetic)
+        run: npm run test:provisioning
 
   test-windows:
     # Windows is a large share of MCP clients (Claude Desktop, Cursor), so the core
