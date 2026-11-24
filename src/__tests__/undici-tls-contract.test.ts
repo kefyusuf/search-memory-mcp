@@ -3,12 +3,12 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 import { afterEach, describe, expect, it } from "vitest";
 
 const opensslAvailable = spawnSync("openssl", ["version"], { encoding: "utf8" }).status === 0;
 
-// This tests Node's underlying Undici/TLS transport contract with a local CA.
+// This tests the undici fetch/TLS transport contract with a local CA.
 // Its test-only lookup resolves to loopback and deliberately does NOT use the
 // production SSRF guard: the guarded path must never allow that address.
 describe.skipIf(!opensslAvailable)("Undici TLS hostname contract (local HTTPS fixture)", () => {
@@ -72,16 +72,16 @@ describe.skipIf(!opensslAvailable)("Undici TLS hostname contract (local HTTPS fi
     });
 
     try {
-      const success = await fetch(`https://public.example.test:${port}/page`, {
+      const success = await undiciFetch(`https://public.example.test:${port}/page`, {
         dispatcher: agent,
-      } as RequestInit);
+      });
       expect(success.status).toBe(200);
       expect(await success.text()).toBe("verified TLS fixture");
       expect(servername).toBe("public.example.test");
 
-      const error = await fetch(`https://other.example.test:${port}/page`, {
+      const error = await undiciFetch(`https://other.example.test:${port}/page`, {
         dispatcher: agent,
-      } as RequestInit).then(
+      }).then(
         () => null,
         (caught: unknown) => caught,
       );

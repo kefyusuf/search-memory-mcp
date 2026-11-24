@@ -5,6 +5,16 @@ import { ContentFetcher } from "../fetch-module.js";
 import { SemanticCache } from "../cache/semantic-cache.js";
 import { InMemoryVectorStore } from "./helpers.js";
 
+// Delegate undici's fetch to the global fetch stub these network simulations use.
+vi.mock("undici", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("undici")>();
+  return {
+    ...actual,
+    fetch: (...args: Parameters<typeof actual.fetch>) =>
+      (globalThis.fetch as (...args: Parameters<typeof actual.fetch>) => Promise<Response>)(...args),
+  };
+});
+
 const PAGE_URL = "https://example.com/terminal-browser";
 const READER_URL = "https://markdown.new/";
 const READER_BODY = [

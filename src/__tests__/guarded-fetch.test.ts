@@ -10,19 +10,28 @@ import {
   isGuardedFetchRejection,
 } from "../security/guarded-fetch.js";
 
+// Transport seam is undici's fetch export; Agent stays real for instanceof checks.
+const undiciFetchMock = vi.hoisted(() => vi.fn());
+vi.mock("undici", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("undici")>();
+  return { ...actual, fetch: undiciFetchMock };
+});
+
 describe("guarded outbound HTTP fetch", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const actual = await vi.importActual<typeof import("undici")>("undici");
+    undiciFetchMock.mockReset();
+    undiciFetchMock.mockImplementation(actual.fetch);
     vi.spyOn(dns, "resolve4").mockResolvedValue(["93.184.216.34"] as never);
     vi.spyOn(dns, "resolve6").mockResolvedValue([] as never);
   });
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   it("uses a per-request dispatcher while retaining the URL and headers", async () => {
     const mock = vi.fn().mockResolvedValue(new Response("ok"));
-    vi.stubGlobal("fetch", mock);
+    undiciFetchMock.mockImplementation(mock);
 
     await guardedHttpFetch("https://example.com/test", {
       headers: { Accept: "text/html" },
@@ -38,7 +47,7 @@ describe("guarded outbound HTTP fetch", () => {
 
   it("rejects non-public literals and unsupported protocols before fetch", async () => {
     const mock = vi.fn();
-    vi.stubGlobal("fetch", mock);
+    undiciFetchMock.mockImplementation(mock);
     for (const url of [
       "http://127.0.0.1/admin",
       "https://[::1]/",
@@ -91,7 +100,7 @@ describe("guarded outbound HTTP fetch", () => {
 
   it("checks DNS again at the transport boundary after a previous public result", async () => {
     const mock = vi.fn();
-    vi.stubGlobal("fetch", mock);
+    undiciFetchMock.mockImplementation(mock);
     vi.mocked(dns.resolve4)
       .mockResolvedValueOnce(["93.184.216.34"] as never)
       .mockResolvedValueOnce(["127.0.0.1"] as never);
