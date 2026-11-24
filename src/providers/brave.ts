@@ -1,13 +1,10 @@
 import { parseBraveResults, type SearchLocale } from "../search-utils.js";
 import type { SearchResultItem } from "../cache/types.js";
+import { stripTags } from "./shared.js";
 
 type BraveApiResponse = {
   web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
 };
-
-function stripTags(text: string): string {
-  return text.replace(/<[^>]*>/g, "").trim();
-}
 
 /** Brave Search API (https://api.search.brave.com), used when BRAVE_SEARCH_API_KEY is set. */
 async function searchBraveApi(query: string, locale: SearchLocale, apiKey: string): Promise<SearchResultItem[]> {
