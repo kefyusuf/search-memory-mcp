@@ -1,5 +1,7 @@
-# Weekly dependency updates. npm updates are grouped into one PR to limit noise;
-# CI validates every PR, including the native-module overrides (better-sqlite3, sharp).
+# Weekly dependency updates. npm minor/patch updates are grouped into one PR to
+# limit noise; majors arrive as individual PRs because they carry breaking-change
+# migrations that are reviewed separately. CI validates every PR, including the
+# native-module overrides (better-sqlite3, sharp).
 # The `github-actions` ecosystem bumps the SHA-pinned workflow actions in place.
 version: 2
 updates:
@@ -11,6 +13,9 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: "/"
