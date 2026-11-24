@@ -9,10 +9,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     # playwright 1.59 does not ship chromium builds for ubuntu-26.04 (ubuntu-latest since 2026-11).
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     services:
       membership-postgres:
         image: postgres:17-alpine
@@ -117,6 +122,7 @@ jobs:
     # egress proxy drill and the audit stay on the Linux job (service containers are
     # Linux-only; the egress drill is validated there and locally per release).
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       # The runner image converts LF to CRLF on checkout by default, which breaks
       # fixture expectations and Biome format:check; tests run against LF content.
