@@ -85,7 +85,7 @@
     "@huggingface/transformers": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@mozilla/readability": "^0.6.0",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "^13.2.0",
     "fflate": "0.8.3",
     "iconv-lite": "^0.7.3",
     "jose": "6.2.18",
