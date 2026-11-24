@@ -3,6 +3,7 @@ import { detectHeuristicIntent } from "../search/heuristics.js";
 import type { SearchResultItem } from "../cache/types.js";
 import type { SearchLocale } from "../search-utils.js";
 import { extractSiteFilter } from "./api-query.js";
+import { stripTags } from "./shared.js";
 
 type TavilyApiResponse = {
   results?: Array<{
@@ -12,10 +13,6 @@ type TavilyApiResponse = {
     published_date?: string;
   }>;
 };
-
-function stripTags(text: string): string {
-  return text.replace(/<[^>]*>/g, "").trim();
-}
 
 /**
  * Tavily Search API (https://api.tavily.com), used when TAVILY_API_KEY is set.
