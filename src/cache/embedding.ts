@@ -5,7 +5,7 @@ import { InvocationError } from "../runtime/request-context.js";
 type FeatureExtractor = (
   text: string,
   options: { pooling: "mean"; normalize: boolean },
-) => Promise<{ data: ArrayLike<number> }>;
+) => Promise<{ data: ArrayLike<number | bigint> }>;
 
 export class TransformersEmbeddingProvider implements IEmbeddingProvider {
   private extractorLoading: Promise<FeatureExtractor | null> | null = null;
@@ -114,7 +114,7 @@ export class TransformersEmbeddingProvider implements IEmbeddingProvider {
       const extractor = await this.getExtractor();
       if (!extractor || this.extractorFailed) return [];
       const output = await extractor(text, { pooling: "mean", normalize: true });
-      return Array.from(output.data);
+      return Array.from(output.data, (value) => Number(value));
     } finally {
       this.releaseInference();
     }
