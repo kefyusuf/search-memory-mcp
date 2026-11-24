@@ -1,4 +1,5 @@
 import type { SearchResultItem } from "../cache/types.js";
+import { rrfRank } from "./rrf.js";
 
 export type ProviderResultSet = {
   provider: string;
@@ -35,46 +36,32 @@ export function fuseSearchResults(
   providerResults: ProviderResultSet[],
   rrfK: number = DEFAULT_RRF_K,
 ): SearchResultItem[] {
-  const fused = new Map<string, SearchResultItem>();
+  const lists = providerResults.map(({ provider, results }) =>
+    results.map((result, index) => ({
+      ...result,
+      source: result.source || provider,
+      sources: [provider],
+      providerRanks: { [provider]: index + 1 },
+    })),
+  );
 
-  for (const { provider, results } of providerResults) {
-    const seenForProvider = new Set<string>();
-
-    results.forEach((result, index) => {
-      if (!result.url) return;
-
-      const normalizedUrl = normalizeSearchUrl(result.url);
-      if (!normalizedUrl || seenForProvider.has(normalizedUrl)) return;
-      seenForProvider.add(normalizedUrl);
-
-      const rank = index + 1;
-      const contribution = 1 / (rrfK + rank);
-      const existing = fused.get(normalizedUrl);
-
-      if (!existing) {
-        fused.set(normalizedUrl, {
-          ...result,
-          source: result.source || provider,
-          sources: [provider],
-          providerRanks: { [provider]: rank },
-          fusionScore: contribution,
-        });
-        return;
-      }
-
+  const ranked = rrfRank(lists, {
+    key: (result) => (result.url ? normalizeSearchUrl(result.url) || null : null),
+    k: rrfK,
+    dedupeWithinList: true,
+    merge: (existing, incoming) => {
+      const provider = incoming.sources?.[0];
       const sources = existing.sources ?? [existing.source];
-      if (!sources.includes(provider)) {
+      if (provider && !sources.includes(provider)) {
         sources.push(provider);
       }
-
       existing.sources = sources;
       existing.providerRanks = {
         ...(existing.providerRanks ?? {}),
-        [provider]: rank,
+        ...incoming.providerRanks,
       };
-      existing.fusionScore = (existing.fusionScore ?? 0) + contribution;
-    });
-  }
+    },
+  });
 
-  return Array.from(fused.values()).sort((a, b) => (b.fusionScore ?? 0) - (a.fusionScore ?? 0));
+  return ranked.map(({ item, score }) => ({ ...item, fusionScore: score }));
 }

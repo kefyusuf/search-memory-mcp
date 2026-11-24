@@ -32,6 +32,34 @@ describe("fuseChunkHits", () => {
     expect(fused).toHaveLength(1);
     expect(fused[0].matchedBy).toBe("fts");
   });
+
+  it("returns at most limit hits, ranked by fused score", () => {
+    const fts = [makeHit({ chunkId: "a" }), makeHit({ chunkId: "b" }), makeHit({ chunkId: "c" })];
+
+    const fused = fuseChunkHits(fts, [], 2);
+
+    expect(fused.map((h) => h.chunkId)).toEqual(["a", "b"]);
+  });
+
+  it("sums RRF contributions for a chunk found in both lists", () => {
+    const fts = [makeHit({ chunkId: "a" }), makeHit({ chunkId: "b" })];
+    const vec = [makeHit({ chunkId: "c", matchedBy: "vector" }), makeHit({ chunkId: "a", matchedBy: "vector" })];
+
+    const fused = fuseChunkHits(fts, vec, 5);
+
+    const a = fused.find((h) => h.chunkId === "a");
+    expect(a?.score).toBeCloseTo(1 / 61 + 1 / 62);
+    expect(a?.matchedBy).toBe("hybrid");
+  });
+
+  it("does not label a repeated single-list hit as hybrid", () => {
+    const fts = [makeHit({ chunkId: "a" }), makeHit({ chunkId: "a" })];
+
+    const fused = fuseChunkHits(fts, [], 5);
+
+    expect(fused).toHaveLength(1);
+    expect(fused[0].matchedBy).toBe("fts");
+  });
 });
 
 describe("KnowledgeIndex", () => {
