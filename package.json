@@ -90,7 +90,7 @@
     "iconv-lite": "^0.7.3",
     "jose": "6.2.18",
     "jsdom": "^31.0.1",
-    "lru-cache": "^10.4.3",
+    "lru-cache": "^11.5.3",
     "pg": "8.23.1",
     "playwright": "^1.42.1",
     "sqlite-vec": "^0.1.9",
